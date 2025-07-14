@@ -86,11 +86,29 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
         const snapshot = await contasRef.where('email', '==', email).get();
         if (!snapshot.empty) {
           const docRef = snapshot.docs[0].ref;
-          await docRef.update({
-            premium: true,
-            premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
-            premiumDaysLeft: 30,
-          });
+          // Verificar se é plano anual ou mensal
+          // O nome do plano pode estar em payment.additional_info.items[0].title ou payment.description
+          let plano = '';
+          if (payment.additional_info && payment.additional_info.items && payment.additional_info.items[0] && payment.additional_info.items[0].title) {
+            plano = payment.additional_info.items[0].title.toLowerCase();
+          } else if (payment.description) {
+            plano = payment.description.toLowerCase();
+          }
+          if (plano.includes('anual')) {
+            // Plano anual: 365 dias
+            await docRef.update({
+              premium: true,
+              premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
+              premiumDaysLeft: 365,
+            });
+          } else {
+            // Plano mensal (padrão): 30 dias
+            await docRef.update({
+              premium: true,
+              premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+              premiumDaysLeft: 30,
+            });
+          }
         }
       }
       res.status(200).send('OK');
