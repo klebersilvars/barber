@@ -15,7 +15,10 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://barber-backend-qlt6.onrender.com'],
+  credentials: true,
+}));
 app.use(bodyParser.json());
 
 // Mercado Pago Access Token (coloque sua chave de produção ou sandbox aqui)
