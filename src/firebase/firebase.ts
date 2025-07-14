@@ -3,19 +3,16 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth, type Auth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getFirestore, type Firestore, doc, getDoc } from "firebase/firestore";
 
-// Carrega variáveis de ambiente
-import dotenv from "dotenv";
-dotenv.config();
-
-// Configuração do Firebase a partir de variáveis de ambiente
+// Remover dotenv do frontend
+// Configuração do Firebase com as chaves diretamente no arquivo
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyB5l4GKLnTngSJCbzguRHYdhsQVqN8hSoE",
+  authDomain: "cliqagenda-45f37.firebaseapp.com",
+  projectId: "cliqagenda-45f37",
+  storageBucket: "cliqagenda-45f37.firebasestorage.app",
+  messagingSenderId: "220545416405",
+  appId: "1:220545416405:web:54ff95bfaca0b1bef5f65c",
+  measurementId: "G-VZN6PPFKND",
 };
 
 let app;
