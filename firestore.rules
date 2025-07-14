@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Função para verificar se o usuário é o dono do documento
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Função para verificar se o usuário é um administrador
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/colaboradores/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/colaboradores/$(request.auth.uid)).data.cargos.hasAny(['Proprietário', 'Gerente']);
+    }
+
+    // Regras para a coleção users
+    match /users/{userId} {
+      // Permitir leitura se o usuário for o dono do documento ou um admin
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      
+      // Permitir escrita apenas para admins
+      allow write: if isAdmin();
+    }
+
+    // Regras para a coleção colaboradores
+    match /colaboradores/{collaboratorId} {
+      // Permitir leitura para usuários autenticados
+      allow read: if isAuthenticated();
+      
+      // Permitir escrita apenas para admins
+      allow write: if isAdmin();
+    }
+  }
+} 

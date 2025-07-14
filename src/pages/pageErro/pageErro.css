@@ -1,0 +1,295 @@
+/* Reset e configurações gerais */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  /* Container principal */
+  .error-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Card principal */
+  .error-card {
+    max-width: 28rem;
+    width: 100%;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    padding: 2rem;
+    text-align: center;
+    border: 1px solid #dbeafe;
+    position: relative;
+    z-index: 10;
+  }
+  
+  /* Ícone de erro */
+  .error-icon-container {
+    margin-bottom: 1.5rem;
+  }
+  
+  .error-icon {
+    width: 5rem;
+    height: 5rem;
+    background: #dbeafe;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: #2563eb;
+  }
+  
+  /* Seção da marca */
+  .brand-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .brand-name {
+    font-size: 1.875rem;
+    font-weight: bold;
+    color: #1e40af;
+    margin-bottom: 0.5rem;
+    font-family: "Arial", sans-serif;
+  }
+  
+  .brand-underline {
+    width: 4rem;
+    height: 0.25rem;
+    background: #2563eb;
+    margin: 0 auto;
+    border-radius: 0.125rem;
+  }
+  
+  /* Mensagem de erro */
+  .error-message {
+    margin-bottom: 2rem;
+  }
+  
+  .error-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e3a8a;
+    margin-bottom: 1rem;
+  }
+  
+  .error-description {
+    color: #1d4ed8;
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+  
+  /* Botão de retorno */
+  .back-button {
+    width: 100%;
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.39);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+  }
+  
+  .back-button:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px 0 rgba(37, 99, 235, 0.5);
+  }
+  
+  .back-button:active {
+    transform: translateY(0);
+  }
+  
+  /* Informações adicionais */
+  .error-info {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dbeafe;
+  }
+  
+  .error-code {
+    font-size: 0.875rem;
+    color: #2563eb;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  
+  .error-contact {
+    font-size: 0.75rem;
+    color: #3b82f6;
+  }
+  
+  /* Elementos decorativos de fundo */
+  .bg-decoration {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.2;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  
+  .bg-decoration-1 {
+    top: 2.5rem;
+    left: 2.5rem;
+    width: 5rem;
+    height: 5rem;
+    background: #bfdbfe;
+  }
+  
+  .bg-decoration-2 {
+    bottom: 2.5rem;
+    right: 2.5rem;
+    width: 8rem;
+    height: 8rem;
+    background: #93c5fd;
+    opacity: 0.1;
+    animation-delay: 1s;
+  }
+  
+  .bg-decoration-3 {
+    top: 50%;
+    left: 1.25rem;
+    width: 4rem;
+    height: 4rem;
+    background: #60a5fa;
+    opacity: 0.15;
+    animation-delay: 0.5s;
+  }
+  
+  /* Animação de pulse */
+  @keyframes pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.2;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.3;
+    }
+  }
+  
+  /* Responsividade */
+  @media (max-width: 768px) {
+    .error-container {
+      padding: 0.75rem;
+    }
+  
+    .error-card {
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+    }
+  
+    .brand-name {
+      font-size: 1.5rem;
+    }
+  
+    .error-title {
+      font-size: 1.25rem;
+    }
+  
+    .error-description {
+      font-size: 0.9rem;
+    }
+  
+    .back-button {
+      padding: 0.875rem 1rem;
+      font-size: 0.9rem;
+    }
+  
+    .bg-decoration-1 {
+      width: 3rem;
+      height: 3rem;
+      top: 1rem;
+      left: 1rem;
+    }
+  
+    .bg-decoration-2 {
+      width: 6rem;
+      height: 6rem;
+      bottom: 1rem;
+      right: 1rem;
+    }
+  
+    .bg-decoration-3 {
+      width: 2.5rem;
+      height: 2.5rem;
+      left: 0.5rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .error-card {
+      padding: 1.25rem;
+      margin: 0.5rem;
+    }
+  
+    .brand-name {
+      font-size: 1.375rem;
+    }
+  
+    .error-title {
+      font-size: 1.125rem;
+    }
+  
+    .error-description {
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+  
+    .back-button {
+      padding: 0.75rem;
+      font-size: 0.85rem;
+    }
+  
+    .error-icon {
+      width: 4rem;
+      height: 4rem;
+    }
+  
+    .error-icon svg {
+      width: 32px;
+      height: 32px;
+    }
+  }
+  
+  /* Melhorias de acessibilidade */
+  @media (prefers-reduced-motion: reduce) {
+    .bg-decoration {
+      animation: none;
+    }
+  
+    .back-button {
+      transition: none;
+    }
+  }
+  
+  /* Estados de foco para acessibilidade */
+  .back-button:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+  
+  /* Hover states para desktop */
+  @media (hover: hover) {
+    .back-button:hover {
+      background: #1d4ed8;
+      transform: translateY(-2px);
+    }
+  }
+  

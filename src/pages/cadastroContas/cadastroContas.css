@@ -1,0 +1,382 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", sans-serif;
+  }
+  
+  html,
+  body {
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
+  .main-cadastro-contas {
+    background-color: #2a2a2a;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    margin: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  .container-cadastro-contas {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  .cadastro-contas-content {
+    flex: 1;
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    position: relative;
+  }
+  
+  .cadastro-contas-content::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(93, 63, 211, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(160, 210, 235, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(249, 211, 66, 0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  
+  /* Container do formulário */
+  .cadastro-contas-form-container {
+    width: 100%;
+    max-width: 500px;
+    background: rgba(40, 40, 40, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2), 0 0 0 1px
+      rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+  }
+  
+  .cadastro-contas-form-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #5d3fd3, #a0d2eb, #f9d342);
+    border-radius: 24px 24px 0 0;
+  }
+  
+  .cadastro-contas-form-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px
+      rgba(255, 255, 255, 0.15);
+  }
+  
+  /* Cabeçalho do formulário */
+  .cadastro-contas-form-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  .cadastro-contas-form-header h3 {
+    color: #f5f5f5;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #f5f5f5 0%, #a0d2eb 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .cadastro-contas-subtitle {
+    color: #a0a0a0;
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+  
+  .cadastro-contas-form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  
+  /* Grupos de formulário */
+  .cadastro-contas-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .cadastro-contas-form-group label {
+    color: #f5f5f5;
+    font-weight: 600;
+    font-size: 14px;
+    margin-left: 4px;
+  }
+  
+  .cadastro-contas-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  
+  .cadastro-contas-input-icon {
+    position: absolute;
+    left: 16px;
+    color: #5d3fd3;
+    width: 20px;
+    height: 20px;
+    z-index: 2;
+    transition: all 0.3s ease;
+  }
+  
+  .cadastro-contas-input-container input {
+    width: 100%;
+    padding: 16px 16px 16px 48px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    font-size: 15px;
+    background: rgba(30, 30, 30, 0.6);
+    transition: all 0.3s ease;
+    color: #f5f5f5;
+  }
+  
+  .cadastro-contas-input-container input::placeholder {
+    color: #808080;
+  }
+  
+  .cadastro-contas-input-container input:focus {
+    border-color: #5d3fd3;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(93, 63, 211, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    background: rgba(40, 40, 40, 0.8);
+    transform: translateY(-1px);
+  }
+  
+  .cadastro-contas-input-container input:focus + .cadastro-contas-input-icon,
+  .cadastro-contas-input-container:focus-within .cadastro-contas-input-icon {
+    color: #a0d2eb;
+    transform: scale(1.1);
+  }
+  
+  /* Estilização dos selects customizados */
+  .cadastro-contas-select-container {
+    position: relative;
+    width: 100%;
+  }
+  
+  .cadastro-contas-custom-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(30, 30, 30, 0.6);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+  }
+  
+  .cadastro-contas-custom-select:hover {
+    border-color: rgba(93, 63, 211, 0.5);
+    background: rgba(40, 40, 40, 0.8);
+  }
+  
+  .cadastro-contas-custom-select.premium:hover {
+    border-color: rgba(249, 211, 66, 0.5);
+  }
+  
+  .cadastro-contas-select-value {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #f5f5f5;
+    font-size: 15px;
+  }
+  
+  .cadastro-contas-status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: #fff;
+  }
+  
+  .cadastro-contas-status-indicator.active {
+    background: linear-gradient(135deg, #5d3fd3, #4c32b3);
+    box-shadow: 0 0 10px rgba(93, 63, 211, 0.5);
+  }
+  
+  .cadastro-contas-status-indicator.premium-active {
+    background: linear-gradient(135deg, #f9d342, #f0b90b);
+    box-shadow: 0 0 10px rgba(249, 211, 66, 0.5);
+  }
+  
+  .cadastro-contas-status-indicator.inactive {
+    background: #555;
+  }
+  
+  .cadastro-contas-select-icon {
+    color: #a0a0a0;
+    transition: all 0.3s ease;
+  }
+  
+  .cadastro-contas-select-icon.open {
+    transform: rotate(180deg);
+    color: #5d3fd3;
+  }
+  
+  .cadastro-contas-select-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 100%;
+    background: rgba(40, 40, 40, 0.95);
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    animation: cadastroFadeIn 0.2s ease;
+  }
+  
+  @keyframes cadastroFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .cadastro-contas-select-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    color: #f5f5f5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .cadastro-contas-select-option:hover {
+    background: rgba(93, 63, 211, 0.2);
+  }
+  
+  .cadastro-contas-select-option.selected {
+    background: rgba(93, 63, 211, 0.3);
+  }
+  
+  /* Descrição do campo */
+  .cadastro-contas-field-description {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #a0a0a0;
+    font-size: 13px;
+    margin-top: -2px;
+    margin-left: 4px;
+  }
+  
+  .cadastro-contas-field-description svg {
+    color: #a0d2eb;
+  }
+  
+  /* Botão de cadastro */
+  .cadastro-contas-button {
+    background: linear-gradient(135deg, #5d3fd3 0%, #4c32b3 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 14px 0 rgba(93, 63, 211, 0.3);
+    margin-top: 10px;
+  }
+  
+  .cadastro-contas-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+  
+  .cadastro-contas-button:hover {
+    background: linear-gradient(135deg, #4c32b3 0%, #3b2694 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px 0 rgba(93, 63, 211, 0.4);
+  }
+  
+  .cadastro-contas-button:hover::before {
+    left: 100%;
+  }
+  
+  .cadastro-contas-button:active {
+    transform: translateY(0);
+  }
+  
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .cadastro-contas-content {
+      padding: 30px;
+    }
+  
+    .cadastro-contas-form-container {
+      max-width: 100%;
+      padding: 32px 24px;
+    }
+  }
+  
+  @media (max-width: 500px) {
+    .cadastro-contas-content {
+      padding: 20px;
+    }
+  
+    .cadastro-contas-form-container {
+      padding: 24px 20px;
+      border-radius: 20px;
+    }
+  
+    .cadastro-contas-form-header h3 {
+      font-size: 24px;
+    }
+  
+    .cadastro-contas-button {
+      margin-top: 8px;
+      padding: 14px 20px;
+    }
+  }
+  

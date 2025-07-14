@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: barber-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: API_KEY_MERCADO_PAGO
+    autoDeploy: true
+    rootDir: backend
+    region: oregon

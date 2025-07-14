@@ -1,0 +1,278 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", sans-serif;
+  }
+  
+  /* Container do modal */
+  .esqueci-senha-modal-container {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px
+      rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  
+  .esqueci-senha-modal-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #5d3fd3, #a0d2eb, #f9d342);
+    border-radius: 24px 24px 0 0;
+  }
+  
+  .esqueci-senha-modal-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px
+      rgba(255, 255, 255, 0.6);
+  }
+  
+  /* Cabeçalho do modal */
+  .esqueci-senha-modal-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  .esqueci-senha-modal-header h3 {
+    color: #1e293b;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #1e293b 0%, #5d3fd3 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .esqueci-senha-modal-subtitle {
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+  
+  .esqueci-senha-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* Grupos de formulário */
+  .esqueci-senha-modal-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .esqueci-senha-modal-form-group label {
+    color: #374151;
+    font-weight: 600;
+    font-size: 14px;
+    margin-left: 4px;
+  }
+  
+  .esqueci-senha-modal-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  
+  .esqueci-senha-modal-input-icon {
+    position: absolute;
+    left: 16px;
+    color: #5d3fd3;
+    width: 20px;
+    height: 20px;
+    z-index: 2;
+    transition: all 0.3s ease;
+  }
+  
+  .esqueci-senha-modal-input-container input {
+    width: 100%;
+    padding: 16px 16px 16px 48px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 15px;
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+    color: #1e293b;
+  }
+  
+  .esqueci-senha-modal-input-container input::placeholder {
+    color: #94a3b8;
+  }
+  
+  .esqueci-senha-modal-input-container input:focus {
+    border-color: #5d3fd3;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(93, 63, 211, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+  }
+  
+  .esqueci-senha-modal-input-container input:focus + .esqueci-senha-modal-input-icon,
+  .esqueci-senha-modal-input-container:focus-within .esqueci-senha-modal-input-icon {
+    color: #5d3fd3;
+    transform: scale(1.1);
+  }
+  
+  /* Botão */
+  .esqueci-senha-modal-button {
+    background: linear-gradient(135deg, #5d3fd3 0%, #4c32b3 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 14px 0 rgba(93, 63, 211, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .esqueci-senha-modal-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+  
+  .esqueci-senha-modal-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4c32b3 0%, #3b2694 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px 0 rgba(93, 63, 211, 0.4);
+  }
+  
+  .esqueci-senha-modal-button:hover:not(:disabled)::before {
+    left: 100%;
+  }
+  
+  .esqueci-senha-modal-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .esqueci-senha-modal-button.loading {
+    background: linear-gradient(135deg, #4c32b3 0%, #3b2694 100%);
+  }
+  
+  /* Loading spinner */
+  .esqueci-senha-modal-loading-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Info box */
+  .esqueci-senha-modal-info-box {
+    background: rgba(160, 210, 235, 0.1);
+    border: 1px solid rgba(160, 210, 235, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 8px;
+  }
+  
+  .esqueci-senha-modal-info-box p {
+    color: #5d3fd3;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+  }
+  
+  /* Tela de sucesso */
+  .esqueci-senha-modal-sucesso-container {
+    text-align: center;
+    padding: 20px 0;
+  }
+  
+  .esqueci-senha-modal-sucesso-icon {
+    color: #5d3fd3;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .esqueci-senha-modal-sucesso-container h3 {
+    color: #1e293b;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #1e293b 0%, #5d3fd3 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .esqueci-senha-modal-sucesso-texto {
+    color: #64748b;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  
+  .esqueci-senha-modal-email-enviado {
+    background: rgba(93, 63, 211, 0.1);
+    border: 1px solid rgba(93, 63, 211, 0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #5d3fd3;
+    font-weight: 600;
+    margin-bottom: 20px;
+    word-break: break-all;
+  }
+  
+  .esqueci-senha-modal-sucesso-instrucoes {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+  
+  /* Responsive design */
+  @media (max-width: 500px) {
+    .esqueci-senha-modal-container {
+      padding: 24px 20px;
+      border-radius: 20px;
+      max-width: 100%;
+    }
+  
+    .esqueci-senha-modal-header h3 {
+      font-size: 24px;
+    }
+  
+    .esqueci-senha-modal-button {
+      padding: 14px 20px;
+    }
+  }
+  
