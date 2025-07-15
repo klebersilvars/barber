@@ -184,11 +184,11 @@ export default function PageHome() {
             <h1 className="hero-title">
               Escolha um sistema
               <span className="destaque-laranja"> completo </span>
-              para a gestão da sua
-              <span className="destaque-roxo"> barbearia</span>
+              para a gestão do seu
+              <span className="destaque-roxo"> estabelecimento</span>
             </h1>
             <p className="hero-description">
-              Agilidade no fechamento de caixa e otimização na sua gestão para lucrar mais na sua barbearia com controle
+              Agilidade no fechamento de caixa e otimização na sua gestão para lucrar mais no seu estabelecimento com controle
               fácil de agendamentos, recursos para fidelização de clientes e muito mais.
             </p>
             <div className="hero-buttons">
@@ -251,12 +251,12 @@ export default function PageHome() {
                 <span>Sistema Seguro e Confiável</span>
               </div>
               <h2>
-                Dê adeus à comanda de papel na sua
-                <span className="destaque-roxo"> barbearia</span>
+                Dê adeus à comanda de papel no seu
+                <span className="destaque-roxo"> estabelecimento</span>
               </h2>
               <p>
                 Dividir o foco entre atender os clientes e gerenciar o negócio não é fácil. Com o CliqAgenda, você tem
-                um software de gestão para barbearia que otimiza os seus processos, desde o agendamento até o pagamento
+                um software de gestão para o seu estabelecimento que otimiza os seus processos, desde o agendamento até o pagamento
                 de comissões, deixando você livre para se concentrar no que faz de melhor: criar cortes incríveis e
                 fidelizar seus clientes.
               </p>
@@ -345,7 +345,7 @@ export default function PageHome() {
               <Award size={16} />
               <span>Funcionalidades Premium</span>
             </div>
-            <h2>Tudo que sua barbearia precisa em um só lugar</h2>
+            <h2>Tudo que seu estabelecimento precisa em um só lugar</h2>
             <p>Ferramentas completas para otimizar sua gestão e aumentar seus lucros</p>
           </div>
           <div className="funcionalidades-grid">
@@ -487,7 +487,7 @@ export default function PageHome() {
               <Zap size={16} />
               <span>Oferta Limitada</span>
             </div>
-            <h2>Pronto para revolucionar sua barbearia?</h2>
+            <h2>Pronto para revolucionar seu estabelecimento?</h2>
             <p>
               Junte-se a centenas de profissionais que já transformaram seus negócios com o CliqAgenda. Comece hoje
               mesmo e veja a diferença!
