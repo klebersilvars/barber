@@ -16,7 +16,11 @@ const db = admin.firestore();
 
 const app = express();
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://barber-backend-qlt6.onrender.com'],
+  origin: [
+    'http://localhost:5173',
+    'https://www.trezu.com.br',
+    'https://trezu.com.br'
+  ],
   credentials: true,
 }));
 app.use(bodyParser.json());
