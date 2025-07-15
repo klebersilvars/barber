@@ -24,10 +24,6 @@ import {
   Filter,
   Users,
   Star,
-  Calendar,
-  Building2,
-  Home,
-  Building,
   Info,
   AlertTriangle,
 } from "lucide-react"
@@ -35,7 +31,6 @@ import { useParams } from "react-router-dom"
 import { firestore } from "../../../firebase/firebase"
 import { collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, getDoc, where } from "firebase/firestore"
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
-import InputMask from 'react-input-mask'
 import { IMaskInput } from 'react-imask'
 
 // Componentes Chakra UI
@@ -460,7 +455,6 @@ export default function Colaboradores() {
   // Chakra UI responsive values
   const isMobile = useBreakpointValue({ base: true, lg: false })
   const cardBg = useColorModeValue("white", "gray.800")
-  const borderColor = useColorModeValue("gray.200", "gray.600")
 
   // Garantir que o scroll funcione
   useEffect(() => {
@@ -974,14 +968,6 @@ export default function Colaboradores() {
         alert("Erro ao adicionar colaborador: " + error.message)
       }
     }
-  }
-
-  // Function to get initials from name (ajustar chave)
-  const getInitials = (name: string | null | undefined): string => {
-    if (!name) return "?"
-    const names = name.split(" ")
-    if (names.length === 1) return names[0].charAt(0).toUpperCase()
-    return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase()
   }
 
   // Handler functions for collaborator actions (ajustar tipagem e chaves)

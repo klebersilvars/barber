@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import "./cadastrarUser.css"
-import { Scissors, Calendar, User, Lock, Eye, EyeOff, Building, Mail, Shield, UserPlus } from "lucide-react"
+import { Scissors, Calendar, Eye, EyeOff, UserPlus } from "lucide-react"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth, firestore } from "../../firebase/firebase"
 import { doc, setDoc } from "firebase/firestore"
@@ -12,9 +12,6 @@ import { useNavigate } from "react-router-dom"
 export default function CadastrarUser() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [confirmPassowrd, setConfirmPassword] = useState<string>("");
-  const [nomeCompleto, setNomeCompleto] = useState<string>("");
-  const [telefoneUser, setTelefoneUser] = useState<string>("");
   const [nomeEstabelecimento, setNomeEstabelecimento] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -194,7 +191,6 @@ export default function CadastrarUser() {
                       type={showConfirmPassword ? "text" : "password"}
                       id="confirmarSenha"
                       name="confirmarSenha"
-                      onChange={(e)=> {setConfirmPassword(e.target.value)}}
                       placeholder="Confirme sua senha"
                       required
                       disabled={loading}
@@ -278,7 +274,7 @@ export default function CadastrarUser() {
               </div>
               <div className="benefit">
                 <div className="benefit-icon">
-                  <Building className="icon" />
+                  <Scissors className="icon" />
                 </div>
                 <div className="benefit-content">
                   <h4>Gestão completa</h4>

@@ -6,7 +6,6 @@ import { useState } from "react"
 import "./cadastroContas.css"
 import { User, Shield, Crown, ChevronDown, Check, X } from "lucide-react"
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
-import type { Auth } from "firebase/auth"
 import { getFirestore, collection, addDoc } from "firebase/firestore"
 import { auth } from "../../firebase/firebase"
 

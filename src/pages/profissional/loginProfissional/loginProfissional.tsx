@@ -79,11 +79,6 @@ export default function LoginProfissional() {
     setModalAberto(true)
   }
 
-  function irCadastroUser(e: React.MouseEvent) {
-    e.preventDefault()
-    navigation("/cadastro-profissional")
-  }
-
   function irProprietario(e: React.MouseEvent) {
     e.preventDefault()
     navigation("/login")

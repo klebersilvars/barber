@@ -44,7 +44,6 @@ const AgendaCliente = () => {
   const [establishment, setEstablishment] = useState<any>(null)
   const [services, setServices] = useState<any[]>([])
   const [professionals, setProfessionals] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showLoading, setShowLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -58,7 +57,6 @@ const AgendaCliente = () => {
       if (!slug) return
 
       try {
-        setLoading(true)
         setShowLoading(true)
         
         // Delay de 1 segundo para melhor experiência
@@ -71,7 +69,6 @@ const AgendaCliente = () => {
         
         if (querySnapshot.empty) {
           setError("Estabelecimento não encontrado")
-          setLoading(false)
           setShowLoading(false)
           return
         }
@@ -103,13 +100,11 @@ const AgendaCliente = () => {
         })
         setServices(servicosData)
         setProfessionals(colaboradoresData)
-        setLoading(false)
         setShowLoading(false)
 
       } catch (error) {
         console.error("Erro ao buscar dados do estabelecimento:", error)
         setError("Erro ao carregar dados do estabelecimento")
-        setLoading(false)
         setShowLoading(false)
       }
     }
@@ -438,29 +433,6 @@ const AgendaCliente = () => {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const maskedValue = applyPhoneMask(e.target.value)
     setClientData((prev) => ({ ...prev, phone: maskedValue }))
-  }
-
-  // Função para formatar horários de funcionamento
-  const formatWorkingHours = () => {
-    if (!establishment.horariosFunc || !Array.isArray(establishment.horariosFunc)) {
-      return "Horários não informados"
-    }
-
-    const daysMap = {
-      monday: "Segunda",
-      tuesday: "Terça", 
-      wednesday: "Quarta",
-      thursday: "Quinta",
-      friday: "Sexta",
-      saturday: "Sábado",
-      sunday: "Domingo"
-    }
-
-    const openDays = establishment.horariosFunc
-      .filter((day: any) => day.aberto)
-      .map((day: any) => `${daysMap[day.dia as keyof typeof daysMap]}: ${day.abertura} - ${day.fechamento}`)
-
-    return openDays.length > 0 ? openDays.join(" | ") : "Horários não informados"
   }
 
   return (

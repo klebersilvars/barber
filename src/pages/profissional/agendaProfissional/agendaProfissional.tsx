@@ -31,9 +31,7 @@ import { useNavigate } from "react-router-dom"
 const AgendaProfissional = () => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
 
   // Modal states
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -60,10 +58,8 @@ const AgendaProfissional = () => {
   const [clientes, setClientes] = useState<any[]>([])
   const [clientesLoading, setClientesLoading] = useState(true)
   const [agendamentos, setAgendamentos] = useState<any[]>([])
-  const [agendamentosLoading, setAgendamentosLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [showDayModal, setShowDayModal] = useState(false)
-  const [historicoSelectedDate, setHistoricoSelectedDate] = useState(new Date())
 
   const auth = getAuth()
   const navigate = useNavigate()
@@ -120,7 +116,6 @@ const AgendaProfissional = () => {
   // Buscar agendamentos do Firestore pelo NOME do estabelecimento
   useEffect(() => {
     if (!estabelecimento) return
-    setAgendamentosLoading(true)
     const agendamentosRef = collection(firestore, 'agendaAdmin')
     
     // Buscar agendamentos onde o campo 'nomeEstabelecimento' é igual ao estabelecimento do profissional
@@ -133,23 +128,12 @@ const AgendaProfissional = () => {
       const agendamentosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       
       setAgendamentos(agendamentosData)
-      setAgendamentosLoading(false)
     }, (error) => {
       console.error('Erro ao buscar agendamentos:', error)
-      setAgendamentosLoading(false)
     })
     
     return () => unsub()
   }, [estabelecimento])
-
-  const handleServiceSelect = (service:any) => {
-    setAppointmentData((prev) => ({
-      ...prev,
-      service: service.nomeServico,
-      duration: service.duracaoServico,
-      price: service.valorServico,
-    }))
-  }
 
   const handleModalClose = () => {
     setShowAppointmentModal(false)
@@ -209,29 +193,6 @@ const AgendaProfissional = () => {
     setShowDayModal(true)
   }
 
-  // Funções para navegar no modal de histórico
-  const handleHistoricoPrevDay = () => {
-    const prevDay = new Date(historicoSelectedDate)
-    prevDay.setDate(prevDay.getDate() - 1)
-    setHistoricoSelectedDate(prevDay)
-  }
-
-  const handleHistoricoNextDay = () => {
-    const nextDay = new Date(historicoSelectedDate)
-    nextDay.setDate(nextDay.getDate() + 1)
-    setHistoricoSelectedDate(nextDay)
-  }
-
-  const handleHistoricoToday = () => {
-    setHistoricoSelectedDate(new Date())
-  }
-
-  // Função para obter agendamentos de uma data específica no histórico
-  const agendamentosHistoricoDia = (date: Date) => {
-    const dia = date.toISOString().split('T')[0]
-    return agendamentos.filter(a => a.date === dia)
-  }
-
   const todayISO = new Date(selectedDate).toISOString().split('T')[0]
   const todayAppointments = agendamentos.filter(a => a.date === todayISO)
   const receitaPrevistaHoje = todayAppointments.reduce((sum, a) => sum + (a.price || 0), 0)
@@ -240,8 +201,6 @@ const AgendaProfissional = () => {
   const receitaConfirmadaHoje = todayAppointments.filter(a => a.status === 'finalizado').reduce((sum, a) => sum + (a.price || 0), 0)
   const historicoHoje = todayAppointments.filter(a => a.status === 'finalizado')
   const agendaHoje = todayAppointments.filter(a => a.status !== 'finalizado')
-  const [showHistoricoModal, setShowHistoricoModal] = useState(false)
-  const historicoGeral = agendamentos.filter(a => a.status === 'finalizado')
 
   const handleIniciarAtendimento = async (id: string) => {
     await updateDoc(doc(firestore, 'agendaAdmin', id), { status: 'em_andamento' })
@@ -259,27 +218,6 @@ const AgendaProfissional = () => {
       })
     }
   }
-
-  const notifications = [
-    {
-      id: 1,
-      type: "warning",
-      message: "Você tem agendamentos pendentes para hoje!",
-      time: "2 min atrás",
-    },
-    {
-      id: 2,
-      type: "info",
-      message: "Novo agendamento para amanhã às 10:00",
-      time: "5 min atrás",
-    },
-    {
-      id: 3,
-      type: "success",
-      message: "Cliente confirmou o agendamento",
-      time: "10 min atrás",
-    },
-  ]
 
   const getStatusColor = (status:string) => {
     switch (status) {
@@ -326,12 +264,6 @@ const AgendaProfissional = () => {
       day: "numeric",
     }).format(date)
   }
-
-  // Profissionais habilitados para o serviço selecionado
-  const profissionaisHabilitados = (() => {
-    // Para o profissional, só ele mesmo
-    return [auth.currentUser?.displayName || "Profissional"]
-  })()
 
   // Função para gerar os dias do mês (com dias do mês anterior/próximo para completar a grade)
   function getMonthDays(date: Date) {
@@ -398,31 +330,14 @@ const AgendaProfissional = () => {
               <Plus size={18} />
               <span>Novo Agendamento</span>
             </button>
-            <button className="btn-secondary" style={{marginLeft: 8}} onClick={() => setShowHistoricoModal(true)}>
+            <button className="btn-secondary" style={{marginLeft: 8}} onClick={() => setShowDayModal(true)}>
               <Clock size={18} />
               Histórico
             </button>
           </div>
 
           {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="notifications-dropdown">
-              <div className="notifications-header">
-                <h3>Notificações</h3>
-                <button className="btn-clear-all">Limpar tudo</button>
-              </div>
-              <div className="notifications-list">
-                {notifications.map((notification) => (
-                  <div key={notification.id} className={`notification-item ${notification.type}`}>
-                    <div className="notification-content">
-                      <p>{notification.message}</p>
-                      <span className="notification-time">{notification.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Removed as per edit hint */}
         </div>
       </header>
 
@@ -645,7 +560,7 @@ const AgendaProfissional = () => {
                     marginBottom: 18,
                     letterSpacing: 0.5
                   }}>Atendimentos Encerrados</h3>
-                  {atendimentosFinalizados.map((appointment, idx) => (
+                  {atendimentosFinalizados.map((appointment) => (
                     <div key={appointment.id} className="appointment-card finalizado" style={{
                       marginBottom: 18,
                       background: '#e0e7ef',
@@ -1163,52 +1078,7 @@ const AgendaProfissional = () => {
       )}
 
       {/* Histórico Geral Modal */}
-      {showHistoricoModal && (
-        <div className="modal-overlay" onClick={() => setShowHistoricoModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="historico-navigation" style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                <button className="btn-nav" onClick={handlePrevMonth} style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>
-                  <ChevronLeft size={20} />
-                </button>
-                <h2 style={{ margin: 0, flex: 1, textAlign: 'center' }}>Histórico - {historicoSelectedDate.toLocaleDateString('pt-BR')}</h2>
-                <button className="btn-nav" onClick={handleNextMonth} style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-              <div className="historico-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button className="btn-today" onClick={handleHistoricoToday} style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer', fontSize: '14px' }}>
-                  Hoje
-                </button>
-                <button className="modal-close" onClick={() => setShowHistoricoModal(false)}>
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-            <div className="modal-body">
-              {agendamentosHistoricoDia(historicoSelectedDate).length === 0 ? (
-                <p>Nenhum agendamento para {historicoSelectedDate.toLocaleDateString('pt-BR')}.</p>
-              ) : (
-                <div className="historico-agendamentos">
-                  <h3>Agendamentos de {historicoSelectedDate.toLocaleDateString('pt-BR')}</h3>
-                  <ul>
-                    {agendamentosHistoricoDia(historicoSelectedDate).map((a, idx) => (
-                      <li key={idx} style={{ marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
-                        <strong>Cliente:</strong> {a.clientName}<br />
-                        <strong>Serviço:</strong> {a.service}<br />
-                        <strong>Horário:</strong> {a.time}<br />
-                        <strong>Status:</strong> {a.status || 'agendado'}<br />
-                        <strong>Telefone:</strong> {a.clientPhone}<br />
-                        <strong>Valor:</strong> {formatCurrency(a.price)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed as per edit hint */}
     </div>
   )
 }

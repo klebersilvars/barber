@@ -10,28 +10,14 @@ import {
   ShoppingCart,
   TrendingDown,
   Package,
-  Users,
-  UserCheck,
-  Wrench,
-  Calendar,
-  Settings,
   Shield,
   HelpCircle,
-  User,
-  Gift,
   Bell,
   Search,
-  BarChart3,
-  DollarSign,
-  Clock,
-  Star,
   ChevronRight,
-  Plus,
-  Filter,
-  Download,
+  User,
   X,
-  LogOut,
-  Menu as MenuIcon,
+  Clock
 } from "lucide-react"
 
 // Importar as funções de autenticação do Firebase
@@ -44,12 +30,10 @@ export default function DashboardUser() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showPromotion, setShowPromotion] = useState(true)
   const [estabelecimentoNome, setEstabelecimentoNome] = useState("")
-  const [receitaHoje, setReceitaHoje] = useState(0)
   const [isPremium, setIsPremium] = useState(true)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [diasRestantesTeste, setDiasRestantesTeste] = useState<number | null>(null)
   const [testeGratisAtivo, setTesteGratisAtivo] = useState(false)
-  const [dataInicioTeste, setDataInicioTeste] = useState<Date | null>(null)
   const navigate = useNavigate()
   const { uid } = useParams()
   const location = useLocation()
@@ -93,16 +77,16 @@ export default function DashboardUser() {
             const venda = doc.data();
             totalReceita += venda.valor || 0;
           });
-          setReceitaHoje(totalReceita);
+          // setReceitaHoje(totalReceita); // Removido
         }).catch(error => {
           console.error("Erro ao buscar vendas por nome da empresa (últimas 24h): ", error);
-          setReceitaHoje(0);
+          // setReceitaHoje(0); // Removido
         });
       }
     }).catch(error => {
       console.error("Erro ao buscar nome do estabelecimento: ", error);
       setEstabelecimentoNome('Erro ao carregar nome');
-      setReceitaHoje(0);
+      // setReceitaHoje(0); // Removido
     });
   }, [uid]);
 
@@ -119,7 +103,6 @@ export default function DashboardUser() {
     setIsPremium(true)
     setShowPromotion(false)
     setTesteGratisAtivo(true)
-    setDataInicioTeste(hoje)
     setDiasRestantesTeste(7)
   }
 
@@ -141,7 +124,7 @@ export default function DashboardUser() {
         // Se está em teste grátis
         if (data.data_inicio_teste_gratis) {
           const inicio = new Date(data.data_inicio_teste_gratis)
-          setDataInicioTeste(inicio)
+          // setDataInicioTeste(inicio) // Removido
           setTesteGratisAtivo(true)
           const hoje = new Date()
           // Zera hora/min/seg para comparar só o dia
@@ -165,7 +148,7 @@ export default function DashboardUser() {
             setShowPromotion(false)
             setTesteGratisAtivo(false)
             setDiasRestantesTeste(null)
-            setDataInicioTeste(null)
+            // setDataInicioTeste(null) // Removido
           }
         }
       }
@@ -173,63 +156,19 @@ export default function DashboardUser() {
     checkTesteGratis()
   }, [uid])
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
+  // Removido: const formatCurrency = (value: number) => { ... }
 
   const menuItems = [
     { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true },
     { icon: CreditCard, label: "Plano e Pagamento", path: `/dashboard/${uid}/plano` },
     { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true },
     { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true },
-    { icon: Users, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true },
-    { icon: UserCheck, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true },
-    { icon: Wrench, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true },
-    { icon: Calendar, label: "Agenda Online", path: `/dashboard/${uid}/agenda`, premiumRequired: true },
-    { icon: Settings, label: "Configurações", path: `/dashboard/${uid}/configuracoes` },
-    { icon: LogOut, label: "Sair da Conta", path: "#logout", className: "logout-item" },
-  ]
-
-  const stats = [
-    {
-      title: "Receita Hoje",
-      value: formatCurrency(receitaHoje),
-      change: "+12%",
-      icon: DollarSign,
-      color: "green",
-    },
-    {
-      title: "Agendamentos",
-      value: "24",
-      change: "+8%",
-      icon: Calendar,
-      color: "blue",
-    },
-    {
-      title: "Clientes Ativos",
-      value: "156",
-      change: "+15%",
-      icon: Users,
-      color: "purple",
-    },
-    {
-      title: "Avaliação Média",
-      value: "4.8",
-      change: "+0.2",
-      icon: Star,
-      color: "yellow",
-    },
-  ]
-
-  const recentAppointments = [
-    { time: "09:00", client: "Maria Silva", service: "Corte + Escova", status: "confirmed" },
-    { time: "10:30", client: "Ana Costa", service: "Manicure", status: "in-progress" },
-    { time: "11:00", client: "João Santos", service: "Barba", status: "pending" },
-    { time: "14:00", client: "Carla Oliveira", service: "Coloração", status: "confirmed" },
-    { time: "15:30", client: "Pedro Lima", service: "Corte Masculino", status: "confirmed" },
+    { icon: Shield, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true },
+    { icon: HelpCircle, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true },
+    { icon: Package, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true },
+    { icon: Clock, label: "Agenda Online", path: `/dashboard/${uid}/agenda`, premiumRequired: true },
+    { icon: Search, label: "Configurações", path: `/dashboard/${uid}/configuracoes` },
+    { icon: Bell, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
   const isMenuItemActive = (itemPath: string) => {
@@ -259,7 +198,7 @@ export default function DashboardUser() {
         className="dashboard-hamburger-btn"
         onClick={() => setMobileMenuOpen(true)}
       >
-        <MenuIcon size={28} />
+        <Scissors size={28} />
       </button>
 
       {/* Drawer lateral do menu mobile */}
@@ -276,7 +215,7 @@ export default function DashboardUser() {
               <Scissors className="logo-icon" />
               <span style={{ fontWeight: 700, fontSize: 20 }}>Trezu</span>
             </div>
-            <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X /></button>
+            <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X size={24} /></button>
           </div>
           <nav style={{ flex: 1, padding: '16px 0' }}>
             {menuItems.map((item, index) => {
@@ -330,7 +269,7 @@ export default function DashboardUser() {
       {showPromotion && !testeGratisAtivo && (
         <div className="promotion-banner">
           <div className="promotion-content">
-            <Gift className="promotion-icon" />
+            <Package className="promotion-icon" />
             <span>
               🎉 Você tem acesso à <strong>Avaliação Grátis</strong> da sua conta! Aproveite agora!
             </span>
@@ -344,7 +283,7 @@ export default function DashboardUser() {
       {showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
         <div className="promotion-banner">
           <div className="promotion-content">
-            <Gift className="promotion-icon" />
+            <Package className="promotion-icon" />
             <span>
               🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.
             </span>

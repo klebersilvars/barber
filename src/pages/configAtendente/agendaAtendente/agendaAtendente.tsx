@@ -12,14 +12,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Edit,
   Check,
   X,
-  AlertTriangle,
   User,
   Scissors,
-  Phone,
-  Star,
   BarChart3,
   Zap,
   PlayIcon,
@@ -43,7 +39,6 @@ const AgendaAtendente = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   // Modal states
@@ -64,17 +59,6 @@ const AgendaAtendente = () => {
     paymentMethod: "",
     reminderEnabled: true,
   })
-
-  // Services data
-  const services = [
-    { id: 1, name: "Corte Masculino", duration: 30, price: 25.0, category: "Cabelo" },
-    { id: 2, name: "Corte + Barba", duration: 45, price: 35.0, category: "Cabelo" },
-    { id: 3, name: "Barba", duration: 20, price: 15.0, category: "Barba" },
-    { id: 4, name: "Manicure", duration: 45, price: 25.0, category: "Unhas" },
-    { id: 5, name: "Pedicure", duration: 60, price: 30.0, category: "Unhas" },
-    { id: 6, name: "Escova", duration: 40, price: 35.0, category: "Cabelo" },
-    { id: 7, name: "Hidratação", duration: 60, price: 45.0, category: "Tratamento" },
-  ]
 
   // Available times
   const availableTimes = [
@@ -104,7 +88,6 @@ const AgendaAtendente = () => {
   const [servicosLoading, setServicosLoading] = useState(true)
 
   // Agendamentos do Firestore
-  const [agendamentosLoading, setAgendamentosLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [showDayModal, setShowDayModal] = useState(false)
 
@@ -118,11 +101,6 @@ const AgendaAtendente = () => {
   // Adicionar os states corretos
   const [clientesEstab, setClientesEstab] = useState<any[]>([])
   const [agendamentosEstab, setAgendamentosEstab] = useState<any[]>([])
-
-  const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
-
-  // Adicionar state para o modo de visualização do calendário
-  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -210,16 +188,18 @@ const AgendaAtendente = () => {
   }, [estabelecimento])
 
   useEffect(() => {
-    if (!usuarioLogado?.uid) return
-    setColaboradoresLoading(true)
-    const colaboradoresRef = collection(firestore, "colaboradoresAtendente")
-    const q = query(colaboradoresRef, where("createdBy", "==", usuarioLogado.uid))
-    const unsub = onSnapshot(q, (snapshot) => {
-      setColaboradoresEstab(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
-      setColaboradoresLoading(false)
-    })
-    return () => unsub()
-  }, [usuarioLogado])
+    const user = auth.currentUser;
+    if (user) {
+      setColaboradoresLoading(true)
+      const colaboradoresRef = collection(firestore, "colaboradoresAtendente")
+      const q = query(colaboradoresRef, where("createdBy", "==", user.uid))
+      const unsub = onSnapshot(q, (snapshot) => {
+        setColaboradoresEstab(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+        setColaboradoresLoading(false)
+      })
+      return () => unsub()
+    }
+  }, [])
 
   // Buscar serviços do mesmo estabelecimento
   useEffect(() => {
@@ -233,15 +213,6 @@ const AgendaAtendente = () => {
     });
     return () => unsub();
   }, [estabelecimento]);
-
-  const handleServiceSelect = (service: any) => {
-    setAppointmentData((prev) => ({
-      ...prev,
-      service: service.name,
-      duration: service.duration,
-      price: service.price,
-    }))
-  }
 
   const handleModalClose = () => {
     setShowAppointmentModal(false)
@@ -397,103 +368,6 @@ const AgendaAtendente = () => {
     }
   }
 
-  const professionals = [
-    {
-      id: 1,
-      name: "Carlos",
-      specialty: "Barbeiro",
-      status: "disponivel",
-      todayAppointments: 6,
-      todayRevenue: 180.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 2,
-      name: "Ana",
-      specialty: "Manicure",
-      status: "ocupado",
-      todayAppointments: 4,
-      todayRevenue: 120.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 3,
-      name: "Fernanda",
-      specialty: "Cabeleireira",
-      status: "disponivel",
-      todayAppointments: 3,
-      todayRevenue: 135.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-  ]
-
-  const notifications = [
-    {
-      id: 1,
-      type: "warning",
-      message: "João Silva não confirmou o agendamento das 16:00",
-      time: "2 min atrás",
-    },
-    {
-      id: 2,
-      type: "info",
-      message: "Novo agendamento para amanhã às 10:00",
-      time: "5 min atrás",
-    },
-    {
-      id: 3,
-      type: "success",
-      message: "Maria Santos confirmou o agendamento",
-      time: "10 min atrás",
-    },
-  ]
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "confirmado":
-        return "success"
-      case "agendado":
-        return "warning"
-      case "finalizado":
-        return "info"
-      case "cancelado":
-        return "error"
-      default:
-        return "neutral"
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "confirmado":
-        return <Check size={16} />
-      case "agendado":
-        return <Clock size={16} />
-      case "finalizado":
-        return <Star size={16} />
-      case "cancelado":
-        return <X size={16} />
-      default:
-        return <AlertTriangle size={16} />
-    }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value)
-  }
-
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("pt-BR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(date)
-  }
-
   // Profissionais habilitados para o serviço selecionado
   const profissionaisHabilitados = (() => {
     const servicoSelecionado = servicosFirestore.find((s) => s.nomeServico === appointmentData.service)
@@ -505,27 +379,27 @@ const AgendaAtendente = () => {
 
   // Menu de navegação mobile
   const menuItems = [
-    { icon: Home, label: "Dashboard", path: `/dashboardProfissional/${usuarioLogado?.uid}` },
-    { icon: Calendar, label: "Agenda", path: `/dashboardProfissional/${usuarioLogado?.uid}/agenda` },
-    { icon: Users, label: "Clientes", path: `/dashboardProfissional/${usuarioLogado?.uid}/clientes` },
-    { icon: CreditCard, label: "Financeiro", path: `/dashboardProfissional/${usuarioLogado?.uid}/financeiro` },
-    { icon: UserCheck, label: "Perfil", path: `/dashboardProfissional/${usuarioLogado?.uid}/perfil` },
+    { icon: Home, label: "Dashboard", path: `/dashboardProfissional/${auth.currentUser?.uid}` },
+    { icon: Calendar, label: "Agenda", path: `/dashboardProfissional/${auth.currentUser?.uid}/agenda` },
+    { icon: Users, label: "Clientes", path: `/dashboardProfissional/${auth.currentUser?.uid}/clientes` },
+    { icon: CreditCard, label: "Financeiro", path: `/dashboardProfissional/${auth.currentUser?.uid}/financeiro` },
+    { icon: UserCheck, label: "Perfil", path: `/dashboardProfissional/${auth.currentUser?.uid}/perfil` },
   ]
 
   // Funções para navegação do calendário
   const handlePrev = () => {
-    if (calendarView === 'month') {
+    if (currentView === 'month') {
       setSelectedDate(prev => {
         const newDate = new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
         return newDate;
       });
-    } else if (calendarView === 'week') {
+    } else if (currentView === 'week') {
       setSelectedDate(prev => {
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() - 7);
         return newDate;
       });
-    } else if (calendarView === 'day') {
+    } else if (currentView === 'day') {
       setSelectedDate(prev => {
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() - 1);
@@ -534,18 +408,18 @@ const AgendaAtendente = () => {
     }
   };
   const handleNext = () => {
-    if (calendarView === 'month') {
+    if (currentView === 'month') {
       setSelectedDate(prev => {
         const newDate = new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
         return newDate;
       });
-    } else if (calendarView === 'week') {
+    } else if (currentView === 'week') {
       setSelectedDate(prev => {
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() + 7);
         return newDate;
       });
-    } else if (calendarView === 'day') {
+    } else if (currentView === 'day') {
       setSelectedDate(prev => {
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() + 1);
@@ -642,7 +516,7 @@ const AgendaAtendente = () => {
           <div className="atendente-date-display">
             <Calendar size={20} />
             <div className="atendente-date-info">
-              <h2>{formatDate(selectedDate)}</h2>
+              <h2>{selectedDate.toLocaleDateString("pt-BR")}</h2>
               <p>Hoje • {agendaHoje.length + historicoGeral.length} agendamentos</p>
             </div>
           </div>
@@ -665,24 +539,7 @@ const AgendaAtendente = () => {
           </div>
 
           {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="atendente-notifications-dropdown">
-              <div className="atendente-notifications-header">
-                <h3>Notificações</h3>
-                <button className="atendente-btn-clear-all">Limpar tudo</button>
-              </div>
-              <div className="atendente-notifications-list">
-                {notifications.map((notification) => (
-                  <div key={notification.id} className={`atendente-notification-item ${notification.type}`}>
-                    <div className="atendente-notification-content">
-                      <p>{notification.message}</p>
-                      <span className="atendente-notification-time">{notification.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Removed as per edit hint */}
         </div>
       </header>
 
@@ -737,9 +594,9 @@ const AgendaAtendente = () => {
                   <span className="atendente-stat-trend positive">+{receitaPrevistaHoje > 0 ? 8 : 0}%</span>
                 </div>
                 <div className="atendente-stat-content">
-                  <h3>{formatCurrency(receitaPrevistaHoje)}</h3>
+                  <h3>{receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</h3>
                   <p>Receita Prevista Hoje</p>
-                  <small>{formatCurrency(receitaConfirmadaHoje)} já confirmados</small>
+                  <small>{receitaConfirmadaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} já confirmados</small>
                 </div>
               </div>
 
@@ -820,7 +677,7 @@ const AgendaAtendente = () => {
                           </span>
                           <span className="atendente-price">
                             <DollarSign size={14} />
-                            {formatCurrency(appointment.price)}
+                            {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </span>
                         </div>
                       </div>
@@ -880,7 +737,7 @@ const AgendaAtendente = () => {
                           </span>
                           <span className="atendente-price">
                             <DollarSign size={14} />
-                            {formatCurrency(appointment.price)}
+                            {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </span>
                         </div>
                       </div>
@@ -919,7 +776,7 @@ const AgendaAtendente = () => {
                           </span>
                           <span className="atendente-price">
                             <DollarSign size={14} />
-                            {formatCurrency(appointment.price)}
+                            {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </span>
                         </div>
                       </div>
@@ -942,7 +799,7 @@ const AgendaAtendente = () => {
                 <button className="atendente-btn-nav" onClick={handlePrev}>
                   <ChevronLeft size={20} />
                 </button>
-                <h2>{formatDate(selectedDate)}</h2>
+                <h2>{selectedDate.toLocaleDateString("pt-BR")}</h2>
                 <button className="atendente-btn-nav" onClick={handleNext}>
                   <ChevronRight size={20} />
                 </button>
@@ -959,7 +816,7 @@ const AgendaAtendente = () => {
                 <div className="atendente-weekday">Sáb</div>
               </div>
               <div className="atendente-calendar-days">
-                {calendarView === 'month' && getMonthDays(selectedDate).map((day, i) => {
+                {currentView === 'calendar' && getMonthDays(selectedDate).map((day, i) => {
                   const dayISO = day.toISOString().split('T')[0];
                   const isToday = day.toDateString() === new Date().toDateString();
                   const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
@@ -1051,7 +908,7 @@ const AgendaAtendente = () => {
                       <br />
                       <button
                         className="atendente-btn-primary"
-                        onClick={() => navigate("/dashboardProfissional/" + usuarioLogado?.uid + "/clientes")}
+                        onClick={() => navigate("/dashboardProfissional/" + auth.currentUser?.uid + "/clientes")}
                       >
                         Cadastrar Cliente
                       </button>
@@ -1151,7 +1008,7 @@ const AgendaAtendente = () => {
                               </span>
                               <span className="atendente-service-price">
                                 <DollarSign size={14} />
-                                {formatCurrency(service.valorServico)}
+                                {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                               </span>
                             </div>
                             <div className="atendente-service-extra">
@@ -1271,7 +1128,7 @@ const AgendaAtendente = () => {
                         <h5>Serviço</h5>
                         <p>{appointmentData.service}</p>
                         <p>Duração: {appointmentData.duration} minutos</p>
-                        <p className="atendente-price-highlight">Valor: {formatCurrency(appointmentData.price)}</p>
+                        <p className="atendente-price-highlight">Valor: {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                       </div>
 
                       <div className="atendente-summary-section">
@@ -1398,7 +1255,7 @@ const AgendaAtendente = () => {
                       <br />
                       <strong>Telefone:</strong> {a.clientPhone}
                       <br />
-                      <strong>Valor:</strong> {formatCurrency(a.price)}
+                      <strong>Valor:</strong> {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </li>
                   ))}
                 </ul>
@@ -1435,7 +1292,7 @@ const AgendaAtendente = () => {
                       <br />
                       <strong>Horário:</strong> {a.time}
                       <br />
-                      <strong>Valor:</strong> {formatCurrency(a.price)}
+                      <strong>Valor:</strong> {receitaPrevistaHoje.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </li>
                   ))}
                 </ul>

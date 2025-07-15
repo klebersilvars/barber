@@ -31,9 +31,7 @@ import { deleteDoc, updateDoc } from "firebase/firestore"
 export default function ClienteAtendente() {
   const { uid } = useParams()
   const [showModal, setShowModal] = useState(false)
-  const [activeTab, setActiveTab] = useState("info")
   const [searchQuery, setSearchQuery] = useState("")
-  const [onlineScheduling, setOnlineScheduling] = useState(true)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [formStep, setFormStep] = useState(1)
   const [showFilters, setShowFilters] = useState(false)

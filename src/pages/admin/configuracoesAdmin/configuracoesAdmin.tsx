@@ -3,14 +3,12 @@
 import { useState, useEffect } from "react"
 import {
   Building2,
-  MapPin,
   Phone,
   Mail,
   Upload,
   Clock,
   Palette,
   Save,
-  Eye,
   Settings,
   Camera,
   Globe,
@@ -42,7 +40,6 @@ const ConfiguracoesAdmin = () => {
     estado: "",
     complemento: "",
   })
-  const [contaDocId, setContaDocId] = useState<string | null>(null)
   const auth = getAuth()
 
   // Buscar dados da conta logada ao entrar na página
@@ -53,7 +50,6 @@ const ConfiguracoesAdmin = () => {
       const docSnap = await getDoc(docRef)
       if (docSnap.exists()) {
         const data = docSnap.data()
-        setContaDocId(docSnap.id)
         setSalonInfo((prev) => ({
           ...prev,
           name: data.nomeEstabelecimento || "",

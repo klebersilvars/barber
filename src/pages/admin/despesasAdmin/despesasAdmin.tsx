@@ -88,7 +88,6 @@ const DespesasAdmin = () => {
   const { uid } = useParams()
 
   // Month navigation states
-  const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [isCurrentMonth, setIsCurrentMonth] = useState(true)
@@ -446,19 +445,7 @@ const DespesasAdmin = () => {
     }).format(date)
   }
 
-  // Calculations
-  const saldoMes = receitaEstimada - totalDespesas
-
   // Historical data for charts (mock)
-  const historicalData = [
-    { month: "Janeiro", expenses: 1850, revenue: 4500 },
-    { month: "Fevereiro", expenses: 2100, revenue: 4500 },
-    { month: "Março", expenses: 1950, revenue: 4500 },
-    { month: "Abril", expenses: 2300, revenue: 4800 },
-    { month: "Maio", expenses: 1750, revenue: 4800 },
-    { month: "Junho", expenses: 1935, revenue: 4500 },
-  ]
-
   const handleUpdateEstimates = async () => {
     try {
       const mesAtual = getMonthName(selectedMonth)
@@ -567,7 +554,7 @@ const DespesasAdmin = () => {
           <button
             className="month-nav-btn next"
             onClick={goToNextMonth}
-            disabled={selectedMonth === currentDate.getMonth() && selectedYear === currentDate.getFullYear()}
+            disabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}
           >
             <ChevronRight size={20} />
           </button>

@@ -43,11 +43,6 @@ interface Sale {
   categoria: string
 }
 
-interface Colaborador {
-  id: string;
-  nome: string;
-}
-
 interface Cliente {
   id: string;
   nome: string;
@@ -62,7 +57,6 @@ const VendasAtendente: React.FC = () => {
   const [filterPayment, setFilterPayment] = useState("all")
   const [sales, setSales] = useState<Sale[]>([])
   const { uid } = useParams(); // UID da empresa
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [vendedorUid, setVendedorUid] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -74,7 +68,6 @@ const VendasAtendente: React.FC = () => {
   const [produto, setProduto] = useState("")
   const [quantidade, setQuantidade] = useState(1)
   const [precoUnitario, setPrecoUnitario] = useState("")
-  const [cliente, setCliente] = useState("")
   const [vendedor, setVendedor] = useState("Carregando...")
   const [formaPagamento, setFormaPagamento] = useState("")
   const [status, setStatus] = useState("concluida")
@@ -85,20 +78,18 @@ const VendasAtendente: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  const [atendenteUid, setAtendenteUid] = useState("");
   const [atendenteEmpresaUid, setAtendenteEmpresaUid] = useState("");
 
   // Buscar informações do atendente logado
   useEffect(() => {
     if (!uid) return;
-    setAtendenteUid(uid);
     
     // Buscar o atendente na coleção colaboradores
     const colaboradoresRef = collection(firestore, 'colaboradores');
     const q = query(colaboradoresRef, where('__name__', '==', uid));
-    getDocs(q).then(snapshot => {
-      if (!snapshot.empty) {
-        const atendenteData = snapshot.docs[0].data();
+    getDocs(q).then((querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const atendenteData = querySnapshot.docs[0].data();
         setAtendenteEmpresaUid(atendenteData.createdBy);
         setEmpresaNome(atendenteData.estabelecimento || '');
         setVendedor(atendenteData.nome || 'Nome não encontrado');
@@ -114,8 +105,8 @@ const VendasAtendente: React.FC = () => {
     if (!atendenteEmpresaUid) return;
     const colaboradoresRef = collection(firestore, 'colaboradores');
     const q = query(colaboradoresRef, where('createdBy', '==', atendenteEmpresaUid));
-    getDocs(q).then(snapshot => {
-      setColaboradores(snapshot.docs.map(doc => ({ id: doc.id, nome: doc.data().nome })));
+    getDocs(q).then(() => {
+      // setColaboradores(snapshot.docs.map(doc => ({ id: doc.id, nome: doc.data().nome }))); // Removido
     });
   }, [atendenteEmpresaUid]);
 
@@ -224,7 +215,7 @@ const VendasAtendente: React.FC = () => {
     setProduto("")
     setQuantidade(1)
     setPrecoUnitario("")
-    setCliente("")
+    setClienteUid("")
     // setVendedor("") - Não resetar o vendedor pois é o atendente logado
     setFormaPagamento("")
     setStatus("concluida")
@@ -240,12 +231,6 @@ const VendasAtendente: React.FC = () => {
   const handlePrevStep = () => {
     setFormStep(formStep - 1)
   }
-
-  const handleVendedorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value;
-    setVendedor(selectedId ? colaboradores.find(c => c.id === selectedId)?.nome || "" : "");
-    setVendedorUid(selectedId);
-  };
 
   const handleClienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;

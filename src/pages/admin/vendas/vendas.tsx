@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import './vendas.css'
 import { useState, useEffect } from "react"
 import {
@@ -22,12 +21,10 @@ import {
   CreditCard,
   Clock,
   Calendar,
-  Menu,
 } from "lucide-react"
 import { firestore } from '../../../firebase/firebase';
 import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useParams } from 'react-router-dom';
-import { Timestamp } from 'firebase/firestore';
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 
@@ -84,7 +81,6 @@ const Vendas: React.FC = () => {
   const [produto, setProduto] = useState("")
   const [quantidade, setQuantidade] = useState(1)
   const [precoUnitario, setPrecoUnitario] = useState("")
-  const [cliente, setCliente] = useState("")
   const [vendedor, setVendedor] = useState("")
   const [formaPagamento, setFormaPagamento] = useState("")
   const [status, setStatus] = useState("concluida")
@@ -237,7 +233,6 @@ const Vendas: React.FC = () => {
     setProduto("")
     setQuantidade(1)
     setPrecoUnitario("")
-    setCliente("")
     setVendedor("")
     setFormaPagamento("")
     setStatus("concluida")

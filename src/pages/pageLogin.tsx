@@ -4,11 +4,11 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import "./pageLogin.css"
-import { Scissors, Calendar, User, Lock, Eye, EyeOff, Building } from "lucide-react"
+import { Scissors, Calendar, User, Eye, EyeOff, Building } from "lucide-react"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import EsqueciSenha from "./esqueciSenha/esqueciSenha"
 import { useNavigate } from "react-router-dom"
-import { getDoc, doc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/firebase';
 
 export default function PageLogin() {

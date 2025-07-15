@@ -22,14 +22,13 @@ import {
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth"
 import { firestore } from "../../../firebase/firebase"
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
+import { collection, query, where, getDocs } from "firebase/firestore"
 
 export default function DashboardProfissional() {
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
   const [profissionalNome, setProfissionalNome] = useState("")
   const [nomeEstabelecimento, setNomeEstabelecimento] = useState("")
-  const [atendimentosHoje, setAtendimentosHoje] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
   const { uid } = useParams()
@@ -52,7 +51,7 @@ export default function DashboardProfissional() {
           setNomeEstabelecimento(colaboradorData.estabelecimento || "");
         }
       })
-      .catch((error) => {
+      .catch(() => {
         setProfissionalNome("Erro ao carregar");
         setNomeEstabelecimento("");
       });
@@ -66,7 +65,7 @@ export default function DashboardProfissional() {
   const metricas = [
     {
       title: "Atendimentos Hoje",
-      value: atendimentosHoje.toString(),
+      value: "0",
       change: "+5%",
       icon: Clock,
       color: "azul",

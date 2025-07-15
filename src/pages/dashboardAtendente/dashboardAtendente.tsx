@@ -11,27 +11,14 @@ import {
   Calendar,
   User,
   Gift,
-  Bell,
-  Search,
-  BarChart3,
-  Clock,
-  Star,
   ChevronRight,
-  Plus,
-  Filter,
-  Download,
-  Eye,
-  X,
-  LogOut,
-  MessageCircle,
-  CheckCircle,
-  Phone,
   Menu as MenuIcon,
 } from "lucide-react"
 import { useParams, useNavigate, Outlet, useLocation } from "react-router-dom"
 import { firestore, auth } from "../../firebase/firebase"
-import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore"
-import { getAuth, signOut } from "firebase/auth"
+import { collection, getDocs, query, where, getDoc, doc } from "firebase/firestore"
+import { signOut } from 'firebase/auth';
+import { X } from 'lucide-react';
 
 const DashboardAtendente: React.FC = () => {
   const { uid } = useParams()
@@ -44,50 +31,10 @@ const DashboardAtendente: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const menuItems = [
-    { icon: MessageCircle, label: "Página Inicial", active: true, path: `/acessoAtendente/${uid}` },
     { icon: ShoppingCart, label: "Vendas", path: `/acessoAtendente/${uid}/vendas` },
     { icon: Users, label: "Clientes", path: `/acessoAtendente/${uid}/clientes` },
     { icon: Calendar, label: "Agenda Online", path: `/acessoAtendente/${uid}/agendaAtendente` },
-    { icon: LogOut, label: "Sair da Conta", path: "#logout", className: "logout-item" },
-  ]
-
-  const stats = [
-    {
-      title: "Atendimentos Hoje",
-      value: "18",
-      change: "+5%",
-      icon: MessageCircle,
-      color: "green",
-    },
-    {
-      title: "Chamados Resolvidos",
-      value: "42",
-      change: "+12%",
-      icon: CheckCircle,
-      color: "blue",
-    },
-    {
-      title: "Clientes Atendidos",
-      value: "89",
-      change: "+8%",
-      icon: Users,
-      color: "purple",
-    },
-    {
-      title: "Avaliação Média",
-      value: "4.9",
-      change: "+0.1",
-      icon: Star,
-      color: "yellow",
-    },
-  ]
-
-  const recentAppointments = [
-    { time: "09:00", client: "Maria Silva", service: "Suporte Técnico", status: "confirmed" },
-    { time: "10:30", client: "Ana Costa", service: "Dúvida sobre Produto", status: "in-progress" },
-    { time: "11:00", client: "João Santos", service: "Reclamação", status: "pending" },
-    { time: "14:00", client: "Carla Oliveira", service: "Cancelamento", status: "confirmed" },
-    { time: "15:30", client: "Pedro Lima", service: "Informações", status: "confirmed" },
+    { icon: ChevronRight, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
   useEffect(() => {
@@ -113,7 +60,6 @@ const DashboardAtendente: React.FC = () => {
     const q = query(colaboradoresRef, where("email", "==", auth.currentUser.email));
     getDocs(q).then((snapshot) => {
       if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data();
       } else {
         console.log(
           "Nenhum colaborador encontrado com o e-mail:",

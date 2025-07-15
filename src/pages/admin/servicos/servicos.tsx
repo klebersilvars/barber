@@ -6,7 +6,6 @@ import {
   Search,
   Plus,
   Filter,
-  Download,
   DollarSign,
   Clock,
   Users,
@@ -17,7 +16,6 @@ import {
   Trash2,
   Edit,
   Eye,
-  Star,
   Tag,
   Scissors,
   Palette,
@@ -244,7 +242,7 @@ const Servicos = () => {
         createdAt: new Date()
       }
 
-      const docRef = await addDoc(servicoRef, newServico)
+      await addDoc(servicoRef, newServico)
       
       alert("Serviço cadastrado com sucesso!")
       handleCloseModal()

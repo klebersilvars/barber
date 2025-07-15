@@ -12,9 +12,6 @@ import {
   Mail,
   Play,
   Check,
-  Menu,
-  X,
-  Smartphone,
   Users,
   TrendingUp,
   Clock,
@@ -23,13 +20,11 @@ import {
   Zap,
   Award,
 } from "lucide-react"
-import { Navigate } from "react-router-dom"
 import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Text, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody } from "@chakra-ui/react"
-import { HamburgerIcon, CloseIcon } from "@chakra-ui/icons"
+import { HamburgerIcon } from "@chakra-ui/icons"
 
 export default function PageHome() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [menuAberto, setMenuAberto] = useState(false)
   const [contadorClientes, setContadorClientes] = useState(0)
   const [contadorProfissionais, setContadorProfissionais] = useState(0)
   const [contadorAgendamentos, setContadorAgendamentos] = useState(0)

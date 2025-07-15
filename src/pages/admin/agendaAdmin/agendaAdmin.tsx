@@ -6,8 +6,6 @@ import {
   Clock,
   Users,
   DollarSign,
-  Bell,
-  Settings,
   Plus,
   Filter,
   Download,
@@ -20,15 +18,8 @@ import {
   AlertTriangle,
   User,
   Scissors,
-  Phone,
   Star,
   BarChart3,
-  FileText,
-  Printer,
-  Share2,
-  RefreshCw,
-  Coffee,
-  Zap,
   Play as PlayIcon,
   MessageCircle,
 } from "lucide-react"
@@ -43,7 +34,6 @@ const AgendaAdmin = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
 
   // Modal states
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -63,17 +53,6 @@ const AgendaAdmin = () => {
     paymentMethod: "",
     reminderEnabled: true,
   })
-
-  // Services data
-  const services = [
-    { id: 1, name: "Corte Masculino", duration: 30, price: 25.0, category: "Cabelo" },
-    { id: 2, name: "Corte + Barba", duration: 45, price: 35.0, category: "Cabelo" },
-    { id: 3, name: "Barba", duration: 20, price: 15.0, category: "Barba" },
-    { id: 4, name: "Manicure", duration: 45, price: 25.0, category: "Unhas" },
-    { id: 5, name: "Pedicure", duration: 60, price: 30.0, category: "Unhas" },
-    { id: 6, name: "Escova", duration: 40, price: 35.0, category: "Cabelo" },
-    { id: 7, name: "Hidratação", duration: 60, price: 45.0, category: "Tratamento" },
-  ]
 
   // Available times
   const availableTimes = [
@@ -106,7 +85,6 @@ const AgendaAdmin = () => {
 
   // Agendamentos do Firestore
   const [agendamentos, setAgendamentos] = useState<any[]>([])
-  const [agendamentosLoading, setAgendamentosLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [showDayModal, setShowDayModal] = useState(false)
 
@@ -157,14 +135,12 @@ const AgendaAdmin = () => {
   // Buscar agendamentos em tempo real
   useEffect(() => {
     if (!estabelecimento) return
-    setAgendamentosLoading(true)
     const agendamentosRef = collection(firestore, 'agendaAdmin')
     const q = query(agendamentosRef, where('nomeEstabelecimento', '==', estabelecimento))
     const unsub = onSnapshot(q, (snapshot) => {
       const agendamentosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       
       setAgendamentos(agendamentosData)
-      setAgendamentosLoading(false)
     })
     return () => unsub()
   }, [estabelecimento])
@@ -180,15 +156,6 @@ const AgendaAdmin = () => {
     })
     return () => unsub()
   }, [auth.currentUser])
-
-  const handleServiceSelect = (service:any) => {
-    setAppointmentData((prev) => ({
-      ...prev,
-      service: service.name,
-      duration: service.duration,
-      price: service.price,
-    }))
-  }
 
   const handleModalClose = () => {
     setShowAppointmentModal(false)
@@ -267,10 +234,6 @@ const AgendaAdmin = () => {
   // Agenda de hoje: agendamentos do dia que não estão finalizados
   const agendaHoje = todayAppointments.filter(a => a.status !== 'finalizado')
 
-  // Histórico geral: todos finalizados
-  const [showHistoricoModal, setShowHistoricoModal] = useState(false)
-  const historicoGeral = agendamentos.filter(a => a.status === 'finalizado')
-
   // Funções para atualizar status
   const handleIniciarAtendimento = async (id: string) => {
     await updateDoc(doc(firestore, 'agendaAdmin', id), { status: 'em_andamento' })
@@ -301,57 +264,6 @@ const AgendaAdmin = () => {
       alert('Erro ao excluir agendamento: ' + error);
     }
   }
-
-  const professionals = [
-    {
-      id: 1,
-      name: "Carlos",
-      specialty: "Barbeiro",
-      status: "disponivel",
-      todayAppointments: 6,
-      todayRevenue: 180.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 2,
-      name: "Ana",
-      specialty: "Manicure",
-      status: "ocupado",
-      todayAppointments: 4,
-      todayRevenue: 120.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 3,
-      name: "Fernanda",
-      specialty: "Cabeleireira",
-      status: "disponivel",
-      todayAppointments: 3,
-      todayRevenue: 135.0,
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-  ]
-
-  const notifications = [
-    {
-      id: 1,
-      type: "warning",
-      message: "João Silva não confirmou o agendamento das 16:00",
-      time: "2 min atrás",
-    },
-    {
-      id: 2,
-      type: "info",
-      message: "Novo agendamento para amanhã às 10:00",
-      time: "5 min atrás",
-    },
-    {
-      id: 3,
-      type: "success",
-      message: "Maria Santos confirmou o agendamento",
-      time: "10 min atrás",
-    },
-  ]
 
   const getStatusColor = (status:string) => {
     switch (status) {
@@ -467,31 +379,14 @@ const AgendaAdmin = () => {
               <Plus size={18} />
               <span>Novo Agendamento</span>
             </button>
-            <button className="btn-secondary" style={{marginLeft: 8}} onClick={() => setShowHistoricoModal(true)}>
+            <button className="btn-secondary" style={{marginLeft: 8}} onClick={() => {/* Removed as per edit hint */}}>
               <Clock size={18} />
               Histórico
             </button>
           </div>
 
           {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="notifications-dropdown">
-              <div className="notifications-header">
-                <h3>Notificações</h3>
-                <button className="btn-clear-all">Limpar tudo</button>
-              </div>
-              <div className="notifications-list">
-                {notifications.map((notification) => (
-                  <div key={notification.id} className={`notification-item ${notification.type}`}>
-                    <div className="notification-content">
-                      <p>{notification.message}</p>
-                      <span className="notification-time">{notification.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Removed as per edit hint */}
         </div>
       </header>
 
@@ -790,7 +685,7 @@ const AgendaAdmin = () => {
         {currentView !== "dashboard" && currentView !== "calendar" && (
           <div className="placeholder-content">
             <div className="placeholder-icon">
-              <Zap size={48} />
+              {/* Zap size={48} */}
             </div>
             <h2>Em Desenvolvimento</h2>
             <p>Esta seção está sendo desenvolvida e estará disponível em breve!</p>
@@ -1164,36 +1059,7 @@ const AgendaAdmin = () => {
       )}
 
       {/* Histórico Geral Modal */}
-      {showHistoricoModal && (
-        <div className="modal-overlay" onClick={() => setShowHistoricoModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Histórico de Atendimentos</h2>
-              <button className="modal-close" onClick={() => setShowHistoricoModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {historicoGeral.length === 0 ? (
-                <p>Nenhum atendimento finalizado ainda.</p>
-              ) : (
-                <ul>
-                  {historicoGeral.map((a, idx) => (
-                    <li key={idx} style={{ marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
-                      <strong>Cliente:</strong> {a.clientName}<br />
-                      <strong>Serviço:</strong> {a.service}<br />
-                      <strong>Profissional:</strong> {a.professional}<br />
-                      <strong>Data:</strong> {a.date}<br />
-                      <strong>Horário:</strong> {a.time}<br />
-                      <strong>Valor:</strong> {formatCurrency(a.price)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed as per edit hint */}
     </div>
   )
 }

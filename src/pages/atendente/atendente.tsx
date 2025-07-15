@@ -2,12 +2,12 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { User, Lock, Eye, EyeOff, Headset, Calendar, MessageCircle, CheckCircle } from "lucide-react"
+import { Eye, EyeOff, Headset, Calendar, MessageCircle, CheckCircle } from "lucide-react"
 import EsqueciSenha from "../esqueciSenha/esqueciSenha"
 import { firestore } from '../../firebase/firebase';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import './atendente.css'; 
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { auth } from '../../firebase/firebase';
 
@@ -18,9 +18,7 @@ const Atendente: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [modalAberto, setModalAberto] = useState(false)
-  const [estabelecimento, setEstabelecimento] = useState<any>(null);
   const navigation = useNavigate();
-  const { uid: urlEstabelecimentoId } = useParams();
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("atendente_email")
@@ -193,14 +191,6 @@ const Atendente: React.FC = () => {
               Fechar
             </button>
           </div>
-        </div>
-      )}
-
-      {estabelecimento && (
-        <div className="estabelecimento-info">
-          <h4>Estabelecimento:</h4>
-          <p><b>Nome:</b> {estabelecimento.nome}</p>
-          {/* Adicione outros campos que desejar exibir */}
         </div>
       )}
     </div>
