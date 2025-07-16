@@ -17,8 +17,7 @@ import {
   ChevronRight,
   User,
   X,
-  Clock,
-  Menu
+  Clock
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 
