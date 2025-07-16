@@ -17,8 +17,10 @@ import {
   ChevronRight,
   User,
   X,
-  Clock
+  Clock,
+  Menu
 } from "lucide-react"
+import { HamburgerIcon } from "@chakra-ui/icons"
 
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth";
@@ -193,14 +195,6 @@ export default function DashboardUser() {
 
   return (
     <div className="dashboard-container">
-      {/* Botão do menu hambúrguer - só exibe em mobile/tablet */}
-      <button
-        className="dashboard-hamburger-btn"
-        onClick={() => setMobileMenuOpen(true)}
-      >
-        <Scissors size={28} />
-      </button>
-
       {/* Drawer lateral do menu mobile */}
       <div
         className={`dashboard-mobile-menu-overlay${mobileMenuOpen ? ' active' : ''}`}
@@ -267,8 +261,17 @@ export default function DashboardUser() {
       </div>
       {/* Promotion Banner */}
       {showPromotion && !testeGratisAtivo && (
-        <div className="promotion-banner">
-          <div className="promotion-content">
+        <div className="promotion-banner" style={{ position: 'relative' }}>
+          <button
+            className="dashboard-hamburger-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menu"
+            type="button"
+          >
+            <HamburgerIcon fontSize="28px" color="#5d3fd3" aria-hidden="true" />
+            <span style={{ display: 'none' }}>Abrir menu</span>
+          </button>
+          <div className="promotion-content" style={{ marginLeft: 48 }}>
             <Package className="promotion-icon" />
             <span>
               🎉 Você tem acesso à <strong>Avaliação Grátis</strong> da sua conta! Aproveite agora!
@@ -281,8 +284,17 @@ export default function DashboardUser() {
         </div>
       )}
       {showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
-        <div className="promotion-banner">
-          <div className="promotion-content">
+        <div className="promotion-banner" style={{ position: 'relative' }}>
+          <button
+            className="dashboard-hamburger-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menu"
+            type="button"
+          >
+            <HamburgerIcon fontSize="28px" color="#5d3fd3" aria-hidden="true" />
+            <span style={{ display: 'none' }}>Abrir menu</span>
+          </button>
+          <div className="promotion-content" style={{ marginLeft: 48 }}>
             <Package className="promotion-icon" />
             <span>
               🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.

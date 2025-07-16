@@ -765,25 +765,28 @@
   
 /* Menu hambúrguer - só aparece em mobile/tablet */
 .dashboard-hamburger-btn {
-  display: none; /* Oculta por padrão (desktop) */
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   background: white;
   border: none;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  padding: 8px;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
+  padding: 0;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1100;
 }
 
-.dashboard-hamburger-btn:hover {
-  background: #f8fafc;
-  transform: scale(1.05);
+.dashboard-hamburger-btn svg {
+  display: block;
+  margin: 0 auto;
+  font-size: 28px;
 }
 
 /* Overlay do menu mobile */
@@ -800,6 +803,7 @@
 }
 
 .dashboard-mobile-menu-overlay.active {
+  display: flex;
   pointer-events: auto;
 }
 
