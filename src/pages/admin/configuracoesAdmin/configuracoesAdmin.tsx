@@ -18,6 +18,7 @@ import "./configuracoesAdmin.css"
 import { getAuth } from "firebase/auth"
 import { firestore } from '../../../firebase/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { useRef } from "react"
 
 const ConfiguracoesAdmin = () => {
   // Estados para as configurações
@@ -39,6 +40,7 @@ const ConfiguracoesAdmin = () => {
     cidade: "",
     estado: "",
     complemento: "",
+    slug: ""
   })
   const auth = getAuth()
 
@@ -63,6 +65,7 @@ const ConfiguracoesAdmin = () => {
           cidade: data.cidade || "",
           estado: data.estado || "",
           complemento: data.complemento || "",
+          slug: data.slug || ""
         }))
       }
     }
@@ -178,13 +181,26 @@ const ConfiguracoesAdmin = () => {
     alert("Configurações salvas com sucesso!")
   }
 
+  const [copied, setCopied] = useState(false)
+  const copyTimeout = useRef<NodeJS.Timeout | null>(null)
+
   const generateBookingUrl = () => {
     const baseUrl = "https://trezu.com.br/agendar/"
-    const slug = salonInfo.name
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "")
+    const slug = salonInfo.slug || ""
     return baseUrl + slug
+  }
+
+  const handleCopyUrl = () => {
+    const url = generateBookingUrl()
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        setCopied(true)
+        if (copyTimeout.current) clearTimeout(copyTimeout.current)
+        copyTimeout.current = setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => {
+        setCopied(false)
+      })
   }
 
   // Função para montar o array de horários para o Firestore
@@ -692,7 +708,9 @@ const ConfiguracoesAdmin = () => {
                   <div className="url-preview">
                     <Globe size={18} />
                     <span>{generateBookingUrl()}</span>
-                    <button className="btn-copy">Copiar</button>
+                    <button className="btn-copy" onClick={handleCopyUrl} type="button">
+                      {copied ? "Copiado!" : "Copiar"}
+                    </button>
                   </div>
 
                   <div className="url-toggle">
