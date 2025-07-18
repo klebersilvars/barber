@@ -286,7 +286,7 @@ const AgendaCliente = () => {
     msg += `Estabelecimento: ${establishment?.nomeEstabelecimento || ''}\n`;
     msg += `Serviço: ${selectedService?.nomeServico || ''}\n`;
     msg += `Profissional: ${selectedProfessional?.nome || ''}\n`;
-    msg += `Data: ${selectedDate ? new Date(selectedDate).toLocaleDateString('pt-BR') : ''}\n`;
+    msg += `Data: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR') : ''}\n`;
     msg += `Horário: ${selectedTime || ''}\n`;
     msg += `Cliente: ${clientData.name}\n`;
     msg += `WhatsApp: ${clientData.phone}\n`;
@@ -723,7 +723,10 @@ const AgendaCliente = () => {
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    // Garante que a data salva é exatamente a do input, sem conversão de fuso
+                    setSelectedDate(e.target.value)
+                  }}
                   min={new Date().toISOString().split("T")[0]}
                   className="cliente-date-input"
                 />
@@ -926,12 +929,13 @@ const AgendaCliente = () => {
                   <div className="cliente-date-mini">
                     <Calendar size={16} />
                     <span>
-                      {new Date(selectedDate).toLocaleDateString("pt-BR", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {selectedDate ?
+                        new Date(selectedDate + 'T00:00:00').toLocaleDateString("pt-BR", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }) : ''}
                     </span>
                   </div>
                   <div className="cliente-time-mini">
