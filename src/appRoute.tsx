@@ -24,6 +24,7 @@ import AgendaAtendente from "./pages/configAtendente/agendaAtendente/agendaAtend
 import AgendaCliente from "./pages/cliente/pageAgendaCliente/agendaCliente"
 import RequireAuth from "./components/RequireAuth"
 import PageErro from "./pages/pageErro/pageErro"
+import LoginFundador from "./pages/fundador/LoginPage/LoginFundador"
 
 export default function AppRoutes() {
   return (
@@ -59,6 +60,7 @@ export default function AppRoutes() {
         </Route>
         <Route path="/" element={<PageHome />} />
         <Route path="*" element={<PageErro />} />
+        <Route path="/fundador" element={<LoginFundador />} />
       </Routes>
     </BrowserRouter>
   )
