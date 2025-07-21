@@ -55,6 +55,9 @@ app.post('/api/create-preference', async (req, res) => {
       },
       auto_return: 'approved',
       notification_url: 'https://SEU_DOMINIO/api/mercadopago-webhook',
+      metadata: {
+        tipoPlano: planId // individual ou empresa
+      }
     };
     const response = await axios.post(MP_BASE_URL, preference, {
       headers: {
@@ -90,29 +93,31 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
         const snapshot = await contasRef.where('email', '==', email).get();
         if (!snapshot.empty) {
           const docRef = snapshot.docs[0].ref;
-          // Verificar se é plano anual ou mensal
-          // O nome do plano pode estar em payment.additional_info.items[0].title ou payment.description
+          // Verificar tipo de plano pelo valor ou pelo metadata
+          let tipoPlano = 'empresa';
           let plano = '';
-          if (payment.additional_info && payment.additional_info.items && payment.additional_info.items[0] && payment.additional_info.items[0].title) {
-            plano = payment.additional_info.items[0].title.toLowerCase();
+          let price = 0;
+          if (payment.additional_info && payment.additional_info.items && payment.additional_info.items[0]) {
+            plano = payment.additional_info.items[0].title?.toLowerCase() || '';
+            price = payment.additional_info.items[0].unit_price || 0;
           } else if (payment.description) {
             plano = payment.description.toLowerCase();
           }
-          if (plano.includes('anual')) {
-            // Plano anual: 365 dias
-            await docRef.update({
-              premium: true,
-              premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
-              premiumDaysLeft: 365,
-            });
-          } else {
-            // Plano mensal (padrão): 30 dias
-            await docRef.update({
-              premium: true,
-              premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
-              premiumDaysLeft: 30,
-            });
+          // Tenta pegar do metadata
+          if (payment.metadata && payment.metadata.tipoPlano) {
+            tipoPlano = payment.metadata.tipoPlano;
+          } else if (price === 10) {
+            tipoPlano = 'individual';
+          } else if (price === 20) {
+            tipoPlano = 'empresa';
           }
+          // Sempre 30 dias premium para ambos
+          await docRef.update({
+            premium: true,
+            premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+            premiumDaysLeft: 30,
+            tipoPlano: tipoPlano
+          });
         }
       }
       res.status(200).send('OK');

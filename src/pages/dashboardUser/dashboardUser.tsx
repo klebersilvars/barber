@@ -40,6 +40,8 @@ export default function DashboardUser() {
   const location = useLocation()
   const auth = getAuth(); // Inicializar o Auth
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+  const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
 
   // Buscar nome do estabelecimento e receita do dia
   useEffect(() => {
@@ -54,6 +56,8 @@ export default function DashboardUser() {
         const nomeDoEstabelecimento = contaData.nomeEstabelecimento || '';
         setEstabelecimentoNome(nomeDoEstabelecimento);
         setIsPremium(contaData.premium === true); // premium só se for true MESMO
+        setTipoPlano(contaData.tipoPlano || null);
+        setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
 
         // Obter data atual e data 24 horas atrás
         const agora = new Date();
@@ -172,6 +176,23 @@ export default function DashboardUser() {
     { icon: Bell, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
+  // Páginas permitidas para plano individual
+  const allowedPathsIndividual = [
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/cliente`,
+    `/dashboard/${uid}/vendas`,
+    `/dashboard/${uid}/despesas`,
+    `/dashboard/${uid}`
+  ];
+
+  // Páginas permitidas para premium grátis (7 dias)
+  const allowedPathsTesteGratis = [
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/configuracoes`,
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}`
+  ];
+
   const isMenuItemActive = (itemPath: string) => {
     if (itemPath === `/dashboard/${uid}`) {
       return location.pathname === itemPath || location.pathname === `/dashboard/${uid}/`;
@@ -192,6 +213,21 @@ export default function DashboardUser() {
     });
   };
 
+  // Garante que todos os itens têm 'disabled' para evitar erro de tipagem
+  const menuItemsWithDisabled = menuItems.map(item => ({ ...item, disabled: false }));
+  let filteredMenuItems = menuItemsWithDisabled;
+  if (tipoPlano === 'individual') {
+    filteredMenuItems = menuItemsWithDisabled.map(item => ({
+      ...item,
+      disabled: !allowedPathsIndividual.includes(item.path)
+    }));
+  } else if (dataInicioTesteGratis && isPremium) {
+    filteredMenuItems = menuItemsWithDisabled.map(item => ({
+      ...item,
+      disabled: !allowedPathsTesteGratis.includes(item.path)
+    }));
+  }
+
   return (
     <div className="dashboard-container">
       {/* Drawer lateral do menu mobile */}
@@ -211,8 +247,8 @@ export default function DashboardUser() {
             <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X size={24} /></button>
           </div>
           <nav style={{ flex: 1, padding: '16px 0' }}>
-            {menuItems.map((item, index) => {
-              const isDisabled = item.premiumRequired && !isPremium;
+            {filteredMenuItems.map((item, index) => {
+              const isDisabled = (tipoPlano === 'individual' && item.disabled) || (item.premiumRequired && !isPremium);
               return (
                 <button
                   key={index}
@@ -234,7 +270,6 @@ export default function DashboardUser() {
                   onClick={e => {
                     e.preventDefault();
                     if (isDisabled) {
-                      setShowPremiumModal(true);
                       return;
                     }
                     setMobileMenuOpen(false);
@@ -324,8 +359,8 @@ export default function DashboardUser() {
           </div>
 
           <nav className="sidebar-nav">
-            {menuItems.map((item, index) => {
-              const isDisabled = item.premiumRequired && !isPremium;
+            {filteredMenuItems.map((item, index) => {
+              const isDisabled = (tipoPlano === 'individual' && item.disabled) || (item.premiumRequired && !isPremium);
               return (
                 <a
                   key={index}
@@ -334,7 +369,6 @@ export default function DashboardUser() {
                   onClick={e => {
                     e.preventDefault();
                     if (isDisabled) {
-                      setShowPremiumModal(true);
                       return;
                     }
                     if (item.path === "#logout") {

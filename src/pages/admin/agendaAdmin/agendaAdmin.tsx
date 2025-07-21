@@ -157,6 +157,28 @@ const AgendaAdmin = () => {
     return () => unsub()
   }, [auth.currentUser])
 
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+  const [isPremium, setIsPremium] = useState<boolean>(true)
+  useEffect(() => {
+    if (!auth.currentUser?.uid) return
+    const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+    getDoc(docRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setTipoPlano(data.tipoPlano || null)
+        setIsPremium(data.premium === true)
+      }
+    })
+  }, [auth.currentUser])
+  useEffect(() => {
+    if (tipoPlano === 'individual' && !window.location.pathname.includes('agendaAdmin')) {
+      navigate(`/dashboard/${auth.currentUser?.uid}`)
+    }
+    if (!isPremium) {
+      navigate(`/dashboard/${auth.currentUser?.uid}`)
+    }
+  }, [tipoPlano, isPremium, navigate, auth.currentUser])
+
   const handleModalClose = () => {
     setShowAppointmentModal(false)
     setModalStep(1)

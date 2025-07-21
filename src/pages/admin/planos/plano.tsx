@@ -1,18 +1,41 @@
 "use client"
 
 import { useState } from "react"
+import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, Stack } from "@chakra-ui/react"
 import "./plano.css"
 import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
 import { auth } from '../../../firebase/firebase'
 
 export default function Plano() {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
+  const [billingCycle] = useState<"monthly">("monthly")
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
 
   const plans = [
-    
+    {
+      id: "individual",
+      name: "Individual",
+      description: "Para profissionais autônomos ou pequenos negócios",
+      monthlyPrice: 10.0,
+      yearlyPrice: 100.0,
+      popular: false,
+      features: [
+        "1 colaborador (você)",
+        "Agendamento online",
+        "Suporte padrão",
+        'Treinamento incluído'
+      ],
+      limitations: [
+        "Sem relatórios avançados",
+        "Sem colaboradores adicionais",
+        'Sem gestão financeira',
+        'Sem controle de clientes'
+        
+      ],
+      color: "purple",
+      icon: Star,
+    },
     {
       id: "empresa",
       name: "Empresa",
@@ -42,15 +65,7 @@ export default function Plano() {
     "Suporte especializado",
   ]
 
-  const getPrice = (plan: any) => {
-    return billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyPrice
-  }
-
-  const getSavings = (plan: any) => {
-    const monthlyCost = plan.monthlyPrice * 12
-    const yearlyCost = plan.yearlyPrice
-    return monthlyCost - yearlyCost
-  }
+  const getPrice = (plan: any) => plan.monthlyPrice
 
   const handleWhatsAppClick = () => {
     const phoneNumber = "5521982410516"
@@ -114,16 +129,7 @@ export default function Plano() {
           <h2>Conheça nossos planos e preços</h2>
           <p>Escolha o plano ideal para o seu negócio e comece a transformar sua gestão hoje mesmo!</p>
 
-          {/* Billing Toggle */}
-          <div className="billing-toggle">
-            <button className={billingCycle === "monthly" ? "active" : ""} onClick={() => setBillingCycle("monthly")}>
-              Mensal
-            </button>
-            <button className={billingCycle === "yearly" ? "active" : ""} onClick={() => setBillingCycle("yearly")}>
-              Anual
-              <span className="savings-badge">Economize até 17%</span>
-            </button>
-          </div>
+          {/* Billing Toggle removido: só mensal */}
         </div>
 
         {/* Benefits List */}
@@ -138,74 +144,89 @@ export default function Plano() {
 
         {/* Plans Grid */}
         <div className="plans-grid-two">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`plan-card ${plan.color} ${plan.popular ? "popular" : ""} ${
-                selectedPlan === plan.id ? "selected" : ""
-              }`}
-              onClick={() => setSelectedPlan(plan.id)}
-            >
-              {plan.popular && (
-                <div className="popular-badge">
-                  <Star size={16} />
-                  Mais Popular
-                </div>
-              )}
-
-              <div className="plan-header">
-                <div className="plan-icon">
-                  <plan.icon size={28} />
-                </div>
-                <h3>{plan.name}</h3>
-                <p>{plan.description}</p>
-              </div>
-
-              <div className="plan-pricing">
-                <div className="price">
-                  <span className="currency">R$</span>
-                  <span className="amount">{getPrice(plan).toFixed(2).replace(".", ",")}</span>
-                  <span className="period">/{billingCycle === "monthly" ? "mês" : "ano"}</span>
-                </div>
-                {billingCycle === "yearly" && (
-                  <div className="savings">Economize R$ {getSavings(plan).toFixed(2).replace(".", ",")} por ano</div>
-                )}
-              </div>
-
-              <div className="plan-features">
-                {plan.features.map((feature, index) => (
-                  <div key={index} className="feature-item">
-                    <Check className="feature-icon" />
-                    <span>{feature}</span>
-                  </div>
-                ))}
-                {plan.limitations.map((limitation, index) => (
-                  <div key={index} className="limitation-item">
-                    <X className="limitation-icon" />
-                    <span>{limitation}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                className={`plan-button ${plan.color}`}
-                onClick={e => {
-                  e.stopPropagation();
-                  handleCheckout(plan);
-                }}
-                disabled={loadingPayment}
-                style={loadingPayment ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
+          <Stack direction={{ base: "column", md: "row" }} spacing={8} width="100%">
+            {plans.map((plan) => (
+              <Box
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                borderStyle={selectedPlan === plan.id ? "solid" : "dashed"}
+                borderWidth={selectedPlan === plan.id ? 3 : 2}
+                borderColor={selectedPlan === plan.id ? (plan.id === "individual" ? "purple.500" : "blue.500") : plan.popular ? "blue.400" : "gray.200"}
+                borderRadius="xl"
+                boxShadow={plan.popular ? "0 0 0 3px #2563eb33" : "sm"}
+                bg={plan.id === "individual" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
+                p={6}
+                flex={1}
+                minW={{ base: "auto", md: 320 }}
+                maxW={400}
+                position="relative"
+                transition="all 0.2s"
+                _hover={{ boxShadow: "lg", borderColor: plan.popular ? "blue.500" : "purple.400" }}
+                cursor="pointer"
               >
-                {loadingPayment ? "Processando..." : "Selecionar Plano"}
-                <ChevronRight size={16} />
-              </button>
-              {paymentMessage && (
-                <div style={{ color: paymentMessage.includes('Erro') || paymentMessage.includes('não foi possível') ? 'red' : '#333', marginTop: 8, fontSize: 14, textAlign: 'center' }}>
-                  {paymentMessage}
-                </div>
-              )}
-            </div>
-          ))}
+                {plan.popular && (
+                  <Badge colorScheme="blue" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
+                    <Icon as={Star} mr={1} /> Mais Popular
+                  </Badge>
+                )}
+                {plan.id === "individual" && (
+                  <Badge colorScheme="purple" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
+                    Individual
+                  </Badge>
+                )}
+                <VStack spacing={3} align="start">
+                  <HStack spacing={2} align="center">
+                    <Box bg={plan.id === "individual" ? "purple.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
+                      <Icon as={plan.icon} color="white" boxSize={6} />
+                    </Box>
+                    <Text fontWeight={700} fontSize="2xl" color={plan.id === "individual" ? "purple.700" : "blue.700"}>{plan.name}</Text>
+                  </HStack>
+                  <Text color="gray.600" fontSize="md">{plan.description}</Text>
+                  <Box mt={2} mb={2}>
+                    <Text fontSize="3xl" fontWeight={800} color={plan.id === "individual" ? "purple.700" : "blue.700"}>
+                      R$ {getPrice(plan).toFixed(2).replace(".", ",")}
+                      <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>/mês</Text>
+                    </Text>
+                  </Box>
+                  <VStack align="start" spacing={1} mt={2} mb={2}>
+                    {plan.features.map((feature, index) => (
+                      <HStack key={index} spacing={2}>
+                        <Icon as={Check} color={plan.id === "individual" ? "purple.500" : "blue.500"} boxSize={4} />
+                        <Text fontSize="sm">{feature}</Text>
+                      </HStack>
+                    ))}
+                    {plan.limitations.map((limitation, index) => (
+                      <HStack key={index} spacing={2}>
+                        <Icon as={X} color="red.400" boxSize={4} />
+                        <Text fontSize="sm" color="red.500">{limitation}</Text>
+                      </HStack>
+                    ))}
+                  </VStack>
+                  <Button
+                    colorScheme={plan.id === "individual" ? "purple" : "blue"}
+                    rightIcon={<ChevronRight size={16} />}
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleCheckout(plan);
+                    }}
+                    isLoading={loadingPayment}
+                    loadingText="Processando..."
+                    w="100%"
+                    mt={2}
+                    fontWeight={700}
+                    fontSize="md"
+                  >
+                    {loadingPayment ? "Processando..." : "Selecionar Plano"}
+                  </Button>
+                  {paymentMessage && selectedPlan === plan.id && (
+                    <Text color={paymentMessage.includes('Erro') || paymentMessage.includes('não foi possível') ? 'red.500' : 'gray.700'} mt={2} fontSize="sm" textAlign="center">
+                      {paymentMessage}
+                    </Text>
+                  )}
+                </VStack>
+              </Box>
+            ))}
+          </Stack>
         </div>
       </section>
 

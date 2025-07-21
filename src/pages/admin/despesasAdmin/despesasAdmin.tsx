@@ -31,9 +31,11 @@ import {
 } from "lucide-react"
 import { firestore } from "../../../firebase/firebase"
 import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc, Timestamp } from "firebase/firestore"
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { auth } from "../../../firebase/firebase"
 import "./despesasAdmin.css"
+import { getAuth } from "firebase/auth"
+import { doc, getDoc } from 'firebase/firestore'
 
 interface Despesa {
   id: string
@@ -490,6 +492,30 @@ const DespesasAdmin = () => {
       alert("Erro ao atualizar valores: " + error)
     }
   }
+
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+  const [isPremium, setIsPremium] = useState<boolean>(true)
+  const navigate = useNavigate()
+  const auth = getAuth()
+  useEffect(() => {
+    if (!auth.currentUser?.uid) return
+    const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+    getDoc(docRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setTipoPlano(data.tipoPlano || null)
+        setIsPremium(data.premium === true)
+      }
+    })
+  }, [auth.currentUser])
+  useEffect(() => {
+    if (tipoPlano === 'individual' && !window.location.pathname.includes('despesasAdmin')) {
+      navigate(`/dashboard/${auth.currentUser?.uid}`)
+    }
+    if (!isPremium) {
+      navigate(`/dashboard/${auth.currentUser?.uid}`)
+    }
+  }, [tipoPlano, isPremium, navigate, auth.currentUser])
 
   return (
     <div className="despesas-container">
