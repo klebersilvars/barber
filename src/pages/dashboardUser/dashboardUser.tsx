@@ -275,7 +275,14 @@ export default function DashboardUser() {
             <span>
               🎉 Você tem acesso à <strong>Avaliação Grátis</strong> da sua conta! Aproveite agora!
             </span>
-            <button className="promotion-btn" onClick={ativarTesteGratis}>Ativar Agora</button>
+            <button
+              className="promotion-btn"
+              onClick={ativarTesteGratis}
+              disabled={diasRestantesTeste === 0 || diasRestantesTeste === null}
+              style={diasRestantesTeste === 0 || diasRestantesTeste === null ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            >
+              Ativar Agora
+            </button>
           </div>
           <button className="promotion-close" onClick={() => setShowPromotion(false)}>
             <X size={16} />

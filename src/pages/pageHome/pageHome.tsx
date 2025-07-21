@@ -56,7 +56,7 @@ export default function PageHome() {
   const depoimentos = [
     {
       nome: "Carlos Silva",
-      cargo: "Proprietário - Barbearia Moderna",
+      cargo: "Proprietário -  Moderna",
       comentario:
         "Revolucionou minha barbearia! Agora tenho controle total dos agendamentos e meus clientes adoram a praticidade.",
       avatar: "CS",
