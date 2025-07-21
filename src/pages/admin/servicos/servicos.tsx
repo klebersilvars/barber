@@ -818,6 +818,18 @@ const Servicos = () => {
                     <label>Profissionais Habilitados*</label>
                     <p className="form-help">Selecione quais profissionais podem executar este serviço</p>
                     <div className="profissionais-selection">
+                      {/* Checkbox para o próprio dono da conta (admin) */}
+                      {nomeEstabelecimento && (
+                        <label className="checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={profissionaisSelecionados.includes(nomeEstabelecimento)}
+                            onChange={() => handleProfissionalToggle(nomeEstabelecimento)}
+                          />
+                          <span className="checkmark"></span>
+                          {nomeEstabelecimento} (Administrador)
+                        </label>
+                      )}
                       {colaboradores.length > 0 ? (
                         colaboradores.map((colab) => (
                           <label key={colab.id} className="checkbox-item">
@@ -998,6 +1010,18 @@ const Servicos = () => {
                       <label>Profissionais Habilitados*</label>
                       <p className="form-help">Selecione quais profissionais podem executar este serviço</p>
                       <div className="profissionais-selection">
+                        {/* Checkbox para o próprio dono da conta (admin) */}
+                        {nomeEstabelecimento && (
+                          <label className="checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={profissionaisSelecionados.includes(nomeEstabelecimento)}
+                              onChange={() => handleProfissionalToggle(nomeEstabelecimento)}
+                            />
+                            <span className="checkmark"></span>
+                            {nomeEstabelecimento} (Administrador)
+                          </label>
+                        )}
                         {colaboradores.length > 0 ? (
                           colaboradores.map((colab) => (
                             <label key={colab.id} className="checkbox-item">
