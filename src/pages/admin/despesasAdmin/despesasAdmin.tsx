@@ -32,7 +32,6 @@ import {
 import { firestore } from "../../../firebase/firebase"
 import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc, Timestamp, getDoc } from "firebase/firestore"
 import { useParams, useNavigate } from "react-router-dom"
-import { auth } from "../../../firebase/firebase"
 import "./despesasAdmin.css"
 import { getAuth } from "firebase/auth"
 
@@ -212,7 +211,7 @@ const DespesasAdmin = () => {
     e.preventDefault()
 
     try {
-      const user = auth.currentUser
+      const user = getAuth().currentUser
       if (!user || !uid) {
         alert("Erro: Usuário não autenticado")
         return
@@ -289,7 +288,7 @@ const DespesasAdmin = () => {
         recorrente,
         nomeEstabelecimento,
         estabelecimentoUid: uid,
-        emailAdmin: auth.currentUser?.email,
+        emailAdmin: getAuth().currentUser?.email,
         mes_cadastrado: getMonthName(dataObj.getMonth()).toLowerCase(),
       }
 

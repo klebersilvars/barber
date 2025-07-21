@@ -7,7 +7,6 @@ import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIco
 import { auth } from '../../../firebase/firebase'
 
 export default function Plano() {
-  const [billingCycle] = useState<"monthly">("monthly")
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
