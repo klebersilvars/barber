@@ -18,8 +18,6 @@ import {
     useColorModeValue,
     VStack,
     HStack,
-    Checkbox,
-    Divider,
     IconButton,
     Alert,
     AlertIcon,
@@ -33,7 +31,6 @@ import { useNavigate } from "react-router-dom"
 export default function LoginFundador() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const [rememberMe, setRememberMe] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState("")

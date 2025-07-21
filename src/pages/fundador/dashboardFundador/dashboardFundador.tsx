@@ -46,21 +46,6 @@ import { signOut } from "firebase/auth"
 import { auth } from "../../../firebase/firebase"
 import { useNavigate } from "react-router-dom"
 
-// Dados mockados
-const establishments = [
-  { id: 1, name: "Restaurante Bella Vista", status: "Ativo", revenue: "R$ 15.420", growth: "+12%" },
-  { id: 2, name: "Café Central", status: "Ativo", revenue: "R$ 8.750", growth: "+8%" },
-  { id: 3, name: "Pizzaria Napoli", status: "Pendente", revenue: "R$ 12.300", growth: "-2%" },
-  { id: 4, name: "Lanchonete do João", status: "Ativo", revenue: "R$ 6.890", growth: "+15%" },
-]
-
-const transactions = [
-  { id: 1, establishment: "Restaurante Bella Vista", amount: "R$ 1.250", type: "Receita", date: "Hoje" },
-  { id: 2, establishment: "Café Central", amount: "R$ 890", type: "Receita", date: "Ontem" },
-  { id: 3, establishment: "Taxa da Plataforma", amount: "R$ 150", type: "Taxa", date: "Hoje" },
-  { id: 4, establishment: "Pizzaria Napoli", amount: "R$ 2.100", type: "Receita", date: "2 dias atrás" },
-]
-
 interface SidebarProps {
   onClose: () => void
   activeSection: string
