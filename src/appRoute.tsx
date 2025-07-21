@@ -25,6 +25,7 @@ import AgendaCliente from "./pages/cliente/pageAgendaCliente/agendaCliente"
 import RequireAuth from "./components/RequireAuth"
 import PageErro from "./pages/pageErro/pageErro"
 import LoginFundador from "./pages/fundador/LoginPage/LoginFundador"
+import DashboardFundador from "./pages/fundador/dashboardFundador/dashboardFundador"
 
 export default function AppRoutes() {
   return (
@@ -61,6 +62,7 @@ export default function AppRoutes() {
         <Route path="/" element={<PageHome />} />
         <Route path="*" element={<PageErro />} />
         <Route path="/fundador" element={<LoginFundador />} />
+        <Route path="/dashboardFundador/:uid" element={<DashboardFundador />} />
       </Routes>
     </BrowserRouter>
   )

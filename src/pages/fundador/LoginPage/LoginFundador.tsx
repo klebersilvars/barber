@@ -28,6 +28,7 @@ import { useState } from "react"
 import { ViewIcon, ViewOffIcon, EmailIcon, LockIcon } from "@chakra-ui/icons"
 import { auth } from "../../../firebase/firebase"
 import { signInWithEmailAndPassword } from "firebase/auth"
+import { useNavigate } from "react-router-dom"
 
 export default function LoginFundador() {
     const [email, setEmail] = useState("")
@@ -36,6 +37,7 @@ export default function LoginFundador() {
     const [isLoading, setIsLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState("")
+    const navigation = useNavigate()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -46,6 +48,7 @@ export default function LoginFundador() {
         .then((userLOGADO)=> {
             const userID = userLOGADO.user.uid //pegando o uid do usuário logado
             alert('Usuário logado com sucesso!')
+            navigation(`/dashboardFundador/${userID}`)
 
         }).catch((error)=> {
             console.log(error)
