@@ -30,12 +30,11 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { firestore } from "../../../firebase/firebase"
-import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc, Timestamp } from "firebase/firestore"
+import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc, Timestamp, getDoc } from "firebase/firestore"
 import { useParams, useNavigate } from "react-router-dom"
 import { auth } from "../../../firebase/firebase"
 import "./despesasAdmin.css"
 import { getAuth } from "firebase/auth"
-import { doc, getDoc } from 'firebase/firestore'
 
 interface Despesa {
   id: string

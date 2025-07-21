@@ -23,12 +23,11 @@ import {
   Calendar,
 } from "lucide-react"
 import { firestore } from '../../../firebase/firebase';
-import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs'
 import 'dayjs/locale/pt-br'
 import { getAuth } from "firebase/auth"
-import { doc, getDoc } from 'firebase/firestore'
 
 interface Sale {
   id: string
