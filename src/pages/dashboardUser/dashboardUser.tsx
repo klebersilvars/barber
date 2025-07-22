@@ -176,22 +176,95 @@ export default function DashboardUser() {
     { icon: Bell, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
-  // Páginas permitidas para plano individual
-  const allowedPathsIndividual = [
+  // NOVA LÓGICA DE ROTAS POR PLANO
+  // Definição dos caminhos permitidos para cada plano
+  const allowedPathsGratis = [
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/agenda`,
-    `/dashboard/${uid}/cliente`,
-    `/dashboard/${uid}/vendas`,
-    `/dashboard/${uid}/despesas`,
     `/dashboard/${uid}`
   ];
-
-  // Páginas permitidas para premium grátis (7 dias)
-  const allowedPathsTesteGratis = [
+  const allowedPathsGratisExpirado = [
+    `/dashboard/${uid}/plano`
+  ];
+  const allowedPathsIndividual = [
+    `/dashboard/${uid}/servicos`,
     `/dashboard/${uid}/agenda`,
     `/dashboard/${uid}/configuracoes`,
-    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/plano`,
     `/dashboard/${uid}`
   ];
+  // Empresa: todas as rotas liberadas
+
+  // Função para checar se o plano está expirado (7 dias para grátis, 30 para individual/empresa)
+  function isPlanoExpirado(tipo: string | null, dataInicio: string | null) {
+    if (!tipo || !dataInicio) return false;
+    const inicio = new Date(dataInicio);
+    const hoje = new Date();
+    const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+    const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
+    if (tipo === 'gratis') return diff >= 7;
+    if (tipo === 'individual' || tipo === 'empresa') return diff >= 30;
+    return false;
+  }
+
+  let filteredMenuItems = menuItems.map(item => ({ ...item, disabled: false }));
+  if (tipoPlano === 'gratis') {
+    if (isPlanoExpirado('gratis', dataInicioTesteGratis)) {
+      // Grátis expirado: só Plano e Pagamento
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsGratisExpirado.includes(item.path)
+      }));
+    } else {
+      // Grátis ativo: Plano, Serviços, Configurações, Agenda Online, Dashboard
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsGratis.includes(item.path)
+      }));
+    }
+  } else if (tipoPlano === 'individual') {
+    if (isPlanoExpirado('individual', dataInicioTesteGratis)) {
+      // Individual expirado: bloqueia tudo
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: true
+      }));
+    } else {
+      // Individual ativo: Serviços, Agenda Online, Configurações, Plano e Pagamento, Dashboard
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsIndividual.includes(item.path)
+      }));
+    }
+  } else if (tipoPlano === 'empresa') {
+    if (isPlanoExpirado('empresa', dataInicioTesteGratis)) {
+      // Empresa expirado: bloqueia tudo
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: true
+      }));
+    } else {
+      // Empresa ativo: libera tudo
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: false
+      }));
+    }
+  } else {
+    // Caso não tenha plano, bloqueia tudo menos plano e pagamento
+    filteredMenuItems = menuItems.map(item => ({
+      ...item,
+      disabled: item.path !== `/dashboard/${uid}/plano`
+    }));
+  }
+
+  // Após montar filteredMenuItems:
+  filteredMenuItems = filteredMenuItems.map(item =>
+    item.path === '#logout' ? { ...item, disabled: false } : item
+  );
 
   const isMenuItemActive = (itemPath: string) => {
     if (itemPath === `/dashboard/${uid}`) {
@@ -213,20 +286,48 @@ export default function DashboardUser() {
     });
   };
 
-  // Garante que todos os itens têm 'disabled' para evitar erro de tipagem
-  const menuItemsWithDisabled = menuItems.map(item => ({ ...item, disabled: false }));
-  let filteredMenuItems = menuItemsWithDisabled;
-  if (tipoPlano === 'individual') {
-    filteredMenuItems = menuItemsWithDisabled.map(item => ({
-      ...item,
-      disabled: !allowedPathsIndividual.includes(item.path)
-    }));
-  } else if (dataInicioTesteGratis && isPremium) {
-    filteredMenuItems = menuItemsWithDisabled.map(item => ({
-      ...item,
-      disabled: !allowedPathsTesteGratis.includes(item.path)
-    }));
-  }
+  useEffect(() => {
+    if (!uid || !tipoPlano) return;
+
+    let allowedPaths: string[] = [];
+    if (tipoPlano === 'gratis') {
+      allowedPaths = isPlanoExpirado('gratis', dataInicioTesteGratis)
+        ? [`/dashboard/${uid}/plano`, `#logout`]
+        : [
+            `/dashboard/${uid}/plano`,
+            `/dashboard/${uid}/servicos`,
+            `/dashboard/${uid}/configuracoes`,
+            `/dashboard/${uid}/agenda`,
+            `/dashboard/${uid}`,
+            `#logout`
+          ];
+    } else if (tipoPlano === 'individual') {
+      allowedPaths = isPlanoExpirado('individual', dataInicioTesteGratis)
+        ? [`#logout`]
+        : [
+            `/dashboard/${uid}/servicos`,
+            `/dashboard/${uid}/agenda`,
+            `/dashboard/${uid}/configuracoes`,
+            `/dashboard/${uid}/plano`,
+            `/dashboard/${uid}`,
+            `#logout`
+          ];
+    } else if (tipoPlano === 'empresa') {
+      allowedPaths = isPlanoExpirado('empresa', dataInicioTesteGratis)
+        ? []
+        : [
+            ...menuItems.map(item => item.path)
+          ];
+    } else {
+      allowedPaths = [`/dashboard/${uid}/plano`];
+    }
+
+    if (location.pathname === '#logout') return; // Nunca bloqueie o logout
+    const isAllowed = allowedPaths.some(path => location.pathname.startsWith(path));
+    if (!isAllowed) {
+      navigate(`/dashboard/${uid}/plano`);
+    }
+  }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname]);
 
   return (
     <div className="dashboard-container">
@@ -248,7 +349,7 @@ export default function DashboardUser() {
           </div>
           <nav style={{ flex: 1, padding: '16px 0' }}>
             {filteredMenuItems.map((item, index) => {
-              const isDisabled = (tipoPlano === 'individual' && item.disabled) || (item.premiumRequired && !isPremium);
+              const isDisabled = item.disabled;
               return (
                 <button
                   key={index}
@@ -360,7 +461,7 @@ export default function DashboardUser() {
 
           <nav className="sidebar-nav">
             {filteredMenuItems.map((item, index) => {
-              const isDisabled = (tipoPlano === 'individual' && item.disabled) || (item.premiumRequired && !isPremium);
+              const isDisabled = item.disabled;
               return (
                 <a
                   key={index}

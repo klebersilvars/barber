@@ -93,6 +93,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
         const snapshot = await contasRef.where('email', '==', email).get();
         if (!snapshot.empty) {
           const docRef = snapshot.docs[0].ref;
+          const contaData = snapshot.docs[0].data();
           // Verificar tipo de plano pelo valor ou pelo metadata
           let tipoPlano = 'empresa';
           let plano = '';
@@ -118,6 +119,16 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             premiumDaysLeft: 30,
             tipoPlano: tipoPlano
           });
+          // Se for empresa, ativa colaboradores
+          if (tipoPlano === 'empresa' && contaData.nomeEstabelecimento) {
+            const colaboradoresRef = db.collection('colaboradores');
+            const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: true });
+            });
+            await batchColab.commit();
+          }
         }
       }
       res.status(200).send('OK');
@@ -136,16 +147,31 @@ app.post('/api/decrement-premium-days', async (req, res) => {
     const contasRef = db.collection('contas');
     const snapshot = await contasRef.where('premium', '==', true).get();
     const batch = db.batch();
+    const promises = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
       if (data.premiumDaysLeft > 1) {
         batch.update(doc.ref, { premiumDaysLeft: data.premiumDaysLeft - 1 });
       } else {
         batch.update(doc.ref, { premium: false, premiumDaysLeft: 0 });
+        // Se for plano empresa, desativa colaboradores
+        if (data.tipoPlano === 'empresa' && data.nomeEstabelecimento) {
+          const colaboradoresRef = db.collection('colaboradores');
+          // Busca todos os colaboradores do estabelecimento
+          const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: false });
+            });
+            return batchColab.commit();
+          });
+          promises.push(p);
+        }
       }
     });
     await batch.commit();
-    res.status(200).json({ message: 'Dias premium decrementados.' });
+    await Promise.all(promises);
+    res.status(200).json({ message: 'Dias premium decrementados e colaboradores desativados se necessário.' });
   } catch (err) {
     console.error('Erro ao decrementar dias premium:', err.message);
     res.status(500).json({ error: 'Erro ao decrementar dias premium.' });

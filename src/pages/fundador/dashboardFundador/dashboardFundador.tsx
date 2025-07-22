@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { collection, getDocs, deleteDoc, doc as firestoreDoc } from 'firebase/firestore'
+import { firestore } from '../../../firebase/firebase'
 import {
   Box,
   Flex,
@@ -39,12 +41,21 @@ import {
   Badge,
   Progress,
   SimpleGrid,
+  Input,
+  Textarea,
+  Checkbox,
+  DrawerBody,
+  DrawerHeader,
+  DrawerCloseButton,
+  Select,
 } from "@chakra-ui/react"
 import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons"
 import { FiHome, FiSettings, FiMenu, FiDollarSign, FiLogOut, FiShoppingBag } from "react-icons/fi"
 import { signOut } from "firebase/auth"
 import { auth } from "../../../firebase/firebase"
 import { useNavigate } from "react-router-dom"
+import { useToast } from '@chakra-ui/react'
+import { updateDoc } from 'firebase/firestore'
 
 interface SidebarProps {
   onClose: () => void
@@ -316,72 +327,289 @@ const DashboardContent = () => (
   </Box>
 )
 
-const EstablishmentsContent = () => (
-  <Box>
-    <Flex justify="space-between" align="center" mb={6}>
-      <Heading size="lg">Estabelecimentos</Heading>
-      <Button colorScheme="blue" size="sm">
-        Adicionar Estabelecimento
-      </Button>
-    </Flex>
-    <Card>
-      <CardBody>
-        <TableContainer>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th>Nome</Th>
-                <Th>Plano</Th>
-                <Th>Valor do plano</Th>
-                <Th>Status</Th>
-                <Th>Ações</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {/* Exemplo de estabelecimentos com planos e status */}
-              <Tr>
-                <Td>Barbearia Exemplo</Td>
-                <Td>Empresa</Td>
-                <Td>R$ 20,00</Td>
-                <Td><Badge colorScheme="green">Premium</Badge></Td>
-                <Td>
-                  <HStack spacing={2}>
-                    <Button size="xs" variant="outline">Editar</Button>
-                    <Button size="xs" variant="outline" colorScheme="red">Remover</Button>
-                  </HStack>
-                </Td>
-              </Tr>
-              <Tr>
-                <Td>Salão da Ana</Td>
-                <Td>Individual</Td>
-                <Td>R$ 10,00</Td>
-                <Td><Badge colorScheme="yellow">Teste Grátis</Badge></Td>
-                <Td>
-                  <HStack spacing={2}>
-                    <Button size="xs" variant="outline">Editar</Button>
-                    <Button size="xs" variant="outline" colorScheme="red">Remover</Button>
-                  </HStack>
-                </Td>
-              </Tr>
-              <Tr>
-                <Td>Pizzaria Napoli</Td>
-                <Td>Empresa</Td>
-                <Td>R$ 20,00</Td>
-                <Td><Badge colorScheme="red">Inadimplente</Badge></Td>
-                <Td>
-                  <HStack spacing={2}>
-                    <Button size="xs" variant="outline">Editar</Button>
-                    <Button size="xs" variant="outline" colorScheme="red">Remover</Button>
-                  </HStack>
-                </Td>
-              </Tr>
-            </Tbody>
-          </Table>
-        </TableContainer>
-      </CardBody>
-    </Card>
-  </Box>
-)
+const EstablishmentsContent = () => {
+  const [estabelecimentos, setEstabelecimentos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<any | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showRemoveModal, setShowRemoveModal] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editData, setEditData] = useState<any | null>(null)
+  const toast = useToast()
+
+  useEffect(() => {
+    const fetchEstabs = async () => {
+      setLoading(true)
+      const snap = await getDocs(collection(firestore, 'contas'))
+      setEstabelecimentos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+      setLoading(false)
+    }
+    fetchEstabs()
+  }, [])
+
+  // Preencher editData ao abrir modal
+  useEffect(() => {
+    if (showEditModal && selected) {
+      setEditData({ ...selected })
+    }
+  }, [showEditModal, selected])
+
+  const handleRemove = async () => {
+    if (!selected) return
+    setRemoving(true)
+    try {
+      await deleteDoc(firestoreDoc(firestore, 'contas', selected.id))
+      setEstabelecimentos(estabelecimentos.filter(e => e.id !== selected.id))
+      setShowRemoveModal(false)
+      setSelected(null)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  const handleEditChange = (field: string, value: any) => {
+    setEditData((prev: any) => ({ ...prev, [field]: value }))
+  }
+
+  const handleEditSave = async () => {
+    if (!editData || !editData.id) return
+    setEditLoading(true)
+    try {
+      const docRef = firestoreDoc(firestore, 'contas', editData.id)
+      const updateObj: any = {
+        nomeEstabelecimento: editData.nomeEstabelecimento,
+        nome: editData.nome,
+        email: editData.email,
+        telefone: editData.telefone,
+        rua: editData.rua,
+        numero: editData.numero,
+        bairro: editData.bairro,
+        cidade: editData.cidade,
+        estado: editData.estado,
+        cep: editData.cep,
+        complemento: editData.complemento,
+        descricaoEstabelecimento: editData.descricaoEstabelecimento,
+        premium: editData.premium,
+        tipoPlano: editData.tipoPlano,
+        slug: editData.slug,
+        avaliacao_gratis: editData.avaliacao_gratis,
+        aparenciaAgendamento: {
+          corPrincipal: editData.aparenciaAgendamento?.corPrincipal || '',
+          nomeExibicao: editData.aparenciaAgendamento?.nomeExibicao || '',
+          linkAgendamento: editData.aparenciaAgendamento?.linkAgendamento || '',
+          mensagemBoasVindas: editData.aparenciaAgendamento?.mensagemBoasVindas || '',
+          mensagemAgradecimento: editData.aparenciaAgendamento?.mensagemAgradecimento || '',
+        },
+        configuracoesAtendimento: {
+          appointmentInterval: editData.configuracoesAtendimento?.appointmentInterval || 15,
+          maxAppointmentsPerDay: editData.configuracoesAtendimento?.maxAppointmentsPerDay || 8,
+        },
+        politicas: {
+          cancellationHours: editData.politicas?.cancellationHours || 24,
+          cancellationPolicy: editData.politicas?.cancellationPolicy || '',
+          rescheduleHours: editData.politicas?.rescheduleHours || 12,
+          reschedulePolicy: editData.politicas?.reschedulePolicy || '',
+        },
+        horariosFunc: editData.horariosFunc || [],
+      }
+      const agora = new Date();
+      // Lógica de avaliação grátis
+      if (editData.avaliacao_gratis) {
+        // Se marcar avaliação grátis, dar 7 dias de premium grátis
+        updateObj.premium = true;
+        updateObj.tipoPlano = '';
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        const fim = new Date(agora);
+        fim.setDate(fim.getDate() + 7);
+        updateObj.data_fim_teste_gratis = fim.toISOString();
+      } else if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
+        // Ativar premium por 30 dias
+        updateObj.premium = true;
+        updateObj.tipoPlano = editData.tipoPlano;
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        const fim = new Date(agora);
+        fim.setDate(fim.getDate() + 30);
+        updateObj.data_fim_teste_gratis = fim.toISOString();
+      } else if ((!editData.tipoPlano || editData.tipoPlano === '') && !editData.premium) {
+        // Remover premium imediatamente
+        updateObj.premium = false;
+        updateObj.tipoPlano = '';
+        updateObj.data_inicio_teste_gratis = null;
+        updateObj.data_fim_teste_gratis = null;
+      }
+      await updateDoc(docRef, updateObj)
+      setEstabelecimentos(estabelecimentos.map(e => e.id === editData.id ? { ...e, ...updateObj } : e))
+      setShowEditModal(false)
+      setSelected(null)
+      toast({ title: 'Estabelecimento atualizado!', status: 'success', duration: 2500, isClosable: true })
+    } catch (err) {
+      console.log('Erro ao atualizar estabelecimento:', err)
+      toast({ title: 'Erro ao atualizar', status: 'error', duration: 3000, isClosable: true })
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  return (
+    <Box>
+      <Flex justify="space-between" align="center" mb={6}>
+        <Heading size="lg">Estabelecimentos</Heading>
+      </Flex>
+      <Card>
+        <CardBody>
+          <TableContainer>
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>Nome</Th>
+                  <Th>Plano</Th>
+                  <Th>Status</Th>
+                  <Th>Email</Th>
+                  <Th>Ações</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {loading ? (
+                  <Tr><Td colSpan={5}>Carregando...</Td></Tr>
+                ) : estabelecimentos.length === 0 ? (
+                  <Tr><Td colSpan={5}>Nenhum estabelecimento encontrado</Td></Tr>
+                ) : (
+                  estabelecimentos.map(estab => (
+                    <Tr key={estab.id}>
+                      <Td>{estab.nomeEstabelecimento || '-'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : 'Empresa'}</Td>
+                      <Td>
+                        {estab.premium ? (
+                          <Badge colorScheme="green">Premium</Badge>
+                        ) : estab.data_inicio_teste_gratis ? (
+                          <Badge colorScheme="yellow">Teste Grátis</Badge>
+                        ) : (
+                          <Badge colorScheme="red">Inativo</Badge>
+                        )}
+                      </Td>
+                      <Td>{estab.email}</Td>
+                      <Td>
+                        <HStack spacing={2}>
+                          <Button size="xs" variant="outline" onClick={() => { setSelected(estab); setShowEditModal(true); }}>Editar</Button>
+                          <Button size="xs" variant="outline" colorScheme="red" onClick={() => { setSelected(estab); setShowRemoveModal(true); }}>Remover</Button>
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </Table>
+          </TableContainer>
+        </CardBody>
+      </Card>
+
+      {/* Modal de Remover */}
+      <Drawer isOpen={showRemoveModal} placement="bottom" onClose={() => setShowRemoveModal(false)} size="xs">
+        <DrawerContent p={4}>
+          <VStack spacing={4} align="center" p={4}>
+            <Heading size="md">Remover Estabelecimento</Heading>
+            <Text>Tem certeza que deseja remover <b>{selected?.nomeEstabelecimento}</b>? Esta ação é irreversível.</Text>
+            <HStack>
+              <Button onClick={() => setShowRemoveModal(false)} variant="outline">Cancelar</Button>
+              <Button colorScheme="red" isLoading={removing} onClick={handleRemove}>Remover</Button>
+            </HStack>
+          </VStack>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Modal de Editar */}
+      <Drawer isOpen={showEditModal} placement="bottom" onClose={() => setShowEditModal(false)} size="xs">
+        <DrawerContent p={0} maxH="90vh" borderTopRadius="2xl" overflow="hidden">
+          <DrawerCloseButton top={2} right={2} onClick={() => setShowEditModal(false)} />
+          <DrawerHeader borderBottomWidth="1px" p={4} fontSize="lg" fontWeight="bold">Editar Estabelecimento</DrawerHeader>
+          <DrawerBody p={0} maxH="calc(90vh - 56px)" overflowY="auto">
+            <Box p={4}>
+              <VStack spacing={4} align="stretch">
+                {editData && (
+                  <>
+                    {/* Dados básicos */}
+                    <Heading size="sm" mt={2}>Dados Básicos</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Input placeholder="Nome do Estabelecimento" value={editData.nomeEstabelecimento || ''} onChange={e => handleEditChange('nomeEstabelecimento', e.target.value)} />
+                      <Input placeholder="Nome do Responsável" value={editData.nome || ''} onChange={e => handleEditChange('nome', e.target.value)} />
+                      <Input placeholder="Email" value={editData.email || ''} onChange={e => handleEditChange('email', e.target.value)} />
+                      <Input placeholder="Telefone" value={editData.telefone || ''} onChange={e => handleEditChange('telefone', e.target.value)} />
+                      <Input placeholder="Slug" value={editData.slug || ''} onChange={e => handleEditChange('slug', e.target.value)} />
+                    </SimpleGrid>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Input placeholder="Rua" value={editData.rua || ''} onChange={e => handleEditChange('rua', e.target.value)} />
+                      <Input placeholder="Número" value={editData.numero || ''} onChange={e => handleEditChange('numero', e.target.value)} />
+                      <Input placeholder="Bairro" value={editData.bairro || ''} onChange={e => handleEditChange('bairro', e.target.value)} />
+                      <Input placeholder="Cidade" value={editData.cidade || ''} onChange={e => handleEditChange('cidade', e.target.value)} />
+                      <Input placeholder="Estado" value={editData.estado || ''} onChange={e => handleEditChange('estado', e.target.value)} />
+                      <Input placeholder="CEP" value={editData.cep || ''} onChange={e => handleEditChange('cep', e.target.value)} />
+                      <Input placeholder="Complemento" value={editData.complemento || ''} onChange={e => handleEditChange('complemento', e.target.value)} />
+                    </SimpleGrid>
+                    <Textarea placeholder="Descrição do Estabelecimento" value={editData.descricaoEstabelecimento || ''} onChange={e => handleEditChange('descricaoEstabelecimento', e.target.value)} />
+
+                    {/* Aparência */}
+                    <Heading size="sm" mt={4}>Aparência e Identidade</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Input placeholder="Cor Principal" value={editData.aparenciaAgendamento?.corPrincipal || ''} onChange={e => setEditData((prev: any) => ({ ...prev, aparenciaAgendamento: { ...prev.aparenciaAgendamento, corPrincipal: e.target.value } }))} />
+                      <Input placeholder="Nome de Exibição" value={editData.aparenciaAgendamento?.nomeExibicao || ''} onChange={e => setEditData((prev: any) => ({ ...prev, aparenciaAgendamento: { ...prev.aparenciaAgendamento, nomeExibicao: e.target.value } }))} />
+                      <Input placeholder="Link de Agendamento" value={editData.aparenciaAgendamento?.linkAgendamento || ''} onChange={e => setEditData((prev: any) => ({ ...prev, aparenciaAgendamento: { ...prev.aparenciaAgendamento, linkAgendamento: e.target.value } }))} />
+                    </SimpleGrid>
+                    <Textarea placeholder="Mensagem de Boas-vindas" value={editData.aparenciaAgendamento?.mensagemBoasVindas || ''} onChange={e => setEditData((prev: any) => ({ ...prev, aparenciaAgendamento: { ...prev.aparenciaAgendamento, mensagemBoasVindas: e.target.value } }))} />
+                    <Textarea placeholder="Mensagem de Agradecimento" value={editData.aparenciaAgendamento?.mensagemAgradecimento || ''} onChange={e => setEditData((prev: any) => ({ ...prev, aparenciaAgendamento: { ...prev.aparenciaAgendamento, mensagemAgradecimento: e.target.value } }))} />
+
+                    {/* Configurações de Atendimento */}
+                    <Heading size="sm" mt={4}>Configurações de Atendimento</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Input type="number" placeholder="Intervalo entre atendimentos (min)" value={editData.configuracoesAtendimento?.appointmentInterval || 15} onChange={e => setEditData((prev: any) => ({ ...prev, configuracoesAtendimento: { ...prev.configuracoesAtendimento, appointmentInterval: Number(e.target.value) } }))} />
+                      <Input type="number" placeholder="Máx. atendimentos/dia" value={editData.configuracoesAtendimento?.maxAppointmentsPerDay || 8} onChange={e => setEditData((prev: any) => ({ ...prev, configuracoesAtendimento: { ...prev.configuracoesAtendimento, maxAppointmentsPerDay: Number(e.target.value) } }))} />
+                    </SimpleGrid>
+
+                    {/* Políticas */}
+                    <Heading size="sm" mt={4}>Políticas</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Input type="number" placeholder="Horas para cancelar" value={editData.politicas?.cancellationHours || 24} onChange={e => setEditData((prev: any) => ({ ...prev, politicas: { ...prev.politicas, cancellationHours: Number(e.target.value) } }))} />
+                      <Input type="number" placeholder="Horas para remarcar" value={editData.politicas?.rescheduleHours || 12} onChange={e => setEditData((prev: any) => ({ ...prev, politicas: { ...prev.politicas, rescheduleHours: Number(e.target.value) } }))} />
+                    </SimpleGrid>
+                    <Textarea placeholder="Política de Cancelamento" value={editData.politicas?.cancellationPolicy || ''} onChange={e => setEditData((prev: any) => ({ ...prev, politicas: { ...prev.politicas, cancellationPolicy: e.target.value } }))} />
+                    <Textarea placeholder="Política de Remarcação" value={editData.politicas?.reschedulePolicy || ''} onChange={e => setEditData((prev: any) => ({ ...prev, politicas: { ...prev.politicas, reschedulePolicy: e.target.value } }))} />
+
+                    {/* Status premium e plano */}
+                    <Heading size="sm" mt={4}>Plano e Status</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Select placeholder="Selecione o tipo de plano" value={editData.tipoPlano || ''} onChange={e => {
+                        const value = e.target.value;
+                        handleEditChange('tipoPlano', value);
+                      }}>
+                        <option value="">Nenhum</option>
+                        <option value="individual">Individual</option>
+                        <option value="empresa">Empresa</option>
+                      </Select>
+                      <Box>
+                        <Text fontSize="sm" mb={1} fontWeight="semibold">Status Premium</Text>
+                        <Select value={editData.premium ? 'ativado' : 'desativado'} onChange={e => {
+                          const value = e.target.value === 'ativado';
+                          handleEditChange('premium', value);
+                        }}>
+                          <option value="ativado">Ativado</option>
+                          <option value="desativado">Desativado</option>
+                        </Select>
+                      </Box>
+                    </SimpleGrid>
+                    <Checkbox isChecked={editData.avaliacao_gratis} onChange={e => handleEditChange('avaliacao_gratis', e.target.checked)}>Avaliação Grátis</Checkbox>
+
+                    <Button colorScheme="blue" isLoading={editLoading} onClick={handleEditSave}>Salvar Alterações</Button>
+                  </>
+                )}
+                <Button onClick={() => setShowEditModal(false)} variant="outline">Fechar</Button>
+              </VStack>
+            </Box>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
+    </Box>
+  )
+}
 
 const FinancialContent = () => (
   <Box>

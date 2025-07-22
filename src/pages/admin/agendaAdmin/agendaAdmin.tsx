@@ -171,13 +171,15 @@ const AgendaAdmin = () => {
     })
   }, [auth.currentUser])
   useEffect(() => {
-    if (tipoPlano === 'individual' && !window.location.pathname.includes('agendaAdmin')) {
-      navigate(`/dashboard/${auth.currentUser?.uid}`)
+    const pathname = window.location.pathname;
+    // Permitir acesso à agenda para planos 'individual' e 'gratis'
+    if ((tipoPlano === 'individual' || tipoPlano === 'gratis') && !pathname.endsWith('/agenda')) {
+      navigate(`/dashboard/${auth.currentUser?.uid}`);
     }
     if (!isPremium) {
-      navigate(`/dashboard/${auth.currentUser?.uid}`)
+      navigate(`/dashboard/${auth.currentUser?.uid}`);
     }
-  }, [tipoPlano, isPremium, navigate, auth.currentUser])
+  }, [tipoPlano, isPremium, navigate, auth.currentUser]);
 
   const handleModalClose = () => {
     setShowAppointmentModal(false)
