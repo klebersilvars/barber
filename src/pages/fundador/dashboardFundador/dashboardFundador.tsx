@@ -378,18 +378,18 @@ const EstablishmentsContent = () => {
     try {
       const docRef = firestoreDoc(firestore, 'contas', editData.id)
       const updateObj: any = {
-        nomeEstabelecimento: editData.nomeEstabelecimento,
-        nome: editData.nome,
-        email: editData.email,
-        telefone: editData.telefone,
-        rua: editData.rua,
-        numero: editData.numero,
-        bairro: editData.bairro,
-        cidade: editData.cidade,
-        estado: editData.estado,
-        cep: editData.cep,
-        complemento: editData.complemento,
-        descricaoEstabelecimento: editData.descricaoEstabelecimento,
+        nomeEstabelecimento: editData.nomeEstabelecimento || '',
+        nome: editData.nome || '',
+        email: editData.email || '',
+        telefone: editData.telefone || '',
+        rua: editData.rua || '',
+        numero: editData.numero || '',
+        bairro: editData.bairro || '',
+        cidade: editData.cidade || '',
+        estado: editData.estado || '',
+        cep: editData.cep || '',
+        complemento: editData.complemento || '',
+        descricaoEstabelecimento: editData.descricaoEstabelecimento || '',
         premium: editData.premium,
         tipoPlano: editData.tipoPlano,
         slug: editData.slug,
@@ -414,16 +414,8 @@ const EstablishmentsContent = () => {
         horariosFunc: editData.horariosFunc || [],
       }
       const agora = new Date();
-      // Lógica de avaliação grátis
-      if (editData.avaliacao_gratis) {
-        // Se marcar avaliação grátis, dar 7 dias de premium grátis
-        updateObj.premium = true;
-        updateObj.tipoPlano = '';
-        updateObj.data_inicio_teste_gratis = agora.toISOString();
-        const fim = new Date(agora);
-        fim.setDate(fim.getDate() + 7);
-        updateObj.data_fim_teste_gratis = fim.toISOString();
-      } else if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
+      // Lógica de atualização de premium/plano
+      if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
         // Ativar premium por 30 dias
         updateObj.premium = true;
         updateObj.tipoPlano = editData.tipoPlano;
@@ -431,12 +423,27 @@ const EstablishmentsContent = () => {
         const fim = new Date(agora);
         fim.setDate(fim.getDate() + 30);
         updateObj.data_fim_teste_gratis = fim.toISOString();
+        updateObj.avaliacao_gratis = false;
+        updateObj.dias_plano_pago = 30;
+        updateObj.dias_plano_pago_restante = 30;
+      } else if (editData.avaliacao_gratis && (!editData.tipoPlano || editData.tipoPlano === '')) {
+        // Se marcar avaliação grátis e não tiver plano, dar 7 dias de premium grátis
+        updateObj.premium = true;
+        updateObj.tipoPlano = '';
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        const fim = new Date(agora);
+        fim.setDate(fim.getDate() + 7);
+        updateObj.data_fim_teste_gratis = fim.toISOString();
+        // Não preenche dias_plano_pago
       } else if ((!editData.tipoPlano || editData.tipoPlano === '') && !editData.premium) {
         // Remover premium imediatamente
         updateObj.premium = false;
         updateObj.tipoPlano = '';
         updateObj.data_inicio_teste_gratis = null;
         updateObj.data_fim_teste_gratis = null;
+        updateObj.avaliacao_gratis = false;
+        updateObj.dias_plano_pago = 0;
+        updateObj.dias_plano_pago_restante = 0;
       }
       await updateDoc(docRef, updateObj)
       setEstabelecimentos(estabelecimentos.map(e => e.id === editData.id ? { ...e, ...updateObj } : e))
@@ -465,20 +472,21 @@ const EstablishmentsContent = () => {
                   <Th>Nome</Th>
                   <Th>Plano</Th>
                   <Th>Status</Th>
+                  <Th>Dias Restantes</Th>
                   <Th>Email</Th>
                   <Th>Ações</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {loading ? (
-                  <Tr><Td colSpan={5}>Carregando...</Td></Tr>
+                  <Tr><Td colSpan={6}>Carregando...</Td></Tr>
                 ) : estabelecimentos.length === 0 ? (
-                  <Tr><Td colSpan={5}>Nenhum estabelecimento encontrado</Td></Tr>
+                  <Tr><Td colSpan={6}>Nenhum estabelecimento encontrado</Td></Tr>
                 ) : (
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : 'Empresa'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : 'Nenhum'}</Td>
                       <Td>
                         {estab.premium ? (
                           <Badge colorScheme="green">Premium</Badge>
@@ -487,6 +495,12 @@ const EstablishmentsContent = () => {
                         ) : (
                           <Badge colorScheme="red">Inativo</Badge>
                         )}
+                      </Td>
+                      <Td>
+                        {estab.tipoPlano === 'individual' || estab.tipoPlano === 'empresa'
+                          ? (estab.dias_plano_pago_restante ?? '-')
+                          : (estab.data_inicio_teste_gratis ? (7 - Math.floor((new Date().getTime() - new Date(estab.data_inicio_teste_gratis).getTime()) / (1000 * 60 * 60 * 24))) : '-')
+                        }
                       </Td>
                       <Td>{estab.email}</Td>
                       <Td>

@@ -117,7 +117,9 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             premium: true,
             premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
             premiumDaysLeft: 30,
-            tipoPlano: tipoPlano
+            tipoPlano: tipoPlano,
+            dias_plano_pago: 30,
+            dias_plano_pago_restante: 30
           });
           // Se for empresa, ativa colaboradores
           if (tipoPlano === 'empresa' && contaData.nomeEstabelecimento) {
@@ -150,10 +152,10 @@ app.post('/api/decrement-premium-days', async (req, res) => {
     const promises = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
-      if (data.premiumDaysLeft > 1) {
-        batch.update(doc.ref, { premiumDaysLeft: data.premiumDaysLeft - 1 });
-      } else {
-        batch.update(doc.ref, { premium: false, premiumDaysLeft: 0 });
+      if (data.dias_plano_pago_restante > 1) {
+        batch.update(doc.ref, { dias_plano_pago_restante: data.dias_plano_pago_restante - 1 });
+      } else if (data.dias_plano_pago_restante === 1) {
+        batch.update(doc.ref, { premium: false, dias_plano_pago_restante: 0, dias_plano_pago: 0 });
         // Se for plano empresa, desativa colaboradores
         if (data.tipoPlano === 'empresa' && data.nomeEstabelecimento) {
           const colaboradoresRef = db.collection('colaboradores');

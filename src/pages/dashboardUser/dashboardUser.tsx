@@ -26,6 +26,7 @@ import { getAuth, signOut } from "firebase/auth";
 import { firestore } from '../../firebase/firebase';
 import { collection, query, where, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import Modal from "./Modal"
+import { Box, Heading, Text, Stack } from "@chakra-ui/react";
 
 export default function DashboardUser() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -42,6 +43,8 @@ export default function DashboardUser() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
+  // Adicionar estado para diasPlanoPagoRestante
+  const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
 
   // Buscar nome do estabelecimento e receita do dia
   useEffect(() => {
@@ -329,6 +332,19 @@ export default function DashboardUser() {
     }
   }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname]);
 
+  // Buscar dias_plano_pago_restante do Firestore
+  useEffect(() => {
+    if (!uid) return;
+    const contasRef = collection(firestore, 'contas');
+    const qConta = query(contasRef, where('__name__', '==', uid));
+    getDocs(qConta).then(snapshot => {
+      if (!snapshot.empty) {
+        const contaData = snapshot.docs[0].data();
+        setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
+      }
+    });
+  }, [uid]);
+
   return (
     <div className="dashboard-container">
       {/* Drawer lateral do menu mobile */}
@@ -395,7 +411,7 @@ export default function DashboardUser() {
         </div>
       </div>
       {/* Promotion Banner */}
-      {showPromotion && !testeGratisAtivo && (
+      {tipoPlano === 'gratis' && showPromotion && !testeGratisAtivo && (
         <div className="promotion-banner" style={{ position: 'relative' }}>
           <button
             className="dashboard-hamburger-btn"
@@ -425,7 +441,7 @@ export default function DashboardUser() {
           </button>
         </div>
       )}
-      {showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
+      {tipoPlano === 'gratis' && showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
         <div className="promotion-banner" style={{ position: 'relative' }}>
           <button
             className="dashboard-hamburger-btn"
@@ -507,16 +523,22 @@ export default function DashboardUser() {
         {/* Main Content */}
         <main className="main-content">
           {location.pathname === `/dashboard/${uid}` || location.pathname === `/dashboard/${uid}/` ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              padding: '48px 0',
-              textAlign: 'center',
-            }}>
-              <h1 style={{ fontSize: 32, marginBottom: 16 }}>Bem-vindo à tela de administração do salão!</h1>
+            <Box maxW="md" mx="auto" mt={12} p={8} borderRadius="lg" boxShadow="lg" bg="white" textAlign="center">
+              <Heading as="h1" size="lg" mb={6} color="purple.700">
+                Bem-vindo à tela de administração do salão!
+              </Heading>
+              <Stack spacing={2} align="center">
+                <Text fontSize="xl" fontWeight="bold">
+                  Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'}</Text>
+                </Text>
+                <Text fontSize="xl" fontWeight="bold">
+                  Dias Restantes: <Text as="span" color="green.500" fontWeight="extrabold">{
+                    tipoPlano === 'gratis'
+                      ? (diasRestantesTeste !== null ? diasRestantesTeste : '-')
+                      : (diasPlanoPagoRestante !== null ? diasPlanoPagoRestante : '-')
+                  }</Text>
+                </Text>
+              </Stack>
               {!isPremium && (
                 <>
                   <p style={{ fontSize: 18, color: '#6366f1', marginBottom: 32 }}>
@@ -527,12 +549,12 @@ export default function DashboardUser() {
                   </button>
                 </>
               )}
-              {isPremium && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
+              {tipoPlano === 'gratis' && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
                 <div style={{ fontSize: 20, color: '#2563eb', fontWeight: 600, marginTop: 16 }}>
                   🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.
                 </div>
               )}
-            </div>
+            </Box>
           ) : (
             <Outlet />
           )}
