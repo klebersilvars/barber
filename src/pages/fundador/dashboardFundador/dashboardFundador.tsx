@@ -758,8 +758,9 @@ function LogsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
 }
 
 export default function DashboardFundador() {
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const [activeSection, setActiveSection] = useState("dashboard")
+  // Todos os hooks no topo
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [activeSection, setActiveSection] = useState("dashboard");
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
   const navigation = useNavigate();
   const location = useLocation();
@@ -788,13 +789,6 @@ export default function DashboardFundador() {
     verificarAcessoFundador();
   }, [location.pathname]);
 
-  if (autorizado === false) {
-    return null;
-  }
-  if (autorizado === null) {
-    return <Box p={8} textAlign="center">Verificando permissão...</Box>;
-  }
-
   // Registrar log de acesso ao abrir o painel do fundador
   useEffect(() => {
     async function registrarLogAcessoFundador() {
@@ -818,6 +812,14 @@ export default function DashboardFundador() {
     }
     registrarLogAcessoFundador();
   }, []);
+
+  // Retornos condicionais só depois dos hooks
+  if (autorizado === false) {
+    return null;
+  }
+  if (autorizado === null) {
+    return <Box p={8} textAlign="center">Verificando permissão...</Box>;
+  }
 
   const renderContent = () => {
     switch (activeSection) {

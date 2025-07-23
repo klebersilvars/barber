@@ -248,7 +248,7 @@ export default function CadastrarUser() {
           <div className="signup-right-content">
             <div className="logo-large">
               <Scissors className="scissors-icon-large" />
-              <span>CliqAgenda</span>
+              <span>Trezu</span>
             </div>
             <h2>Transforme seu negócio</h2>
             <p>Junte-se a milhares de profissionais que já revolucionaram a gestão de seus estabelecimentos.</p>

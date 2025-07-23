@@ -10,7 +10,6 @@ import {
   Scissors,
   Phone,
   Mail,
-  Play,
   Check,
   Users,
   TrendingUp,
@@ -192,14 +191,10 @@ export default function PageHome() {
               fácil de agendamentos, recursos para fidelização de clientes e muito mais.
             </p>
             <div className="hero-buttons">
-              <button className="btn-teste-hero">
+              <button onClick={irCadastroTeste} className="btn-teste-hero">
                 <Calendar size={20} />
                 TESTE GRÁTIS POR 7 DIAS
                 <ArrowRight size={16} />
-              </button>
-              <button className="btn-demo">
-                <Play size={18} />
-                Ver Demonstração
               </button>
             </div>
             <div className="hero-stats">
@@ -255,7 +250,7 @@ export default function PageHome() {
                 <span className="destaque-roxo"> estabelecimento</span>
               </h2>
               <p>
-                Dividir o foco entre atender os clientes e gerenciar o negócio não é fácil. Com o CliqAgenda, você tem
+                Dividir o foco entre atender os clientes e gerenciar o negócio não é fácil. Com o Trezu, você tem
                 um software de gestão para o seu estabelecimento que otimiza os seus processos, desde o agendamento até o pagamento
                 de comissões, deixando você livre para se concentrar no que faz de melhor: criar cortes incríveis e
                 fidelizar seus clientes.
@@ -291,7 +286,7 @@ export default function PageHome() {
                   </div>
                 </div>
               </div>
-              <button className="btn-saiba-mais">
+              <button onClick={irCadastroTeste} className="btn-saiba-mais">
                 Saiba Mais
                 <ArrowRight size={16} />
               </button>
@@ -534,9 +529,9 @@ export default function PageHome() {
               <span>Trezu</span>
             </div>
             <p>O sistema completo para gestão de barbearias e salões de beleza</p>
-            <div className="footer-social">
+            {/* <div className="footer-social">
               <div className="social-link">IG</div>
-            </div>
+            </div> */}
           </div>
           <div className="footer-section">
             <h4>Contato</h4>
