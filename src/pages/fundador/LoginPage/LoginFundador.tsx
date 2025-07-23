@@ -27,6 +27,8 @@ import { ViewIcon, ViewOffIcon, EmailIcon, LockIcon } from "@chakra-ui/icons"
 import { auth } from "../../../firebase/firebase"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { firestore } from '../../../firebase/firebase';
 
 export default function LoginFundador() {
     const [email, setEmail] = useState("")
@@ -41,14 +43,31 @@ export default function LoginFundador() {
         setIsLoading(true)
         setError("")
 
+        // Verificar se o e-mail está autorizado na coleção acesso_fundador
+        try {
+            const acessoRef = collection(firestore, 'acesso_fundador');
+            const q = query(acessoRef, where('email_fundador', '==', email));
+            const querySnapshot = await getDocs(q);
+            if (querySnapshot.empty) {
+                setIsLoading(false);
+                setError('Acesso não autorizado!');
+                return;
+            }
+        } catch (err) {
+            setIsLoading(false);
+            setError('Erro ao verificar permissão de acesso!');
+            return;
+        }
+
         await signInWithEmailAndPassword(auth, email, password)
         .then((userLOGADO)=> {
             const userID = userLOGADO.user.uid //pegando o uid do usuário logado
             alert('Usuário logado com sucesso!')
             navigation(`/dashboardFundador/${userID}`)
 
-        }).catch((error)=> {
-            console.log(error)
+        }).catch(() => {
+            setError('Email ou senha inválidos!');
+            setIsLoading(false);
         })
     }
 

@@ -119,7 +119,8 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             premiumDaysLeft: 30,
             tipoPlano: tipoPlano,
             dias_plano_pago: 30,
-            dias_plano_pago_restante: 30
+            dias_plano_pago_restante: 30,
+            status_pagamento: 'pago'
           });
           // Se for empresa, ativa colaboradores
           if (tipoPlano === 'empresa' && contaData.nomeEstabelecimento) {

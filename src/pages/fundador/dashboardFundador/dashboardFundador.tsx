@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, getDocs, deleteDoc, doc as firestoreDoc } from 'firebase/firestore'
+import { collection, getDocs, deleteDoc, doc as firestoreDoc, updateDoc, onSnapshot, query, orderBy, addDoc, where } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firebase'
 import {
   Box,
@@ -16,10 +16,6 @@ import {
   useDisclosure,
   Menu,
   MenuButton,
-  MenuList,
-  MenuItem,
-  MenuDivider,
-  Button,
   useColorModeValue,
   Heading,
   Grid,
@@ -39,7 +35,6 @@ import {
   Td,
   TableContainer,
   Badge,
-  Progress,
   SimpleGrid,
   Input,
   Textarea,
@@ -48,14 +43,22 @@ import {
   DrawerHeader,
   DrawerCloseButton,
   Select,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  Spinner,
+  Button
 } from "@chakra-ui/react"
-import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons"
+import { BellIcon } from "@chakra-ui/icons"
 import { FiHome, FiSettings, FiMenu, FiDollarSign, FiLogOut, FiShoppingBag } from "react-icons/fi"
 import { signOut } from "firebase/auth"
 import { auth } from "../../../firebase/firebase"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { useToast } from '@chakra-ui/react'
-import { updateDoc } from 'firebase/firestore'
+import { getAuth } from "firebase/auth";
 
 interface SidebarProps {
   onClose: () => void
@@ -172,22 +175,15 @@ const MobileNav = ({ onOpen, ...rest }: { onOpen: () => void }) => {
                   src="https://images.unsplash.com/photo-1619946794135-5bc917a27793?ixlib=rb-0.3.5&q=80&fm=jpg&crop=faces&fit=crop&h=200&w=200&s=b616b2c5b373a80ffc9636ba24f7a4a9"
                 />
                 <VStack display={{ base: "none", md: "flex" }} alignItems="flex-start" spacing="1px" ml="2">
-                  <Text fontSize="sm">João Silva</Text>
+                  <Text fontSize="sm">Trezu - Administração</Text>
                   <Text fontSize="xs" color="gray.600">
                     Fundador
                   </Text>
                 </VStack>
-                <Box display={{ base: "none", md: "flex" }}>
-                  <ChevronDownIcon />
-                </Box>
+               
               </HStack>
             </MenuButton>
-            <MenuList>
-              <MenuItem>Perfil</MenuItem>
-              <MenuItem>Configurações</MenuItem>
-              <MenuDivider />
-              <MenuItem color="red.500">Sair</MenuItem>
-            </MenuList>
+            
           </Menu>
         </Flex>
       </HStack>
@@ -252,77 +248,9 @@ const DashboardContent = () => (
     </SimpleGrid>
 
     <Grid templateColumns={{ base: "1fr", lg: "2fr 1fr" }} gap={6}>
-      <Card>
-        <CardHeader>
-          <Heading size="md">Últimas ações administrativas</Heading>
-        </CardHeader>
-        <CardBody>
-          <TableContainer>
-            <Table variant="simple" size="sm">
-              <Thead>
-                <Tr>
-                  <Th>Estabelecimento</Th>
-                  <Th>Plano</Th>
-                  <Th>Status</Th>
-                  <Th>Última ação</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {/* Exemplo de linha administrativa */}
-                <Tr>
-                  <Td>Barbearia Exemplo</Td>
-                  <Td>Empresa</Td>
-                  <Td><Badge colorScheme="green">Premium</Badge></Td>
-                  <Td>Pagamento aprovado</Td>
-                </Tr>
-                <Tr>
-                  <Td>Salão da Ana</Td>
-                  <Td>Individual</Td>
-                  <Td><Badge colorScheme="yellow">Teste Grátis</Badge></Td>
-                  <Td>Teste ativado</Td>
-                </Tr>
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </CardBody>
-      </Card>
+      
 
-      <Card>
-        <CardHeader>
-          <Heading size="md">Resumo do Sistema</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack spacing={4} align="stretch">
-            <Box>
-              <Text fontSize="sm" mb={2}>
-                Planos ativos, upgrades e permissões são controlados automaticamente pelo sistema.
-              </Text>
-              <Progress value={90} colorScheme="blue" />
-              <Text fontSize="xs" color="gray.500" mt={1}>
-                90% dos estabelecimentos utilizam recursos premium
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={2}>
-                Teste grátis de 7 dias disponível para novos estabelecimentos.
-              </Text>
-              <Progress value={100} colorScheme="green" />
-              <Text fontSize="xs" color="gray.500" mt={1}>
-                100% dos testes grátis convertem para premium
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={2}>
-                Gestão de agenda, vendas, despesas e colaboradores integrada.
-              </Text>
-              <Progress value={80} colorScheme="purple" />
-              <Text fontSize="xs" color="gray.500" mt={1}>
-                Plataforma focada em barbearias e salões de beleza
-              </Text>
-            </Box>
-          </VStack>
-        </CardBody>
-      </Card>
+
     </Grid>
   </Box>
 )
@@ -625,160 +553,271 @@ const EstablishmentsContent = () => {
   )
 }
 
-const FinancialContent = () => (
-  <Box>
-    <Heading size="lg" mb={6}>
-      Gestão Financeira
-    </Heading>
-    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
-      <Card>
-        <CardBody>
-          <Stat>
-            <StatLabel>Receita Bruta</StatLabel>
-            <StatNumber>R$ 0</StatNumber>
-            <StatHelpText>Este mês</StatHelpText>
-          </Stat>
-        </CardBody>
-      </Card>
-      <Card>
-      </Card>
-      <Card>
-        <CardBody>
-          
-        </CardBody>
-      </Card>
-    </SimpleGrid>
+const FinancialContent = () => {
+  const [estabelecimentos, setEstabelecimentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    <Card>
-      <CardHeader>
-        <Heading size="md">Relatório Financeiro Detalhado</Heading>
-      </CardHeader>
-      <CardBody>
-        <TableContainer>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th>Estabelecimento</Th>
-                <Th>Plano</Th>
-                <Th>Valor do plano</Th>
-                <Th>Status</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              <Tr>
-                <Td>Barbearia Exemplo</Td>
-                <Td>Empresa</Td>
-                <Td>R$ 20,00</Td>
-                <Td><Badge colorScheme="green">Pago</Badge></Td>
-                
-              </Tr>
-              <Tr>
-                <Td>Salão da Ana</Td>
-                <Td>Individual</Td>
-                <Td>R$ 10,00</Td>
-                <Td><Badge colorScheme="yellow">Teste Grátis</Badge></Td>
-              </Tr>
-              <Tr>
-                <Td>Pizzaria Napoli</Td>
-                <Td>Empresa</Td>
-                <Td>R$ 20,00</Td>
-                <Td><Badge colorScheme="red">Inadimplente</Badge></Td>
-              </Tr>
-            </Tbody>
-          </Table>
-        </TableContainer>
-      </CardBody>
-    </Card>
-  </Box>
-)
+  useEffect(() => {
+    setLoading(true);
+    const unsub = firestore
+      ? collection(firestore, 'contas')
+      : null;
+    if (unsub) {
+      const unsubscribe = onSnapshot(collection(firestore, 'contas'), (snap) => {
+        setEstabelecimentos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLoading(false);
+      });
+      return () => unsubscribe();
+    }
+  }, []);
 
-const SettingsContent = () => (
-  <Box>
-    <Heading size="lg" mb={6}>
-      Configurações da Plataforma
-    </Heading>
-    <VStack spacing={6} align="stretch">
+  // Calcular receita bruta dos planos pagos
+  const receitaBruta = estabelecimentos.reduce((total, estab) => {
+    if (estab.status_pagamento === 'pago') {
+      if (estab.tipoPlano === 'individual') return total + 10;
+      if (estab.tipoPlano === 'empresa') return total + 20;
+    }
+    return total;
+  }, 0);
+
+  // Função para atualizar status de pagamento
+  const handleStatusPagamento = async (id: string, status: string) => {
+    await updateDoc(firestoreDoc(firestore, 'contas', id), { status_pagamento: status });
+    setEstabelecimentos(estabelecimentos.map(e => e.id === id ? { ...e, status_pagamento: status } : e));
+  };
+
+  return (
+    <Box>
+      <Heading size="lg" mb={6}>
+        Gestão Financeira
+      </Heading>
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>Receita Bruta</StatLabel>
+              <StatNumber>R$ {receitaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+              <StatHelpText>Este mês</StatHelpText>
+            </Stat>
+          </CardBody>
+        </Card>
+        <Card></Card>
+        <Card><CardBody></CardBody></Card>
+      </SimpleGrid>
       <Card>
         <CardHeader>
-          <Heading size="md">Configurações Gerais</Heading>
+          <Heading size="md">Relatório Financeiro Detalhado</Heading>
         </CardHeader>
         <CardBody>
-          <VStack spacing={4} align="stretch">
-            <Box>
-              <Text fontWeight="semibold" mb={2}>
-                Taxa da Plataforma
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Taxa atual: 5% sobre todas as transações
-              </Text>
-              <Button size="sm" mt={2} variant="outline">
-                Alterar Taxa
-              </Button>
-            </Box>
-            <Box>
-              <Text fontWeight="semibold" mb={2}>
-                Notificações
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Configurar alertas e notificações do sistema
-              </Text>
-              <Button size="sm" mt={2} variant="outline">
-                Configurar
-              </Button>
-            </Box>
-            <Box>
-              <Text fontWeight="semibold" mb={2}>
-                Backup de Dados
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Último backup: Hoje às 03:00
-              </Text>
-              <Button size="sm" mt={2} variant="outline">
-                Fazer Backup
-              </Button>
-            </Box>
-          </VStack>
+          <TableContainer>
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>Estabelecimento</Th>
+                  <Th>Plano</Th>
+                  <Th>Valor do Plano</Th>
+                  <Th>Status</Th>
+                  <Th>Pagamento</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {loading ? (
+                  <Tr><Td colSpan={5}>Carregando...</Td></Tr>
+                ) : estabelecimentos.length === 0 ? (
+                  <Tr><Td colSpan={5}>Nenhum estabelecimento encontrado</Td></Tr>
+                ) : (
+                  estabelecimentos.map(estab => (
+                    <Tr key={estab.id}>
+                      <Td>{estab.nomeEstabelecimento || '-'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : 'Nenhum'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'R$ 10,00' : estab.tipoPlano === 'empresa' ? 'R$ 20,00' : '-'}</Td>
+                      <Td>
+                        {estab.status_pagamento === 'inadimplente' ? (
+                          <Badge colorScheme="red">NÃO PAGO</Badge>
+                        ) : estab.status_pagamento === 'pago' ? (
+                          <Badge colorScheme="green">PAGO</Badge>
+                        ) : estab.data_inicio_teste_gratis ? (
+                          <Badge colorScheme="yellow">TESTE GRÁTIS</Badge>
+                        ) : (
+                          <Badge colorScheme="gray">-</Badge>
+                        )}
+                      </Td>
+                      <Td>
+                        <Select
+                          size="sm"
+                          value={estab.status_pagamento || 'inadimplente'}
+                          onChange={e => handleStatusPagamento(estab.id, e.target.value)}
+                          maxW={{ base: '100%', md: '120px' }}
+                        >
+                          <option value="pago">Pago</option>
+                          <option value="inadimplente">Inadimplente</option>
+                        </Select>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </Table>
+          </TableContainer>
         </CardBody>
       </Card>
+    </Box>
+  );
+};
 
-      <Card>
-        <CardHeader>
-          <Heading size="md">Segurança</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack spacing={4} align="stretch">
-            <Box>
-              <Text fontWeight="semibold" mb={2}>
-                Autenticação de Dois Fatores
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Adicione uma camada extra de segurança
-              </Text>
-              <Button size="sm" mt={2} colorScheme="blue">
-                Ativar 2FA
-              </Button>
-            </Box>
-            <Box>
-              <Text fontWeight="semibold" mb={2}>
-                Logs de Acesso
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Visualizar histórico de acessos ao sistema
-              </Text>
-              <Button size="sm" mt={2} variant="outline">
-                Ver Logs
-              </Button>
-            </Box>
-          </VStack>
-        </CardBody>
-      </Card>
-    </VStack>
-  </Box>
-)
+const SettingsContent = () => {
+  const { isOpen: isLogsOpen, onOpen: onOpenLogs, onClose: onCloseLogs } = useDisclosure();
+
+  return (
+    <Box>
+      <Heading size="lg" mb={6}>
+        Configurações da Plataforma
+      </Heading>
+      <VStack spacing={6} align="stretch">
+
+        <Card>
+          <CardHeader>
+            <Heading size="md">Segurança</Heading>
+          </CardHeader>
+          <CardBody>
+            <VStack spacing={4} align="stretch">
+              
+              <Box>
+                <Text fontWeight="semibold" mb={2}>
+                  Logs de Acesso
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Visualizar histórico de acessos ao sistema
+                </Text>
+                <Button size="sm" mt={2} variant="outline" onClick={onOpenLogs}>
+                  Ver Logs
+                </Button>
+              </Box>
+            </VStack>
+          </CardBody>
+        </Card>
+        <LogsModal isOpen={isLogsOpen} onClose={onCloseLogs} />
+      </VStack>
+    </Box>
+  )
+}
+
+interface LogAcesso {
+  email: string;
+  data: string;
+  ip: string;
+}
+
+function LogsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [logs, setLogs] = useState<LogAcesso[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+      getDocs(query(collection(firestore, "logs_acesso"), orderBy("data", "desc"))).then(snapshot => {
+        setLogs(snapshot.docs.map(doc => doc.data() as LogAcesso));
+        setLoading(false);
+      });
+    }
+  }, [isOpen]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Logs de Acesso</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          {loading ? (
+            <Spinner />
+          ) : (
+            <Table size="sm" variant="striped">
+              <Thead>
+                <Tr>
+                  <Th>E-mail</Th>
+                  <Th>Data/Hora</Th>
+                  <Th>IP</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {logs.map((log, idx) => (
+                  <Tr key={idx}>
+                    <Td>{log.email}</Td>
+                    <Td>{new Date(log.data).toLocaleString("pt-BR")}</Td>
+                    <Td>{log.ip}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+}
 
 export default function DashboardFundador() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [activeSection, setActiveSection] = useState("dashboard")
+  const [autorizado, setAutorizado] = useState<boolean | null>(null);
+  const navigation = useNavigate();
+  const location = useLocation();
+
+  // Proteção de rota: só permite acesso se o e-mail estiver autorizado
+  useEffect(() => {
+    async function verificarAcessoFundador() {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        setAutorizado(false);
+        navigation('/fundador');
+        return;
+      }
+      const acessoRef = collection(firestore, 'acesso_fundador');
+      const q = query(acessoRef, where('email_fundador', '==', user.email));
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        setAutorizado(false);
+        alert('Acesso não autorizado!');
+        navigation('/fundador');
+        return;
+      }
+      setAutorizado(true);
+    }
+    verificarAcessoFundador();
+  }, [location.pathname]);
+
+  if (autorizado === false) {
+    return null;
+  }
+  if (autorizado === null) {
+    return <Box p={8} textAlign="center">Verificando permissão...</Box>;
+  }
+
+  // Registrar log de acesso ao abrir o painel do fundador
+  useEffect(() => {
+    async function registrarLogAcessoFundador() {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user || !user.email) return;
+      let ip = "";
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+        ip = data.ip;
+      } catch (e) {
+        ip = "Desconhecido";
+      }
+      const log = {
+        email: user.email,
+        data: new Date().toISOString(),
+        ip: ip
+      };
+      await addDoc(collection(firestore, "logs_acesso"), log);
+    }
+    registrarLogAcessoFundador();
+  }, []);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -794,12 +833,16 @@ export default function DashboardFundador() {
   }
 
   return (
-    <Box minH="100vh" bg={useColorModeValue("gray.100", "gray.900")}>
-      <SidebarContent
-        onClose={() => onClose}
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-      />
+    <Box minH="100vh" bg={useColorModeValue("gray.100", "gray.900")}> 
+      {/* Sidebar apenas no desktop */}
+      <Box display={{ base: "none", md: "block" }}>
+        <SidebarContent
+          onClose={() => onClose}
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+        />
+      </Box>
+      {/* Drawer apenas no mobile */}
       <Drawer
         autoFocus={false}
         isOpen={isOpen}

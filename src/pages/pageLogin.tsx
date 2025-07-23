@@ -8,8 +8,18 @@ import { Scissors, Calendar, User, Eye, EyeOff, Building } from "lucide-react"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import EsqueciSenha from "./esqueciSenha/esqueciSenha"
 import { useNavigate } from "react-router-dom"
-import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, addDoc, collection as firestoreCollection } from 'firebase/firestore';
 import { firestore } from '../firebase/firebase';
+
+async function registrarLogAcesso(email: string) {
+  const log = {
+    email: email || "desconhecido",
+    data: new Date().toISOString()
+  };
+  await addDoc(firestoreCollection(firestore, "logs_acesso"), log);
+  console.log("Log de acesso salvo:", log);
+  // Opcional: alert("Log de acesso salvo!");
+}
 
 export default function PageLogin() {
   const [showPassword, setShowPassword] = useState(false)
@@ -48,6 +58,9 @@ export default function PageLogin() {
       const auth = getAuth()
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
+
+      // Registrar log de acesso
+      await registrarLogAcesso(email);
 
       if (rememberMe) {
         localStorage.setItem("email", user.email ?? "")
