@@ -46,55 +46,31 @@ export default function DashboardUser() {
   // Adicionar estado para diasPlanoPagoRestante
   const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
 
-  // Buscar nome do estabelecimento e receita do dia
+  // Unificar busca dos dados da conta para evitar duplicidade e garantir atualização dos dias
   useEffect(() => {
     if (!uid) return;
-
-    // Buscar nome do estabelecimento e status premium
     const contasRef = collection(firestore, 'contas');
     const qConta = query(contasRef, where('__name__', '==', uid));
     getDocs(qConta).then(snapshot => {
       if (!snapshot.empty) {
         const contaData = snapshot.docs[0].data();
-        const nomeDoEstabelecimento = contaData.nomeEstabelecimento || '';
-        setEstabelecimentoNome(nomeDoEstabelecimento);
-        setIsPremium(contaData.premium === true); // premium só se for true MESMO
+        setEstabelecimentoNome(contaData.nomeEstabelecimento || '');
+        setIsPremium(contaData.premium === true);
         setTipoPlano(contaData.tipoPlano || null);
         setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
-
-        // Obter data atual e data 24 horas atrás
-        const agora = new Date();
-        const vinteQuatroHorasAtras = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
-
-        // Converter para Timestamps do Firestore
-        const timestampVinteQuatroHorasAtras = Timestamp.fromDate(vinteQuatroHorasAtras);
-        const timestampAgora = Timestamp.fromDate(agora);
-
-        // Buscar receita das últimas 24 horas usando o nome do estabelecimento
-        const vendasRef = collection(firestore, 'vendas');
-        const qVendas = query(
-          vendasRef,
-          where('empresaNome', '==', nomeDoEstabelecimento), // Filtrar pelo nome da empresa
-          where('dataVenda', '>=', timestampVinteQuatroHorasAtras),
-          where('dataVenda', '<=', timestampAgora) // Incluir vendas até o momento atual
-        );
-
-        getDocs(qVendas).then(snapshot => {
-          let totalReceita = 0;
-          snapshot.docs.forEach(doc => {
-            const venda = doc.data();
-            totalReceita += venda.valor || 0;
-          });
-          // setReceitaHoje(totalReceita); // Removido
-        }).catch(error => {
-          console.error("Erro ao buscar vendas por nome da empresa (últimas 24h): ", error);
-          // setReceitaHoje(0); // Removido
-        });
+        setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
+        // Calcular dias restantes do teste grátis
+        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === 'gratis')) {
+          const inicio = new Date(contaData.data_inicio_teste_gratis);
+          const hoje = new Date();
+          const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+          const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
+          setDiasRestantesTeste(Math.max(0, 7 - diff));
+        } else {
+          setDiasRestantesTeste(null);
+        }
       }
-    }).catch(error => {
-      console.error("Erro ao buscar nome do estabelecimento: ", error);
-      setEstabelecimentoNome('Erro ao carregar nome');
-      // setReceitaHoje(0); // Removido
     });
   }, [uid]);
 
@@ -529,7 +505,9 @@ export default function DashboardUser() {
               </Heading>
               <Stack spacing={2} align="center">
                 <Text fontSize="xl" fontWeight="bold">
-                  Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'}</Text>
+                  Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{
+                    tipoPlano === '' ? 'Grátis' : (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum')
+                  }</Text>
                 </Text>
                 <Text fontSize="xl" fontWeight="bold">
                   Dias Restantes: <Text as="span" color="green.500" fontWeight="extrabold">{
