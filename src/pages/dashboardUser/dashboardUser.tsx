@@ -24,7 +24,7 @@ import { HamburgerIcon } from "@chakra-ui/icons"
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth";
 import { firestore } from '../../firebase/firebase';
-import { collection, query, where, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import Modal from "./Modal"
 import { Box, Heading, Text, Stack } from "@chakra-ui/react";
 
