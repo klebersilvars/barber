@@ -13,7 +13,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
-  useDisclosure,
   Divider,
   Checkbox,
   Stack,
@@ -24,7 +23,7 @@ import {
   AlertTitle,
   AlertDescription,
 } from '@chakra-ui/react';
-import { FiShield, FiSettings, FiInfo, FiRefreshCw } from 'react-icons/fi';
+import { FiShield, FiInfo, FiRefreshCw } from 'react-icons/fi';
 import { useCookies } from '../../hooks/useCookies';
 import type { CookiePreferences } from '../../hooks/useCookies';
 
@@ -38,9 +37,7 @@ const CookieSettings: React.FC<CookieSettingsProps> = ({ isOpen, onClose }) => {
   const [localPreferences, setLocalPreferences] = useState<CookiePreferences>(preferences);
   const toast = useToast();
   
-  const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const textColor = useColorModeValue('gray.800', 'white');
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300');
 
   const handlePreferenceChange = (key: keyof CookiePreferences) => {

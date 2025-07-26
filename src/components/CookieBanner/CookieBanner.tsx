@@ -23,7 +23,7 @@ import {
   Stack,
   Badge
 } from '@chakra-ui/react';
-import { FiShield, FiX, FiSettings, FiInfo } from 'react-icons/fi';
+import { FiShield, FiSettings, FiInfo } from 'react-icons/fi';
 import { useCookies } from '../../hooks/useCookies';
 import type { CookiePreferences } from '../../hooks/useCookies';
 
