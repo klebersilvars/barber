@@ -60,7 +60,7 @@ export default function DashboardUser() {
         setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
         // Calcular dias restantes do teste grátis
-        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === 'gratis')) {
+        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === '')) {
           const inicio = new Date(contaData.data_inicio_teste_gratis);
           const hoje = new Date();
           const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
@@ -72,6 +72,52 @@ export default function DashboardUser() {
         }
       }
     });
+  }, [uid]);
+
+  // NOVA LÓGICA: Decrementar dias do plano pago e verificar expiração
+  useEffect(() => {
+    if (!uid) return;
+    
+    const verificarEAtualizarPlanoPago = async () => {
+      const docRef = doc(firestore, 'contas', uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Se tem plano pago (individual ou empresa)
+        if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+          const hoje = new Date();
+          const dataInicio = new Date(data.data_inicio_teste_gratis);
+          const inicioDia = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
+          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+          const diasPassados = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Calcular dias restantes baseado nos dias passados
+          const diasRestantes = Math.max(0, 30 - diasPassados);
+          
+          // Se os dias restantes mudaram, atualizar no Firestore
+          if (data.dias_plano_pago_restante !== diasRestantes) {
+            await updateDoc(docRef, { 
+              dias_plano_pago_restante: diasRestantes 
+            });
+            setDiasPlanoPagoRestante(diasRestantes);
+            
+            // Se chegou a 0 dias, desativar premium
+            if (diasRestantes <= 0) {
+              await updateDoc(docRef, {
+                premium: false,
+                dias_plano_pago: 0,
+                dias_plano_pago_restante: 0
+              });
+              setIsPremium(false);
+            }
+          }
+        }
+      }
+    };
+    
+    verificarEAtualizarPlanoPago();
   }, [uid]);
 
   // Função para ativar o teste grátis
@@ -105,10 +151,9 @@ export default function DashboardUser() {
           setShowPromotion(true)
           return;
         }
-        // Se está em teste grátis
-        if (data.data_inicio_teste_gratis) {
+        // Se está em teste grátis (apenas para plano grátis)
+        if (data.data_inicio_teste_gratis && (!data.tipoPlano || data.tipoPlano === '')) {
           const inicio = new Date(data.data_inicio_teste_gratis)
-          // setDataInicioTeste(inicio) // Removido
           setTesteGratisAtivo(true)
           const hoje = new Date()
           // Zera hora/min/seg para comparar só o dia
@@ -132,7 +177,6 @@ export default function DashboardUser() {
             setShowPromotion(false)
             setTesteGratisAtivo(false)
             setDiasRestantesTeste(null)
-            // setDataInicioTeste(null) // Removido
           }
         }
       }
@@ -176,21 +220,30 @@ export default function DashboardUser() {
   ];
   // Empresa: todas as rotas liberadas
 
-  // Função para checar se o plano está expirado (7 dias para grátis, 30 para individual/empresa)
+  // Função para checar se o plano está expirado (usando dias_plano_pago_restante para planos pagos)
   function isPlanoExpirado(tipo: string | null, dataInicio: string | null) {
     if (!tipo || !dataInicio) return false;
-    const inicio = new Date(dataInicio);
-    const hoje = new Date();
-    const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
-    const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-    const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
-    if (tipo === 'gratis') return diff >= 7;
-    if (tipo === 'individual' || tipo === 'empresa') return diff >= 30;
+    
+    // Para planos pagos, usar dias_plano_pago_restante
+    if (tipo === 'individual' || tipo === 'empresa') {
+      return diasPlanoPagoRestante !== null && diasPlanoPagoRestante <= 0;
+    }
+    
+    // Para plano grátis, usar cálculo de data
+    if (tipo === 'gratis' || tipo === '') {
+      const inicio = new Date(dataInicio);
+      const hoje = new Date();
+      const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+      const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
+      return diff >= 7;
+    }
+    
     return false;
   }
 
   let filteredMenuItems = menuItems.map(item => ({ ...item, disabled: false }));
-  if (tipoPlano === 'gratis') {
+  if (tipoPlano === 'gratis' || tipoPlano === '') {
     if (isPlanoExpirado('gratis', dataInicioTesteGratis)) {
       // Grátis expirado: só Plano e Pagamento
       filteredMenuItems = menuItems.map(item => ({
@@ -269,7 +322,7 @@ export default function DashboardUser() {
     if (!uid || !tipoPlano) return;
 
     let allowedPaths: string[] = [];
-    if (tipoPlano === 'gratis') {
+    if (tipoPlano === 'gratis' || tipoPlano === '') {
       allowedPaths = isPlanoExpirado('gratis', dataInicioTesteGratis)
         ? [`/dashboard/${uid}/plano`, `#logout`]
         : [
@@ -306,7 +359,7 @@ export default function DashboardUser() {
     if (!isAllowed) {
       navigate(`/dashboard/${uid}/plano`);
     }
-  }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname]);
+  }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname, diasPlanoPagoRestante]);
 
   // Buscar dias_plano_pago_restante do Firestore
   useEffect(() => {

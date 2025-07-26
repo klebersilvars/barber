@@ -353,7 +353,7 @@ export default function PageHome() {
               <p>
                 Seus clientes podem agendar 24 horas por dia através do app ou site, reduzindo cancelamentos e no-shows.
               </p>
-              <div className="card-features">
+              {/* <div className="card-features">
                 <div className="feature-item">
                   <Check size={14} />
                   <span>Confirmação automática</span>
@@ -362,7 +362,7 @@ export default function PageHome() {
                   <Check size={14} />
                   <span>Lembretes automáticos</span>
                 </div>
-              </div>
+              </div> */}
             </div>
             <div className="funcionalidade-card">
               <div className="funcionalidade-icon">
@@ -370,7 +370,7 @@ export default function PageHome() {
               </div>
               <h3>Relatórios Financeiros</h3>
               <p>Acompanhe faturamento, comissões e despesas com relatórios detalhados e gráficos intuitivos.</p>
-              <div className="card-features">
+              {/* <div className="card-features">
                 <div className="feature-item">
                   <Check size={14} />
                   <span>Dashboard em tempo real</span>
@@ -379,7 +379,7 @@ export default function PageHome() {
                   <Check size={14} />
                   <span>Exportação para Excel</span>
                 </div>
-              </div>
+              </div> */}
             </div>
             <div className="funcionalidade-card">
               <div className="funcionalidade-icon">
@@ -387,7 +387,7 @@ export default function PageHome() {
               </div>
               <h3>Gestão de Clientes</h3>
               <p>Histórico completo de serviços, preferências e programa de fidelidade para aumentar o retorno.</p>
-              <div className="card-features">
+              {/* <div className="card-features">
                 <div className="feature-item">
                   <Check size={14} />
                   <span>Histórico completo</span>
@@ -396,7 +396,7 @@ export default function PageHome() {
                   <Check size={14} />
                   <span>Programa de pontos</span>
                 </div>
-              </div>
+              </div> */}
             </div>
             
             <div className="funcionalidade-card">
@@ -405,7 +405,7 @@ export default function PageHome() {
               </div>
               <h3>Controle de Horários</h3>
               <p>Defina horários de funcionamento, pausas e disponibilidade de cada profissional.</p>
-              <div className="card-features">
+              {/* <div className="card-features">
                 <div className="feature-item">
                   <Check size={14} />
                   <span>Agenda personalizada</span>
@@ -414,7 +414,7 @@ export default function PageHome() {
                   <Check size={14} />
                   <span>Bloqueio de horários</span>
                 </div>
-              </div>
+              </div> */}
             </div>
             <div className="funcionalidade-card">
               <div className="funcionalidade-icon">
@@ -422,7 +422,7 @@ export default function PageHome() {
               </div>
               <h3>Avaliações</h3>
               <p>Sistema de avaliações e feedback para melhorar continuamente a qualidade dos serviços.</p>
-              <div className="card-features">
+              {/* <div className="card-features">
                 <div className="feature-item">
                   <Check size={14} />
                   <span>Avaliações automáticas</span>
@@ -431,7 +431,7 @@ export default function PageHome() {
                   <Check size={14} />
                   <span>Análise de satisfação</span>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
