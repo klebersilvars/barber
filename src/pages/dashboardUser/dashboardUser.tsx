@@ -26,7 +26,24 @@ import { getAuth, signOut } from "firebase/auth";
 import { firestore } from '../../firebase/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import Modal from "./Modal"
-import { Box, Heading, Text, Stack } from "@chakra-ui/react";
+import { 
+  Box, 
+  Heading, 
+  Text, 
+  Stack,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  VStack,
+  HStack,
+  IconButton,
+  useDisclosure,
+  Button,
+  useColorModeValue
+} from "@chakra-ui/react";
 
 export default function DashboardUser() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -40,11 +57,17 @@ export default function DashboardUser() {
   const { uid } = useParams()
   const location = useLocation()
   const auth = getAuth(); // Inicializar o Auth
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { isOpen, onOpen, onClose } = useDisclosure()
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
   // Adicionar estado para diasPlanoPagoRestante
   const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
+
+  // Cores responsivas
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const secondaryTextColor = useColorModeValue('gray.600', 'gray.300');
 
   // Unificar busca dos dados da conta para evitar duplicidade e garantir atualização dos dias
   useEffect(() => {
@@ -377,81 +400,65 @@ export default function DashboardUser() {
   return (
     <div className="dashboard-container">
       {/* Drawer lateral do menu mobile */}
-      <div
-        className={`dashboard-mobile-menu-overlay${mobileMenuOpen ? ' active' : ''}`}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <div
-          className={`dashboard-mobile-menu${mobileMenuOpen ? ' open' : ''}`}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottom: '1px solid #eee' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Scissors className="logo-icon" />
-              <span style={{ fontWeight: 700, fontSize: 20 }}>Trezu</span>
-            </div>
-            <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X size={24} /></button>
-          </div>
-          <nav style={{ flex: 1, padding: '16px 0' }}>
-            {filteredMenuItems.map((item, index) => {
-              const isDisabled = item.disabled;
-              return (
-                <button
-                  key={index}
-                  className={`dashboard-mobile-menu-item${isDisabled ? ' nav-item-disabled' : ''}`}
-                  style={{
-                    width: '100%',
-                    background: 'none',
-                    border: 'none',
-                    textAlign: 'left',
-                    padding: '12px 24px',
-                    fontSize: 16,
-                    color: isDisabled ? '#aaa' : '#222',
-                    opacity: isDisabled ? 0.5 : 1,
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                  onClick={e => {
-                    e.preventDefault();
-                    if (isDisabled) {
-                      return;
-                    }
-                    setMobileMenuOpen(false);
-                    if (item.path === "#logout") {
-                      handleLogout();
-                    } else {
-                      navigate(item.path);
-                    }
-                  }}
-                  disabled={isDisabled}
-                >
-                  <item.icon className="nav-icon" />
-                  <span>{item.label}</span>
-                </button>
-              )
-            })}
-          </nav>
-          <div style={{ padding: 16, borderTop: '1px solid #eee', fontSize: 14, color: '#888' }}>
-            <div style={{ fontWeight: 600 }}>{estabelecimentoNome || 'Carregando...'}</div>
-            <div>Proprietário</div>
-          </div>
-        </div>
-      </div>
+      <Drawer isOpen={isOpen} onClose={onClose} placement="left">
+        <DrawerOverlay />
+        <DrawerContent bg={bgColor} color={textColor}>
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px" pb={4}>
+            <VStack align="center">
+              <HStack spacing={3}>
+                <Scissors className="logo-icon" />
+                <Heading size="md">Trezu</Heading>
+              </HStack>
+            </VStack>
+          </DrawerHeader>
+          <DrawerBody>
+            <VStack spacing={4}>
+              {filteredMenuItems.map((item, index) => {
+                const isDisabled = item.disabled;
+                return (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    w="100%"
+                    justifyContent="start"
+                    onClick={() => {
+                      onClose();
+                      if (isDisabled) {
+                        return;
+                      }
+                      if (item.path === "#logout") {
+                        handleLogout();
+                      } else {
+                        navigate(item.path);
+                      }
+                    }}
+                    disabled={isDisabled}
+                    _hover={{ bg: borderColor }}
+                    _active={{ bg: borderColor }}
+                    p={3}
+                    borderRadius="md"
+                    fontWeight="normal"
+                    color={isDisabled ? secondaryTextColor : textColor}
+                    fontSize="md"
+                    textAlign="left"
+                    display="flex"
+                    alignItems="center"
+                    gap={3}
+                  >
+                    <item.icon size={20} />
+                    {item.label}
+                  </Button>
+                );
+              })}
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
       {/* Promotion Banner */}
       {tipoPlano === 'gratis' && showPromotion && !testeGratisAtivo && (
-        <div className="promotion-banner" style={{ position: 'relative' }}>
-          <button
-            className="dashboard-hamburger-btn"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Abrir menu"
-            type="button"
-          >
-            <HamburgerIcon fontSize="28px" color="#5d3fd3" aria-hidden="true" />
-            <span style={{ display: 'none' }}>Abrir menu</span>
-          </button>
-          <div className="promotion-content" style={{ marginLeft: 48 }}>
+        <div className="promotion-banner">
+          <div className="promotion-content">
             <Package className="promotion-icon" />
             <span>
               🎉 Você tem acesso à <strong>Avaliação Grátis</strong> da sua conta! Aproveite agora!
@@ -471,17 +478,8 @@ export default function DashboardUser() {
         </div>
       )}
       {tipoPlano === 'gratis' && showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
-        <div className="promotion-banner" style={{ position: 'relative' }}>
-          <button
-            className="dashboard-hamburger-btn"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Abrir menu"
-            type="button"
-          >
-            <HamburgerIcon fontSize="28px" color="#5d3fd3" aria-hidden="true" />
-            <span style={{ display: 'none' }}>Abrir menu</span>
-          </button>
-          <div className="promotion-content" style={{ marginLeft: 48 }}>
+        <div className="promotion-banner">
+          <div className="promotion-content">
             <Package className="promotion-icon" />
             <span>
               🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.
@@ -551,6 +549,44 @@ export default function DashboardUser() {
 
         {/* Main Content */}
         <main className="main-content">
+          {/* Header Mobile com Hamburger */}
+          <Box 
+            display={{ base: "flex", md: "none" }} 
+            position="sticky" 
+            top={0} 
+            zIndex={10}
+            bg={bgColor}
+            borderBottom="1px"
+            borderColor={borderColor}
+            px={4}
+            py={3}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <HStack spacing={3}>
+              <IconButton
+                aria-label="Abrir menu"
+                icon={<HamburgerIcon />}
+                variant="ghost"
+                onClick={onOpen}
+                color={textColor}
+                _hover={{ bg: borderColor }}
+              />
+              <HStack spacing={2}>
+                <Scissors size={24} />
+                <Text fontWeight="bold" fontSize="lg">Trezu</Text>
+              </HStack>
+            </HStack>
+            <VStack spacing={0} align="end">
+              <Text fontSize="sm" fontWeight="medium" color={textColor}>
+                {estabelecimentoNome || 'Carregando...'}
+              </Text>
+              <Text fontSize="xs" color={secondaryTextColor}>
+                Proprietário
+              </Text>
+            </VStack>
+          </Box>
+
           {location.pathname === `/dashboard/${uid}` || location.pathname === `/dashboard/${uid}/` ? (
             <Box maxW="md" mx="auto" mt={12} p={8} borderRadius="lg" boxShadow="lg" bg="white" textAlign="center">
               <Heading as="h1" size="lg" mb={6} color="purple.700">
