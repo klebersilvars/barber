@@ -68,7 +68,7 @@ export default function Plano() {
 
   const handleWhatsAppClick = () => {
     const phoneNumber = "5521982410516"
-    const message = "Olá, tudo bem? quero conversar sobre os planos que vi na plataforma CliqAgenda"
+    const message = "Olá, tudo bem? quero conversar sobre os planos que vi na plataforma Trezu"
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
