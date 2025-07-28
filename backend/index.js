@@ -151,33 +151,88 @@ app.post('/api/decrement-premium-days', async (req, res) => {
     const snapshot = await contasRef.where('premium', '==', true).get();
     const batch = db.batch();
     const promises = [];
+    
     snapshot.forEach((doc) => {
       const data = doc.data();
-      if (data.dias_plano_pago_restante > 1) {
-        batch.update(doc.ref, { dias_plano_pago_restante: data.dias_plano_pago_restante - 1 });
-      } else if (data.dias_plano_pago_restante === 1) {
-        batch.update(doc.ref, { premium: false, dias_plano_pago_restante: 0, dias_plano_pago: 0 });
-        // Se for plano empresa, desativa colaboradores
-        if (data.tipoPlano === 'empresa' && data.nomeEstabelecimento) {
-          const colaboradoresRef = db.collection('colaboradores');
-          // Busca todos os colaboradores do estabelecimento
-          const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
-            const batchColab = db.batch();
-            colabSnap.forEach(colabDoc => {
-              batchColab.update(colabDoc.ref, { ativo: false });
-            });
-            return batchColab.commit();
+      
+      // Para planos pagos (individual ou empresa)
+      if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+        if (data.dias_plano_pago_restante > 1) {
+          batch.update(doc.ref, { dias_plano_pago_restante: data.dias_plano_pago_restante - 1 });
+        } else if (data.dias_plano_pago_restante === 1) {
+          // Desativar premium quando chegar a 0
+          batch.update(doc.ref, { 
+            premium: false, 
+            tipoPlano: '',
+            dias_plano_pago_restante: 0, 
+            dias_plano_pago: 0 
           });
-          promises.push(p);
+          
+          // Se for plano empresa, desativa colaboradores
+          if (data.tipoPlano === 'empresa' && data.nomeEstabelecimento) {
+            const colaboradoresRef = db.collection('colaboradores');
+            const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
+              const batchColab = db.batch();
+              colabSnap.forEach(colabDoc => {
+                batchColab.update(colabDoc.ref, { ativo: false });
+              });
+              return batchColab.commit();
+            });
+            promises.push(p);
+          }
+        }
+      }
+      
+      // Para teste grátis
+      if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
+        if (data.dias_restantes_teste_gratis > 1) {
+          batch.update(doc.ref, { dias_restantes_teste_gratis: data.dias_restantes_teste_gratis - 1 });
+        } else if (data.dias_restantes_teste_gratis === 1) {
+          // Desativar premium quando chegar a 0
+          batch.update(doc.ref, { 
+            premium: false, 
+            tipoPlano: '',
+            data_inicio_teste_gratis: null,
+            dias_restantes_teste_gratis: null 
+          });
         }
       }
     });
+    
     await batch.commit();
     await Promise.all(promises);
     res.status(200).json({ message: 'Dias premium decrementados e colaboradores desativados se necessário.' });
   } catch (err) {
     console.error('Erro ao decrementar dias premium:', err.message);
     res.status(500).json({ error: 'Erro ao decrementar dias premium.' });
+  }
+});
+
+// Endpoint para testar decremento manualmente (apenas para desenvolvimento)
+app.post('/api/test-decrement', async (req, res) => {
+  try {
+    const contasRef = db.collection('contas');
+    const snapshot = await contasRef.where('premium', '==', true).get();
+    
+    const results = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      results.push({
+        uid: doc.id,
+        tipoPlano: data.tipoPlano,
+        diasPlanoPagoRestante: data.dias_plano_pago_restante,
+        diasRestantesTeste: data.dias_restantes_teste_gratis,
+        premium: data.premium
+      });
+    });
+    
+    res.status(200).json({ 
+      message: 'Dados das contas premium encontradas',
+      contas: results 
+    });
+  } catch (err) {
+    console.error('Erro ao buscar dados:', err.message);
+    res.status(500).json({ error: 'Erro ao buscar dados.' });
   }
 });
 

@@ -1,15 +1,77 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, Stack } from "@chakra-ui/react"
 import "./plano.css"
-import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
+import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight, Package } from "lucide-react"
 import { auth } from '../../../firebase/firebase'
+import { firestore } from '../../../firebase/firebase'
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { useNavigate } from "react-router-dom"
 
 export default function Plano() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [isPremium, setIsPremium] = useState(false)
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+  const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
+  const [diasRestantesTeste, setDiasRestantesTeste] = useState<number | null>(null)
+  const [showPromotion, setShowPromotion] = useState(true)
+  const [testeGratisAtivo, setTesteGratisAtivo] = useState(false)
+  const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
+  const [loadingConta, setLoadingConta] = useState(true);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!auth.currentUser?.uid) return;
+    setLoadingConta(true);
+    const contasRef = collection(firestore, 'contas');
+    const qConta = query(contasRef, where('__name__', '==', auth.currentUser.uid));
+    getDocs(qConta).then(snapshot => {
+      if (!snapshot.empty) {
+        const contaData = snapshot.docs[0].data();
+        setIsPremium(contaData.premium === true);
+        setTipoPlano(contaData.tipoPlano || null);
+        setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
+        setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
+        // Calcular dias restantes do teste grátis
+        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === '')) {
+          const inicio = new Date(contaData.data_inicio_teste_gratis);
+          const hoje = new Date();
+          const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+          const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
+          setDiasRestantesTeste(Math.max(0, 7 - diff));
+        } else {
+          setDiasRestantesTeste(null);
+        }
+      }
+      setLoadingConta(false);
+    });
+  }, []);
+
+  const ativarTesteGratis = async () => {
+    if (!auth.currentUser?.uid) return
+    const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+    const hoje = new Date()
+    await updateDoc(docRef, {
+      premium: true,
+      tipoPlano: 'gratis', // DEFINIR COMO GRATIS
+      data_inicio_teste_gratis: hoje.toISOString(),
+      dias_restantes_teste_gratis: 7,
+      ja_pegou_premium_gratis: true
+    })
+    setIsPremium(true)
+    setTipoPlano('gratis') // ATUALIZAR ESTADO LOCAL
+    setShowPromotion(false)
+    setTesteGratisAtivo(true)
+    setDiasRestantesTeste(7)
+    setJaPegouPremiumGratis(true)
+    // Redirecionar para o dashboard para liberar as rotas
+    navigate(`/dashboard/${auth.currentUser.uid}`)
+  }
 
   const plans = [
     {
@@ -142,8 +204,82 @@ export default function Plano() {
         </div>
 
         {/* Plans Grid */}
-        <div className="plans-grid-two">
-          <Stack direction={{ base: "column", md: "row" }} spacing={8} width="100%">
+        <div className="plans-grid-two" style={{ overflowX: 'auto', paddingBottom: 16 }}>
+          <Stack direction={{ base: "column", md: "row" }} spacing={8} width="100%" wrap="wrap">
+            {loadingConta ? (
+              <div style={{width: '100%', display: 'flex', justifyContent: 'center', margin: '32px 0'}}>
+                <span>Carregando...</span>
+              </div>
+            ) : (
+              jaPegouPremiumGratis === false && !testeGratisAtivo && (
+                <Box
+                  borderStyle="solid"
+                  borderWidth={3}
+                  borderColor="green.500"
+                  borderRadius="xl"
+                  boxShadow="0 0 0 3px #22c55e33"
+                  bg={useColorModeValue("green.50", "green.900")}
+                  p={6}
+                  flex="1 1 400px"
+                  minW={{ base: "100%", md: 340 }}
+                  maxW={400}
+                  w={{ base: "100%", md: "100%" }}
+                  position="relative"
+                  transition="all 0.2s"
+                  _hover={{ boxShadow: "lg", borderColor: "green.600" }}
+                  mb={{ base: 6, md: 0 }}
+                >
+                  <Badge colorScheme="green" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
+                    🎁 GRÁTIS
+                  </Badge>
+                  <VStack spacing={3} align="start">
+                    <HStack spacing={2} align="center">
+                      <Box bg="green.400" borderRadius="full" p={2} display="flex" alignItems="center">
+                        <Icon as={Star} color="white" boxSize={6} />
+                      </Box>
+                      <Text fontWeight={700} fontSize="2xl" color="green.700">Avaliação Grátis</Text>
+                    </HStack>
+                    <Text color="gray.600" fontSize="md">Experimente gratuitamente por 7 dias</Text>
+                    <Box mt={2} mb={2}>
+                      <Text fontSize="3xl" fontWeight={800} color="green.700">
+                        R$ 0,00
+                        <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>/7 dias</Text>
+                      </Text>
+                    </Box>
+                    <VStack align="start" spacing={1} mt={2} mb={2}>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Acesso limitado por 7 dias</Text>
+                      </HStack>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Página de serviços</Text>
+                      </HStack>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Página de agendamento</Text>
+                      </HStack>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Não precisa cadastrar cartão de crédito</Text>
+                      </HStack>
+                    </VStack>
+                    <Button
+                      colorScheme="green"
+                      rightIcon={<ChevronRight size={16} />}
+                      onClick={ativarTesteGratis}
+                      w="100%"
+                      mt={2}
+                      fontWeight={700}
+                      fontSize="md"
+                    >
+                      Ativar Grátis
+                    </Button>
+                  </VStack>
+                </Box>
+              )
+            )}
+            
             {plans.map((plan) => (
               <Box
                 key={plan.id}
@@ -155,13 +291,15 @@ export default function Plano() {
                 boxShadow={plan.popular ? "0 0 0 3px #2563eb33" : "sm"}
                 bg={plan.id === "individual" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
                 p={6}
-                flex={1}
-                minW={{ base: "auto", md: 320 }}
+                flex="1 1 400px"
+                minW={{ base: "100%", md: 340 }}
                 maxW={400}
+                w={{ base: "100%", md: "100%" }}
                 position="relative"
                 transition="all 0.2s"
                 _hover={{ boxShadow: "lg", borderColor: plan.popular ? "blue.500" : "purple.400" }}
                 cursor="pointer"
+                mb={{ base: 6, md: 0 }}
               >
                 {plan.popular && (
                   <Badge colorScheme="blue" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">

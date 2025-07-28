@@ -62,6 +62,7 @@ export default function DashboardUser() {
   const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
   // Adicionar estado para diasPlanoPagoRestante
   const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
+  const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
 
   // Cores responsivas
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -82,73 +83,19 @@ export default function DashboardUser() {
         setTipoPlano(contaData.tipoPlano || null);
         setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
-        
+        setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
+        // Usar o campo do banco para dias restantes do teste grátis
+        setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
         // Debug logs
         console.log('Dados da conta:', {
           premium: contaData.premium,
           tipoPlano: contaData.tipoPlano,
-          diasRestantes: contaData.dias_plano_pago_restante
+          diasRestantes: contaData.dias_plano_pago_restante,
+          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis,
+          diasRestantesTeste: contaData.dias_restantes_teste_gratis
         });
-        
-        // Calcular dias restantes do teste grátis
-        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === '')) {
-          const inicio = new Date(contaData.data_inicio_teste_gratis);
-          const hoje = new Date();
-          const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
-          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-          const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
-          setDiasRestantesTeste(Math.max(0, 7 - diff));
-        } else {
-          setDiasRestantesTeste(null);
-        }
       }
     });
-  }, [uid]);
-
-  // NOVA LÓGICA: Decrementar dias do plano pago e verificar expiração
-  useEffect(() => {
-    if (!uid) return;
-    
-    const verificarEAtualizarPlanoPago = async () => {
-      const docRef = doc(firestore, 'contas', uid);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        // Se tem plano pago (individual ou empresa)
-        if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
-          const hoje = new Date();
-          const dataInicio = new Date(data.data_inicio_teste_gratis);
-          const inicioDia = new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate());
-          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-          const diasPassados = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
-          
-          // Calcular dias restantes baseado nos dias passados
-          const diasRestantes = Math.max(0, 30 - diasPassados);
-          
-          // Se os dias restantes mudaram, atualizar no Firestore
-          if (data.dias_plano_pago_restante !== diasRestantes) {
-            await updateDoc(docRef, { 
-              dias_plano_pago_restante: diasRestantes 
-            });
-            setDiasPlanoPagoRestante(diasRestantes);
-            
-            // Se chegou a 0 dias, desativar premium
-            if (diasRestantes <= 0) {
-              await updateDoc(docRef, {
-                premium: false,
-                dias_plano_pago: 0,
-                dias_plano_pago_restante: 0
-              });
-              setIsPremium(false);
-            }
-          }
-        }
-      }
-    };
-    
-    verificarEAtualizarPlanoPago();
   }, [uid]);
 
   // Função para ativar o teste grátis
@@ -158,13 +105,17 @@ export default function DashboardUser() {
     const hoje = new Date()
     await updateDoc(docRef, {
       premium: true,
+      tipoPlano: 'gratis', // DEFINIR COMO GRATIS
       data_inicio_teste_gratis: hoje.toISOString(),
-      dias_restantes_teste_gratis: 7
+      dias_restantes_teste_gratis: 7,
+      ja_pegou_premium_gratis: true
     })
     setIsPremium(true)
+    setTipoPlano('gratis') // ATUALIZAR ESTADO LOCAL
     setShowPromotion(false)
     setTesteGratisAtivo(true)
     setDiasRestantesTeste(7)
+    setJaPegouPremiumGratis(true)
   }
 
   // Lógica para calcular dias restantes e atualizar Firestore
@@ -175,45 +126,57 @@ export default function DashboardUser() {
       const docSnap = await getDoc(docRef)
       if (docSnap.exists()) {
         const data = docSnap.data()
-        // Se nunca usou o teste grátis
-        if (!data.data_inicio_teste_gratis) {
-          setTesteGratisAtivo(false)
-          setDiasRestantesTeste(null)
-          setShowPromotion(true)
-          return;
-        }
-        // Se está em teste grátis (apenas para plano grátis)
-        if (data.data_inicio_teste_gratis && (!data.tipoPlano || data.tipoPlano === '')) {
-          const inicio = new Date(data.data_inicio_teste_gratis)
+        
+        // Se está em teste grátis (tipoPlano === 'gratis')
+        if (data.tipoPlano === 'gratis' && data.data_inicio_teste_gratis) {
           setTesteGratisAtivo(true)
-          const hoje = new Date()
-          // Zera hora/min/seg para comparar só o dia
-          const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate())
-          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-          const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24))
-          const diasRestantes = Math.max(0, 7 - diff)
-          setDiasRestantesTeste(diasRestantes)
-          // Só atualiza no Firestore se mudou E for um novo dia
-          if (data.dias_restantes_teste_gratis !== diasRestantes && hoje.getHours() === 0) {
-            await updateDoc(docRef, { dias_restantes_teste_gratis: diasRestantes })
-          }
-          // Se acabou o teste grátis
-          if (diasRestantes <= 0 && data.premium && data.data_inicio_teste_gratis) {
-            await updateDoc(docRef, {
-              premium: false,
-              data_inicio_teste_gratis: null,
-              dias_restantes_teste_gratis: null
-            })
+          setDiasRestantesTeste(data.dias_restantes_teste_gratis ?? null)
+          
+          // Se acabou o teste grátis (verificação do backend)
+          if (data.dias_restantes_teste_gratis <= 0) {
             setIsPremium(false)
+            setTipoPlano('')
             setShowPromotion(false)
             setTesteGratisAtivo(false)
             setDiasRestantesTeste(null)
           }
+        } else {
+          // Se não está em teste grátis
+          setTesteGratisAtivo(false)
+          setDiasRestantesTeste(null)
+          setShowPromotion(true)
         }
       }
     }
     checkTesteGratis()
   }, [uid])
+
+  // Verificar planos pagos (sem decremento, apenas leitura)
+  useEffect(() => {
+    if (!uid) return;
+    
+    const verificarPlanoPago = async () => {
+      const docRef = doc(firestore, 'contas', uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Se tem plano pago (individual ou empresa)
+        if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa')) {
+          setDiasPlanoPagoRestante(data.dias_plano_pago_restante ?? null);
+          
+          // Se chegou a 0 dias (verificação do backend)
+          if (data.dias_plano_pago_restante <= 0) {
+            setIsPremium(false);
+            setTipoPlano('');
+          }
+        }
+      }
+    };
+    
+    verificarPlanoPago();
+  }, [uid]);
 
   // Removido: const formatCurrency = (value: number) => { ... }
 
@@ -240,8 +203,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}`
   ];
   const allowedPathsGratisExpirado = [
-    `/dashboard/${uid}/plano`,
-    `/dashboard/${uid}/configuracoes`
+    `/dashboard/${uid}/plano`
   ];
   const allowedPathsIndividual = [
     `/dashboard/${uid}/servicos`,
@@ -279,18 +241,24 @@ export default function DashboardUser() {
   // SEMPRE permitir acesso às páginas de plano e configurações
   const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`];
   
-  if (tipoPlano === 'gratis' || tipoPlano === '') {
+  if ((tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
+    // Teste grátis ativo: libera as rotas do allowedPathsGratis
+    filteredMenuItems = menuItems.map(item => ({
+      ...item,
+      disabled: !allowedPathsGratis.includes(item.path)
+    }));
+  } else if (tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) {
     if (isPlanoExpirado('gratis', dataInicioTesteGratis)) {
-      // Grátis expirado: Plano, Configurações
+      // Grátis expirado: só Plano
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: !alwaysAllowedPaths.includes(item.path)
+        disabled: !allowedPathsGratisExpirado.includes(item.path)
       }));
     } else {
-      // Grátis ativo: Plano, Serviços, Configurações, Agenda Online, Dashboard
+      // Grátis ativo sem premium: só Plano
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: !allowedPathsGratis.includes(item.path)
+        disabled: !allowedPathsGratisExpirado.includes(item.path)
       }));
     }
   } else if (tipoPlano === 'individual') {
@@ -479,7 +447,7 @@ export default function DashboardUser() {
         </DrawerContent>
       </Drawer>
       {/* Promotion Banner */}
-      {tipoPlano === 'gratis' && showPromotion && !testeGratisAtivo && (
+      {tipoPlano === 'gratis' && showPromotion && jaPegouPremiumGratis !== true && !testeGratisAtivo && (
         <div className="promotion-banner">
           <div className="promotion-content">
             <Package className="promotion-icon" />
@@ -618,7 +586,9 @@ export default function DashboardUser() {
               <Stack spacing={2} align="center">
                 <Text fontSize="xl" fontWeight="bold">
                   Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{
-                    tipoPlano === '' ? 'Grátis' : (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum')
+                    tipoPlano === 'gratis' ? 'Avaliação' : 
+                    (tipoPlano === '' ? 'Grátis' : 
+                    (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'))
                   }</Text>
                 </Text>
                 <Text fontSize="xl" fontWeight="bold">

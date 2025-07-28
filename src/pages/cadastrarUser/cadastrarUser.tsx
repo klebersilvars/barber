@@ -64,7 +64,8 @@ export default function CadastrarUser() {
         premium: false,
         avaliacao_gratis: false,
         dataCriacao: new Date().toISOString(),
-        cargo: 'proprietario'
+        cargo: 'proprietario',
+        ja_pegou_premium_gratis: false,
       })
 
       setLoading(false)
