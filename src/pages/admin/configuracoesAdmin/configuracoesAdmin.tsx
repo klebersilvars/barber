@@ -73,12 +73,30 @@ const ConfiguracoesAdmin = () => {
         setIsPremium(hasAnyPlan)
         setTipoPlano(data.tipoPlano || null)
         
+        // Carregar cor principal se existir
+        if (data.aparenciaAgendamento && data.aparenciaAgendamento.corPrincipal) {
+          setPrimaryColor(data.aparenciaAgendamento.corPrincipal)
+          console.log('Cor principal carregada:', data.aparenciaAgendamento.corPrincipal)
+        }
+        
+        // Carregar outras configurações de aparência se existirem
+        if (data.aparenciaAgendamento) {
+          setAppearance((prev) => ({
+            ...prev,
+            displayName: data.aparenciaAgendamento.nomeExibicao || "",
+            welcomeMessage: data.aparenciaAgendamento.mensagemBoasVindas || "",
+            thankYouMessage: data.aparenciaAgendamento.mensagemAgradecimento || "",
+          }))
+          console.log('Configurações de aparência carregadas:', data.aparenciaAgendamento)
+        }
+        
         // Debug logs
         console.log('Configurações - Dados da conta:', {
           premium: data.premium,
           tipoPlano: data.tipoPlano,
           hasAnyPlan: hasAnyPlan,
-          isPremium: hasAnyPlan
+          isPremium: hasAnyPlan,
+          corPrincipal: data.aparenciaAgendamento?.corPrincipal
         });
       }
     }
@@ -174,24 +192,60 @@ const ConfiguracoesAdmin = () => {
     }))
   }
 
-  const handleSave = () => {
-    // Aqui você implementaria a lógica para salvar as configurações
+  const handleSave = async () => {
     if (!auth.currentUser?.uid) return
-    const docRef = doc(firestore, 'contas', auth.currentUser.uid)
-    updateDoc(docRef, {
-      nomeEstabelecimento: salonInfo.name,
-      telefone: salonInfo.phone,
-      email: salonInfo.email,
-      descricaoEstabelecimento: salonInfo.description,
-      cep: salonInfo.cep,
-      rua: salonInfo.rua,
-      numero: salonInfo.numero,
-      bairro: salonInfo.bairro,
-      cidade: salonInfo.cidade,
-      estado: salonInfo.estado,
-      complemento: salonInfo.complemento,
-    })
-    alert("Configurações salvas com sucesso!")
+    
+    try {
+      const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+      
+      // Preparar dados para salvar
+      const updateData: any = {
+        nomeEstabelecimento: salonInfo.name,
+        telefone: salonInfo.phone,
+        email: salonInfo.email,
+        descricaoEstabelecimento: salonInfo.description,
+        cep: salonInfo.cep,
+        rua: salonInfo.rua,
+        numero: salonInfo.numero,
+        bairro: salonInfo.bairro,
+        cidade: salonInfo.cidade,
+        estado: salonInfo.estado,
+        complemento: salonInfo.complemento,
+      }
+      
+      // Adicionar configurações de aparência (incluindo cor principal)
+      updateData.aparenciaAgendamento = {
+        corPrincipal: primaryColor,
+        nomeExibicao: appearance.displayName,
+        linkAgendamento: generateBookingUrl(),
+        mensagemBoasVindas: appearance.welcomeMessage,
+        mensagemAgradecimento: appearance.thankYouMessage,
+      }
+      
+      // Adicionar horários
+      const horariosParaSalvar = montarHorariosFunc();
+      updateData.horariosFunc = horariosParaSalvar;
+      
+      // Adicionar políticas
+      updateData.configuracoesAtendimento = {
+        appointmentInterval: policies.appointmentInterval,
+        maxAppointmentsPerDay: policies.maxAppointmentsPerDay,
+      };
+      updateData.politicas = {
+        cancellationHours: policies.cancellationHours,
+        rescheduleHours: policies.rescheduleHours,
+        cancellationPolicy: policies.cancellationPolicy,
+        reschedulePolicy: policies.reschedulePolicy,
+      };
+      
+      // Salvar tudo no Firestore
+      await updateDoc(docRef, updateData)
+      
+      alert("Todas as configurações foram salvas com sucesso!")
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error)
+      alert('Erro ao salvar configurações. Tente novamente.')
+    }
   }
 
   const [copied, setCopied] = useState(false)
@@ -250,17 +304,26 @@ const ConfiguracoesAdmin = () => {
   // Função para salvar aparência e identidade
   const handleSaveAparencia = async () => {
     if (!auth.currentUser?.uid) return
-    const docRef = doc(firestore, 'contas', auth.currentUser.uid)
-    await updateDoc(docRef, {
-      aparenciaAgendamento: {
-        corPrincipal: primaryColor,
-        nomeExibicao: appearance.displayName,
-        linkAgendamento: generateBookingUrl(),
-        mensagemBoasVindas: appearance.welcomeMessage,
-        mensagemAgradecimento: appearance.thankYouMessage,
-      }
-    })
-    alert('Aparência e identidade salvas com sucesso!')
+    
+    console.log('Salvando aparência com cor principal:', primaryColor)
+    
+    try {
+      const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+      await updateDoc(docRef, {
+        aparenciaAgendamento: {
+          corPrincipal: primaryColor,
+          nomeExibicao: appearance.displayName,
+          linkAgendamento: generateBookingUrl(),
+          mensagemBoasVindas: appearance.welcomeMessage,
+          mensagemAgradecimento: appearance.thankYouMessage,
+        }
+      })
+      console.log('Aparência salva com sucesso!')
+      alert('Aparência e identidade salvas com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar aparência:', error)
+      alert('Erro ao salvar aparência. Tente novamente.')
+    }
   }
 
   return (
@@ -727,7 +790,7 @@ const ConfiguracoesAdmin = () => {
                     </div>
                   </div>
 
-                  {/* Nome de Exibição */}
+                  {/* Nome de Exibição
                   <div className="config-card">
                     <h3>Nome de Exibição</h3>
                     <div className="form-group">
@@ -741,7 +804,7 @@ const ConfiguracoesAdmin = () => {
                       />
                       <small>Pode ser diferente do nome oficial do salão</small>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Link de Agendamento */}
                   <div className="config-card full-width">
@@ -753,16 +816,6 @@ const ConfiguracoesAdmin = () => {
                         <button className="btn-copy" onClick={handleCopyUrl} type="button">
                           {copied ? "Copiado!" : "Copiar"}
                         </button>
-                      </div>
-
-                      <div className="url-toggle">
-                        <input
-                          type="checkbox"
-                          id="enable-custom-page"
-                          checked={appearance.enableCustomPage}
-                          onChange={(e) => setAppearance((prev) => ({ ...prev, enableCustomPage: e.target.checked }))}
-                        />
-                        <label htmlFor="enable-custom-page">Ativar página personalizada de agendamento</label>
                       </div>
                     </div>
                   </div>

@@ -19,7 +19,27 @@ import {
   ArrowLeft,
   MessageCircle,
   User,
+  Building2,
 } from "lucide-react"
+import {
+  Box,
+  VStack,
+  HStack,
+  Text,
+  Button,
+  Input,
+  Grid,
+  GridItem,
+  Badge,
+  useColorModeValue,
+  Flex,
+  Container,
+  Heading,
+  SimpleGrid,
+  Icon,
+  useToast,
+  Textarea,
+} from "@chakra-ui/react"
 import "./agendaCliente.css"
 import { firestore } from "../../../firebase/firebase"
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore"
@@ -48,8 +68,21 @@ const AgendaCliente = () => {
   const [showLoading, setShowLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [busyTimes, setBusyTimes] = useState<string[]>([])
+  const [primaryColor, setPrimaryColor] = useState("#5d3fd3") // Cor padrão
 
   const hasOpenedWhatsApp = useRef(false)
+
+  // Função para ajustar o brilho da cor
+  const adjustBrightness = (hex: string, percent: number) => {
+    const num = parseInt(hex.replace("#", ""), 16)
+    const amt = Math.round(2.55 * percent)
+    const R = (num >> 16) + amt
+    const G = (num >> 8 & 0x00FF) + amt
+    const B = (num & 0x0000FF) + amt
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+      (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1)
+  }
 
   // Buscar dados do estabelecimento pelo slug
   useEffect(() => {
@@ -75,6 +108,13 @@ const AgendaCliente = () => {
 
         const establishmentDoc = querySnapshot.docs[0]
         const establishmentData = establishmentDoc.data()
+        
+        // Buscar a cor principal do estabelecimento
+        let establishmentPrimaryColor = "#5d3fd3" // Cor padrão
+        if (establishmentData.aparenciaAgendamento && establishmentData.aparenciaAgendamento.corPrincipal) {
+          establishmentPrimaryColor = establishmentData.aparenciaAgendamento.corPrincipal
+        }
+        setPrimaryColor(establishmentPrimaryColor)
         
         // Buscar serviços do estabelecimento
         const servicosRef = collection(firestore, "servicosAdmin")
@@ -244,9 +284,6 @@ const AgendaCliente = () => {
       const agendaRef = collection(firestore, "agendaAdmin")
       const docRef = await addDoc(agendaRef, appointmentData)
       
-      console.log("Agendamento salvo com sucesso! ID:", docRef.id)
-      console.log("Dados do agendamento:", appointmentData)
-      
       // Ir para tela de sucesso
       setCurrentStep(6)
       
@@ -275,8 +312,15 @@ const AgendaCliente = () => {
 
   // Filtrar profissionais que fazem o serviço selecionado
   const availableProfessionals = selectedService
-    ? professionals.filter((prof) => prof.cargos && prof.cargos.includes('Profissional'))
-    : professionals
+    ? professionals.filter((prof) => {
+        // Verificar se o profissional está cadastrado no serviço
+        if (selectedService.profissionaisServico && Array.isArray(selectedService.profissionaisServico)) {
+          return selectedService.profissionaisServico.includes(prof.nome)
+        }
+        // Se não há profissionais cadastrados no serviço, mostrar todos os profissionais
+        return prof.cargos && prof.cargos.includes('Profissional')
+      })
+    : []
 
   // Função para montar mensagem de confirmação
   const getConfirmationMessage = () => {
@@ -436,12 +480,16 @@ const AgendaCliente = () => {
   }
 
   return (
-    <div className="cliente-agenda-container">
+    <div className="cliente-agenda-container" style={{ 
+      '--primary-color': primaryColor,
+      '--primary-color-hover': adjustBrightness(primaryColor, -20),
+      '--primary-color-light': adjustBrightness(primaryColor, 20)
+    } as React.CSSProperties}>
       {/* Header com logo */}
       <header className="cliente-header">
         <div className="cliente-logo">
           <Scissors className="cliente-logo-icon" />
-          <span className="cliente-logo-text">CliqAgenda</span>
+          <span className="cliente-logo-text">Trezu</span>
         </div>
       </header>
 
@@ -557,32 +605,82 @@ const AgendaCliente = () => {
               </div>
 
               {/* Sobre o estabelecimento */}
-              <div className="cliente-about-section">
-                <h3>Sobre nós</h3>
-                <p className="cliente-about-text">
+              <Box className="cliente-about-section">
+                <Heading as="h3" size="lg" mb={4} textAlign="center" color="gray.700">
+                  Sobre nós
+                </Heading>
+                <Text className="cliente-about-text" textAlign="center" mb={6}>
                   {establishment.descricaoEstabelecimento || 
                     "Há mais de 10 anos cuidando da sua beleza com carinho e profissionalismo. Oferecemos os melhores serviços com uma equipe altamente qualificada e produtos de primeira qualidade."}
-                </p>
+                </Text>
 
-                <div className="cliente-features-highlight">
-                  <div className="cliente-feature-badge">
+                <Flex className="cliente-features-highlight" wrap="wrap" justify="center" gap={3}>
+                  <Badge
+                    className="cliente-feature-badge"
+                    colorScheme="gray"
+                    variant="subtle"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    fontSize="sm"
+                    fontWeight="600"
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                  >
                     <Shield size={16} />
                     <span>Ambiente seguro</span>
-                  </div>
-                  <div className="cliente-feature-badge">
+                  </Badge>
+                  <Badge
+                    className="cliente-feature-badge"
+                    colorScheme="gray"
+                    variant="subtle"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    fontSize="sm"
+                    fontWeight="600"
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                  >
                     <Heart size={16} />
                     <span>Atendimento personalizado</span>
-                  </div>
-                  <div className="cliente-feature-badge">
+                  </Badge>
+                  <Badge
+                    className="cliente-feature-badge"
+                    colorScheme="gray"
+                    variant="subtle"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    fontSize="sm"
+                    fontWeight="600"
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                  >
                     <Star size={16} />
                     <span>Produtos premium</span>
-                  </div>
-                  <div className="cliente-feature-badge">
+                  </Badge>
+                  <Badge
+                    className="cliente-feature-badge"
+                    colorScheme="gray"
+                    variant="subtle"
+                    px={3}
+                    py={2}
+                    borderRadius="md"
+                    fontSize="sm"
+                    fontWeight="600"
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                  >
                     <Check size={16} />
                     <span>Profissionais certificados</span>
-                  </div>
-                </div>
-              </div>
+                  </Badge>
+                </Flex>
+              </Box>
             </div>
 
             {/* Seção de serviços */}
@@ -711,374 +809,786 @@ const AgendaCliente = () => {
 
         {/* Step 3: Data e Horário */}
         {currentStep === 3 && (
-          <div className="cliente-step cliente-step-datetime">
-            <div className="cliente-step-header">
-              <h2>Escolha Data e Horário</h2>
-              <p>Selecione quando deseja ser atendido</p>
-            </div>
+          <Box className="cliente-step cliente-step-datetime">
+            <VStack spacing={8} align="stretch">
+              <Box textAlign="center">
+                <Heading as="h2" size="xl" mb={2} color="gray.800">
+                  Escolha Data e Horário
+                </Heading>
+                <Text fontSize="lg" color="gray.600">
+                  Selecione quando deseja ser atendido
+                </Text>
+              </Box>
 
-            <div className="cliente-datetime-container">
-              <div className="cliente-date-selection">
-                <h3>Escolha a Data</h3>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    // Garante que a data salva é exatamente a do input, sem conversão de fuso
-                    setSelectedDate(e.target.value)
-                  }}
-                  min={new Date().toISOString().split("T")[0]}
-                  className="cliente-date-input"
-                />
-              </div>
+              <Container maxW="container.md">
+                <VStack spacing={8} align="stretch">
+                  {/* Seleção de Data */}
+                  <Box>
+                    <Heading as="h3" size="md" mb={4} color="gray.700">
+                      Escolha a Data
+                    </Heading>
+                    <Input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      size="lg"
+                      borderRadius="lg"
+                      borderColor="gray.300"
+                      _focus={{
+                        borderColor: primaryColor,
+                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                      }}
+                      _hover={{
+                        borderColor: "gray.400",
+                      }}
+                    />
+                  </Box>
 
-              {selectedDate && (
-                <div className="cliente-time-selection">
-                  <h3>Horários Disponíveis</h3>
-                  <div className="cliente-time-grid">
-                    {availableTimes.map((time) => {
-                      const ocupado = busyTimes.includes(time)
-                      return (
-                        <button
-                          key={time}
-                          className={`cliente-time-slot ${selectedTime === time ? "cliente-selected" : ""}`}
-                          onClick={() => !ocupado && setSelectedTime(time)}
-                          disabled={ocupado}
-                          style={ocupado ? { background: '#f3f4f6', color: '#aaa', cursor: 'not-allowed', textDecoration: 'line-through' } : {}}
-                        >
-                          {time} {ocupado && <span style={{color:'#dc2626', fontWeight:600, fontSize:13}}>Indisponível</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                  {/* Seleção de Horário */}
+                  {selectedDate && (
+                    <Box>
+                      <Heading as="h3" size="md" mb={4} color="gray.700">
+                        Horários Disponíveis
+                      </Heading>
+                      <SimpleGrid columns={{ base: 2, md: 3, lg: 4 }} spacing={3}>
+                        {availableTimes.map((time) => {
+                          const ocupado = busyTimes.includes(time)
+                          const isSelected = selectedTime === time
+                          
+                          return (
+                            <Button
+                              key={time}
+                              size="lg"
+                              variant={isSelected ? "solid" : "outline"}
+                              colorScheme={isSelected ? "purple" : "gray"}
+                              onClick={() => !ocupado && setSelectedTime(time)}
+                              disabled={ocupado}
+                              height="60px"
+                              borderRadius="lg"
+                              fontSize="md"
+                              fontWeight="600"
+                              _disabled={{
+                                opacity: 0.5,
+                                cursor: "not-allowed",
+                                bg: "gray.100",
+                                color: "gray.400",
+                                textDecoration: "line-through",
+                              }}
+                              _hover={{
+                                transform: ocupado ? "none" : "translateY(-2px)",
+                                boxShadow: ocupado ? "none" : "lg",
+                              }}
+                              _active={{
+                                transform: "scale(0.98)",
+                              }}
+                              position="relative"
+                            >
+                              <VStack spacing={1}>
+                                <Text fontSize="sm" fontWeight="500">
+                                  {time}
+                                </Text>
+                                {ocupado && (
+                                  <Badge
+                                    colorScheme="red"
+                                    size="sm"
+                                    position="absolute"
+                                    top={1}
+                                    right={1}
+                                  >
+                                    Ocupado
+                                  </Badge>
+                                )}
+                              </VStack>
+                            </Button>
+                          )
+                        })}
+                      </SimpleGrid>
+                    </Box>
+                  )}
+                </VStack>
+              </Container>
+
+              {/* Resumo do Agendamento */}
+              {selectedDate && selectedTime && (
+                <Box
+                  bg="white"
+                  borderRadius="xl"
+                  p={6}
+                  boxShadow="lg"
+                  border="1px solid"
+                  borderColor="gray.200"
+                  maxW="container.md"
+                  mx="auto"
+                >
+                  <Heading as="h3" size="md" mb={4} color="gray.700">
+                    Resumo do Agendamento
+                  </Heading>
+                  <VStack spacing={3} align="stretch">
+                    <HStack justify="space-between">
+                      <Text fontWeight="500">Serviço:</Text>
+                      <Text>{selectedService?.nomeServico}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="500">Profissional:</Text>
+                      <Text>{selectedProfessional?.nome}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="500">Data:</Text>
+                      <Text>{new Date(selectedDate).toLocaleDateString("pt-BR")}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="500">Horário:</Text>
+                      <Text>{selectedTime}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="500">Duração:</Text>
+                      <Text>{selectedService?.duracaoServico} minutos</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="600" fontSize="lg">Valor:</Text>
+                      <Text fontWeight="600" fontSize="lg" color="green.600">
+                        {formatCurrency(selectedService?.valorServico || 0)}
+                      </Text>
+                    </HStack>
+                  </VStack>
+                </Box>
               )}
-            </div>
-
-            {selectedDate && selectedTime && (
-              <div className="cliente-appointment-summary">
-                <h3>Resumo do Agendamento</h3>
-                <div className="cliente-summary-card">
-                  <div className="cliente-summary-item">
-                    <strong>Serviço:</strong> {selectedService?.nomeServico}
-                  </div>
-                  <div className="cliente-summary-item">
-                    <strong>Profissional:</strong> {selectedProfessional?.nome}
-                  </div>
-                  <div className="cliente-summary-item">
-                    <strong>Data:</strong> {new Date(selectedDate).toLocaleDateString("pt-BR")}
-                  </div>
-                  <div className="cliente-summary-item">
-                    <strong>Horário:</strong> {selectedTime}
-                  </div>
-                  <div className="cliente-summary-item">
-                    <strong>Duração:</strong> {selectedService?.duracaoServico} minutos
-                  </div>
-                  <div className="cliente-summary-item cliente-summary-price">
-                    <strong>Valor:</strong> {formatCurrency(selectedService?.valorServico || 0)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </VStack>
+          </Box>
         )}
 
         {/* Step 4: Dados do Cliente */}
         {currentStep === 4 && (
-          <div className="cliente-step cliente-step-client-data">
-            <div className="cliente-step-header">
-              <h2>Seus Dados</h2>
-              <p>Precisamos de algumas informações para confirmar seu agendamento</p>
-            </div>
+          <Box className="cliente-step cliente-step-client-data">
+            <VStack spacing={8} align="stretch">
+              <Box textAlign="center">
+                <Heading as="h2" size="xl" mb={2} color="gray.800">
+                  Seus Dados
+                </Heading>
+                <Text fontSize="lg" color="gray.600">
+                  Precisamos de algumas informações para confirmar seu agendamento
+                </Text>
+              </Box>
 
-            <div className="cliente-form-container">
-              <div className="cliente-form-grid">
-                <div className="cliente-form-group">
-                  <label htmlFor="name">Nome Completo *</label>
-                  <input
-                    type="text"
-                    id="name"
-                    value={clientData.name}
-                    onChange={(e) => setClientData((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Digite seu nome completo"
-                    required
-                  />
-                </div>
+              <Container maxW="container.md">
+                <VStack spacing={6} align="stretch">
+                  {/* Nome Completo */}
+                  <Box>
+                    <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={2} display="block">
+                      Nome Completo *
+                    </Text>
+                    <Input
+                      type="text"
+                      value={clientData.name}
+                      onChange={(e) => setClientData((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Digite seu nome completo"
+                      size="lg"
+                      borderRadius="lg"
+                      borderColor="gray.300"
+                      _focus={{
+                        borderColor: primaryColor,
+                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                      }}
+                      _hover={{
+                        borderColor: "gray.400",
+                      }}
+                      required
+                    />
+                  </Box>
 
-                <div className="cliente-form-group">
-                  <label htmlFor="phone">WhatsApp *</label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    value={clientData.phone}
-                    onChange={handlePhoneChange}
-                    placeholder="(11) 99999-9999"
-                    required
-                  />
-                </div>
+                  {/* WhatsApp */}
+                  <Box>
+                    <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={2} display="block">
+                      WhatsApp *
+                    </Text>
+                    <Input
+                      type="tel"
+                      value={clientData.phone}
+                      onChange={handlePhoneChange}
+                      placeholder="(11) 99999-9999"
+                      size="lg"
+                      borderRadius="lg"
+                      borderColor="gray.300"
+                      _focus={{
+                        borderColor: primaryColor,
+                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                      }}
+                      _hover={{
+                        borderColor: "gray.400",
+                      }}
+                      required
+                    />
+                  </Box>
 
-                <div className="cliente-form-group cliente-full-width">
-                  <label htmlFor="email">E-mail (opcional)</label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={clientData.email}
-                    onChange={(e) => setClientData((prev) => ({ ...prev, email: e.target.value }))}
-                    placeholder="seu@email.com"
-                  />
-                </div>
+                  {/* E-mail */}
+                  <Box>
+                    <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={2} display="block">
+                      E-mail (opcional)
+                    </Text>
+                    <Input
+                      type="email"
+                      value={clientData.email}
+                      onChange={(e) => setClientData((prev) => ({ ...prev, email: e.target.value }))}
+                      placeholder="seu@email.com"
+                      size="lg"
+                      borderRadius="lg"
+                      borderColor="gray.300"
+                      _focus={{
+                        borderColor: primaryColor,
+                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                      }}
+                      _hover={{
+                        borderColor: "gray.400",
+                      }}
+                    />
+                  </Box>
 
-                <div className="cliente-form-group cliente-full-width">
-                  <label>Forma de Pagamento</label>
-                  <div className="cliente-payment-methods">
-                    {paymentMethods.map((method) => (
-                      <button
-                        key={method.id}
-                        type="button"
-                        className={`cliente-payment-method ${clientData.paymentMethod === method.id ? "cliente-selected" : ""}`}
-                        onClick={() => setClientData((prev) => ({ ...prev, paymentMethod: method.id }))}
-                      >
-                        <method.icon size={20} />
-                        <span>{method.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  {/* Forma de Pagamento */}
+                  <Box>
+                    <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={3} display="block">
+                      Forma de Pagamento
+                    </Text>
+                    <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+                      {paymentMethods.map((method) => (
+                        <Button
+                          key={method.id}
+                          variant={clientData.paymentMethod === method.id ? "solid" : "outline"}
+                          colorScheme={clientData.paymentMethod === method.id ? "purple" : "gray"}
+                          onClick={() => setClientData((prev) => ({ ...prev, paymentMethod: method.id }))}
+                          height="60px"
+                          borderRadius="lg"
+                          fontSize="sm"
+                          fontWeight="500"
+                          _hover={{
+                            transform: "translateY(-2px)",
+                            boxShadow: "lg",
+                          }}
+                          _active={{
+                            transform: "scale(0.98)",
+                          }}
+                        >
+                          <VStack spacing={1}>
+                            <Icon as={method.icon} boxSize={5} />
+                            <Text fontSize="xs">{method.name}</Text>
+                          </VStack>
+                        </Button>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
 
-                <div className="cliente-form-group cliente-full-width">
-                  <label htmlFor="notes">Observações (opcional)</label>
-                  <textarea
-                    id="notes"
-                    value={clientData.notes}
-                    onChange={(e) => setClientData((prev) => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Alguma observação especial ou preferência..."
-                    rows={3}
-                  />
-                </div>
-              </div>
+                  {/* Observações */}
+                  <Box>
+                    <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={2} display="block">
+                      Observações (opcional)
+                    </Text>
+                    <Textarea
+                      value={clientData.notes}
+                      onChange={(e) => setClientData((prev) => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Alguma observação especial ou preferência..."
+                      size="lg"
+                      borderRadius="lg"
+                      borderColor="gray.300"
+                      _focus={{
+                        borderColor: primaryColor,
+                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                      }}
+                      _hover={{
+                        borderColor: "gray.400",
+                      }}
+                      rows={3}
+                      resize="vertical"
+                    />
+                  </Box>
 
-              <div className="cliente-privacy-notice">
-                <Shield size={16} />
-                <p>Seus dados estão seguros conosco e serão usados apenas para este agendamento.</p>
-              </div>
-            </div>
-          </div>
+                  {/* Aviso de Privacidade */}
+                  <Box
+                    bg="blue.50"
+                    border="1px solid"
+                    borderColor="blue.200"
+                    borderRadius="lg"
+                    p={4}
+                    display="flex"
+                    alignItems="center"
+                    gap={3}
+                  >
+                    <Icon as={Shield} color="blue.500" boxSize={5} />
+                    <Text fontSize="sm" color="blue.700" fontWeight="500">
+                      Seus dados estão seguros conosco e serão usados apenas para este agendamento.
+                    </Text>
+                  </Box>
+                </VStack>
+              </Container>
+            </VStack>
+          </Box>
         )}
 
         {/* Step 5: Confirmação Final */}
         {currentStep === 5 && (
-          <div className="cliente-step cliente-step-confirmation">
-            <div className="cliente-step-header">
-              <h2>Confirmar Agendamento</h2>
-              <p>Revise todos os dados antes de finalizar</p>
-            </div>
+          <Box className="cliente-step cliente-step-confirmation" minH="100vh" pb="120px">
+            <VStack spacing={8} align="stretch" py={8}>
+              <Box textAlign="center">
+                <Heading as="h2" size="xl" mb={2} color="gray.800">
+                  Confirmar Agendamento
+                </Heading>
+                <Text fontSize="lg" color="gray.600">
+                  Revise todos os dados antes de finalizar
+                </Text>
+              </Box>
 
-            <div className="cliente-final-summary">
-              <div className="cliente-summary-section">
-                <h3>Estabelecimento</h3>
-                <div className="cliente-establishment-mini">
-                  <img src={establishment.logo || "/placeholder.svg"} alt="Logo" />
-                  <div>
-                    <strong>{establishment.nomeEstabelecimento}</strong>
-                    <p>{formatAddress()}</p>
-                    <p>{formatPhone(establishment.telefone)}</p>
-                  </div>
-                </div>
-              </div>
+              <Container maxW="container.md" px={4}>
+                <VStack spacing={6} align="stretch">
+                  {/* Estabelecimento */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="gray.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Building2} color={primaryColor} />
+                      Estabelecimento
+                    </Heading>
+                    <HStack spacing={4} align="start">
+                      <Box
+                        w="60px"
+                        h="60px"
+                        borderRadius="lg"
+                        bg="gray.100"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        flexShrink={0}
+                      >
+                        <Icon as={Scissors} color="gray.500" boxSize={6} />
+                      </Box>
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontWeight="600" fontSize="lg" color="gray.800">
+                          {establishment.nomeEstabelecimento}
+                        </Text>
+                        <Text fontSize="sm" color="gray.600">
+                          {formatAddress()}
+                        </Text>
+                        <Text fontSize="sm" color="gray.600">
+                          {formatPhone(establishment.telefone)}
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  </Box>
 
-              <div className="cliente-summary-section">
-                <h3>Serviço</h3>
-                <div className="cliente-service-mini">
-                  <strong>{selectedService?.nomeServico}</strong>
-                  <p>{selectedService?.descricaoServico || "Descrição não disponível"}</p>
-                  <div className="cliente-service-mini-details">
-                    <span>
-                      <Clock size={14} /> {selectedService?.duracaoServico} min
-                    </span>
-                    <span className="cliente-price">{formatCurrency(selectedService?.valorServico || 0)}</span>
-                  </div>
-                </div>
-              </div>
+                  {/* Serviço */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="gray.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Scissors} color={primaryColor} />
+                      Serviço
+                    </Heading>
+                    <VStack align="start" spacing={3}>
+                      <Text fontWeight="600" fontSize="lg" color="gray.800">
+                        {selectedService?.nomeServico}
+                      </Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {selectedService?.descricaoServico || "Descrição não disponível"}
+                      </Text>
+                      <HStack justify="space-between" w="full">
+                        <HStack spacing={2}>
+                          <Icon as={Clock} color="gray.500" boxSize={4} />
+                          <Text fontSize="sm" color="gray.600">
+                            {selectedService?.duracaoServico} min
+                          </Text>
+                        </HStack>
+                        <Text fontWeight="600" fontSize="lg" color="green.600">
+                          {formatCurrency(selectedService?.valorServico || 0)}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
 
-              <div className="cliente-summary-section">
-                <h3>Profissional</h3>
-                <div className="cliente-professional-mini">
-                  {selectedProfessional?.photo ? (
-                    <img src={selectedProfessional.photo} alt={selectedProfessional?.nome} />
-                  ) : (
-                    <div className="cliente-professional-mini-placeholder">
-                      <User size={24} />
-                    </div>
-                  )}
-                  <div>
-                    <strong>{selectedProfessional?.nome}</strong>
-                    <p>{selectedProfessional?.cargo || "Profissional"}</p>
-                    {selectedProfessional?.rating && (
-                      <div className="cliente-rating-mini">
-                        <Star size={12} className="cliente-star-filled" />
-                        <span>{selectedProfessional.rating}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                  {/* Profissional */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="gray.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={User} color={primaryColor} />
+                      Profissional
+                    </Heading>
+                    <HStack spacing={4} align="start">
+                      <Box
+                        w="60px"
+                        h="60px"
+                        borderRadius="full"
+                        bg={primaryColor}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        flexShrink={0}
+                      >
+                        <Icon as={User} color="white" boxSize={6} />
+                      </Box>
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontWeight="600" fontSize="lg" color="gray.800">
+                          {selectedProfessional?.nome}
+                        </Text>
+                        <Text fontSize="sm" color="gray.600">
+                          {selectedProfessional?.cargo || "Profissional"}
+                        </Text>
+                        {selectedProfessional?.rating && (
+                          <HStack spacing={1}>
+                            <Icon as={Star} color="yellow.400" boxSize={3} />
+                            <Text fontSize="sm" color="gray.600">
+                              {selectedProfessional.rating}
+                            </Text>
+                          </HStack>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </Box>
 
-              <div className="cliente-summary-section">
-                <h3>Data e Horário</h3>
-                <div className="cliente-datetime-mini">
-                  <div className="cliente-date-mini">
-                    <Calendar size={16} />
-                    <span>
-                      {selectedDate ?
-                        new Date(selectedDate + 'T00:00:00').toLocaleDateString("pt-BR", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }) : ''}
-                    </span>
-                  </div>
-                  <div className="cliente-time-mini">
-                    <Clock size={16} />
-                    <span>{selectedTime}</span>
-                  </div>
-                </div>
-              </div>
+                  {/* Data e Horário */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="gray.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Calendar} color={primaryColor} />
+                      Data e Horário
+                    </Heading>
+                    <VStack spacing={3} align="start">
+                      <HStack spacing={3}>
+                        <Icon as={Calendar} color="gray.500" boxSize={5} />
+                        <Text fontSize="md" color="gray.800">
+                          {selectedDate ?
+                            new Date(selectedDate + 'T00:00:00').toLocaleDateString("pt-BR", {
+                              weekday: "long",
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }) : ''}
+                        </Text>
+                      </HStack>
+                      <HStack spacing={3}>
+                        <Icon as={Clock} color="gray.500" boxSize={5} />
+                        <Text fontSize="md" color="gray.800">
+                          {selectedTime}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
 
-              <div className="cliente-summary-section">
-                <h3>Seus Dados</h3>
-                <div className="cliente-client-mini">
-                  <p>
-                    <strong>Nome:</strong> {clientData.name}
-                  </p>
-                  <p>
-                    <strong>WhatsApp:</strong> {formatPhone(clientData.phone)}
-                  </p>
-                  {clientData.email && (
-                    <p>
-                      <strong>E-mail:</strong> {clientData.email}
-                    </p>
-                  )}
-                  {clientData.paymentMethod && (
-                    <p>
-                      <strong>Pagamento:</strong> {paymentMethods.find((p) => p.id === clientData.paymentMethod)?.name}
-                    </p>
-                  )}
-                  {clientData.notes && (
-                    <p>
-                      <strong>Observações:</strong> {clientData.notes}
-                    </p>
-                  )}
-                </div>
-              </div>
+                  {/* Dados do Cliente */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="gray.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={User} color={primaryColor} />
+                      Seus Dados
+                    </Heading>
+                    <VStack spacing={2} align="start">
+                      <HStack justify="space-between" w="full">
+                        <Text fontWeight="500" color="gray.600">Nome:</Text>
+                        <Text color="gray.800">{clientData.name}</Text>
+                      </HStack>
+                      <HStack justify="space-between" w="full">
+                        <Text fontWeight="500" color="gray.600">WhatsApp:</Text>
+                        <Text color="gray.800">{formatPhone(clientData.phone)}</Text>
+                      </HStack>
+                      {clientData.email && (
+                        <HStack justify="space-between" w="full">
+                          <Text fontWeight="500" color="gray.600">E-mail:</Text>
+                          <Text color="gray.800">{clientData.email}</Text>
+                        </HStack>
+                      )}
+                      {clientData.paymentMethod && (
+                        <HStack justify="space-between" w="full">
+                          <Text fontWeight="500" color="gray.600">Pagamento:</Text>
+                          <Text color="gray.800">{paymentMethods.find((p) => p.id === clientData.paymentMethod)?.name}</Text>
+                        </HStack>
+                      )}
+                      {clientData.notes && (
+                        <HStack justify="space-between" w="full" align="start">
+                          <Text fontWeight="500" color="gray.600">Observações:</Text>
+                          <Text color="gray.800" textAlign="right" maxW="200px">{clientData.notes}</Text>
+                        </HStack>
+                      )}
+                    </VStack>
+                  </Box>
 
-              <div className="cliente-total-section">
-                <div className="cliente-total-card">
-                  <h3>Total a Pagar</h3>
-                  <div className="cliente-total-price">{formatCurrency(selectedService?.valorServico || 0)}</div>
-                </div>
-              </div>
-            </div>
-          </div>
+                  {/* Total - Aumentado e mais destacado */}
+                  <Box
+                    bg={`linear-gradient(135deg, ${primaryColor} 0%, ${adjustBrightness(primaryColor, -20)} 100%)`}
+                    color="white"
+                    borderRadius="xl"
+                    p={8}
+                    boxShadow="xl"
+                    textAlign="center"
+                    mb={8}
+                  >
+                    <Heading as="h3" size="lg" mb={3} opacity={0.9}>
+                      Total a Pagar
+                    </Heading>
+                    <Text fontSize={{ base: "2xl", md: "4xl" }} fontWeight="700" mb={2}>
+                      {formatCurrency(selectedService?.valorServico || 0)}
+                    </Text>
+                    <Text fontSize="sm" opacity={0.8}>
+                      Valor do serviço selecionado
+                    </Text>
+                  </Box>
+                </VStack>
+              </Container>
+            </VStack>
+          </Box>
         )}
 
         {/* Step 6: Sucesso */}
         {currentStep === 6 && (
-          <div className="cliente-step cliente-step-success">
-            <div className="cliente-success-content">
-              <div className="cliente-success-icon">
-                <Check size={48} />
-              </div>
-              <div style={{
-                textAlign: 'center',
-                fontWeight: 700,
-                fontSize: 22,
-                color: '#2563eb',
-                margin: '24px 0 16px 0',
-                padding: '16px 24px',
-                background: '#f0f7ff',
-                borderRadius: 12,
-                boxShadow: '0 2px 8px 0 rgba(96,165,250,0.08)'
-              }}>
-                {establishment.mensagemAgradecimento ? (
-                  <span>{establishment.mensagemAgradecimento}</span>
-                ) : (
-                  <span>Seu agendamento foi realizado com sucesso.</span>
-                )}
-              </div>
-              <div className="cliente-success-details">
-                <div className="cliente-success-item">
-                  <Calendar size={20} />
-                  <span>
-                    {new Date(selectedDate).toLocaleDateString("pt-BR")} às {selectedTime}
-                  </span>
-                </div>
-                <div className="cliente-success-item">
-                  <MapPin size={20} />
-                  <span>{formatAddress()}</span>
-                </div>
-                <div className="cliente-success-item">
-                  <Phone size={20} />
-                  <span>{formatPhone(establishment.telefone)}</span>
-                </div>
-              </div>
+          <Box className="cliente-step cliente-step-success">
+            <VStack spacing={8} align="stretch" minH="100vh" justify="center">
+              <Container maxW="container.md">
+                <VStack spacing={8} align="stretch">
+                  {/* Ícone de Sucesso */}
+                  <Box textAlign="center">
+                    <Box
+                      w="80px"
+                      h="80px"
+                      borderRadius="full"
+                      bg="green.500"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      mx="auto"
+                      mb={6}
+                      boxShadow="lg"
+                    >
+                      <Icon as={Check} color="white" boxSize={10} />
+                    </Box>
+                  </Box>
 
-              <div className="cliente-success-actions">
-                <button className="cliente-btn-primary" onClick={openWhatsApp}>
-                  <MessageCircle size={16} />
-                  WhatsApp
-                </button>
-                <button className="cliente-btn-secondary" onClick={() => window.location.reload()}>
-                  Fazer Novo Agendamento
-                </button>
-              </div>
+                  {/* Mensagem de Sucesso */}
+                  <Box
+                    bg="blue.50"
+                    border="1px solid"
+                    borderColor="blue.200"
+                    borderRadius="xl"
+                    p={6}
+                    textAlign="center"
+                    boxShadow="md"
+                  >
+                    <Text
+                      fontSize={{ base: "lg", md: "xl" }}
+                      fontWeight="700"
+                      color="blue.700"
+                      lineHeight="1.4"
+                    >
+                      {establishment.mensagemAgradecimento ? (
+                        establishment.mensagemAgradecimento
+                      ) : (
+                        "Seu agendamento foi realizado com sucesso."
+                      )}
+                    </Text>
+                  </Box>
 
-              <div className="cliente-success-tips">
-                <h3>Dicas importantes:</h3>
-                <ul>
-                  <li>Chegue com 10 minutos de antecedência</li>
-                  <li>{"Em caso de cancelamento, avise com 2 horas de antecedência ao estabelecimento pelo WhatsApp"}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+                  {/* Detalhes do Agendamento */}
+                  <Box
+                    bg="white"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="gray.200"
+                  >
+                    <VStack spacing={4} align="stretch">
+                      <HStack spacing={3}>
+                        <Icon as={Calendar} color="gray.500" boxSize={5} />
+                        <Text fontSize="md" color="gray.800">
+                          {new Date(selectedDate).toLocaleDateString("pt-BR")} às {selectedTime}
+                        </Text>
+                      </HStack>
+                      
+                      <HStack spacing={3}>
+                        <Icon as={MapPin} color="gray.500" boxSize={5} />
+                        <Text fontSize="md" color="gray.800">
+                          {formatAddress()}
+                        </Text>
+                      </HStack>
+                      
+                      <HStack spacing={3}>
+                        <Icon as={Phone} color="gray.500" boxSize={5} />
+                        <Text fontSize="md" color="gray.800">
+                          {formatPhone(establishment.telefone)}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+
+                  {/* Botões de Ação */}
+                  <VStack spacing={4} w="full">
+                    <Button
+                      leftIcon={<Icon as={MessageCircle} boxSize={5} />}
+                      onClick={openWhatsApp}
+                      size="lg"
+                      colorScheme="green"
+                      w="full"
+                      h="56px"
+                      borderRadius="lg"
+                      fontSize="md"
+                      fontWeight="600"
+                      _hover={{
+                        transform: "translateY(-2px)",
+                        boxShadow: "lg",
+                      }}
+                      _active={{
+                        transform: "scale(0.98)",
+                      }}
+                    >
+                      WhatsApp
+                    </Button>
+                    
+                    <Button
+                      onClick={() => window.location.reload()}
+                      size="lg"
+                      variant="outline"
+                      colorScheme="gray"
+                      w="full"
+                      h="56px"
+                      borderRadius="lg"
+                      fontSize="md"
+                      fontWeight="600"
+                      _hover={{
+                        transform: "translateY(-2px)",
+                        boxShadow: "lg",
+                      }}
+                      _active={{
+                        transform: "scale(0.98)",
+                      }}
+                    >
+                      Fazer Novo Agendamento
+                    </Button>
+                  </VStack>
+
+                  {/* Dicas Importantes */}
+                  <Box
+                    bg="blue.50"
+                    border="1px solid"
+                    borderColor="blue.200"
+                    borderRadius="xl"
+                    p={6}
+                    boxShadow="md"
+                  >
+                    <Heading as="h3" size="md" mb={4} color="blue.700" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Shield} color="blue.500" boxSize={5} />
+                      Dicas importantes:
+                    </Heading>
+                    <VStack spacing={3} align="start">
+                      <HStack spacing={3} align="start">
+                        <Box
+                          w="6px"
+                          h="6px"
+                          borderRadius="full"
+                          bg="blue.500"
+                          mt={2}
+                          flexShrink={0}
+                        />
+                        <Text fontSize="sm" color="blue.800" lineHeight="1.5">
+                          Chegue com 10 minutos de antecedência
+                        </Text>
+                      </HStack>
+                      <HStack spacing={3} align="start">
+                        <Box
+                          w="6px"
+                          h="6px"
+                          borderRadius="full"
+                          bg="blue.500"
+                          mt={2}
+                          flexShrink={0}
+                        />
+                        <Text fontSize="sm" color="blue.800" lineHeight="1.5">
+                          Em caso de cancelamento, avise com 2 horas de antecedência ao estabelecimento pelo WhatsApp
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                </VStack>
+              </Container>
+            </VStack>
+          </Box>
         )}
       </main>
 
       {/* Navigation Footer */}
       {currentStep < 6 && (
-        <footer className="cliente-navigation-footer">
-          <div className="cliente-nav-content">
+        <Box
+          as="footer"
+          className="cliente-navigation-footer"
+          position="fixed"
+          bottom={0}
+          left={0}
+          right={0}
+          bg="white"
+          borderTop="1px solid"
+          borderColor="gray.200"
+          boxShadow="lg"
+          zIndex={10}
+          px={4}
+          py={4}
+        >
+          <Flex justify="space-between" align="center" maxW="container.md" mx="auto">
             {currentStep > 1 && (
-              <button className="cliente-btn-back" onClick={handlePrevStep}>
-                <ArrowLeft size={16} />
+              <Button
+                variant="outline"
+                colorScheme="gray"
+                size="lg"
+                onClick={handlePrevStep}
+                leftIcon={<Icon as={ArrowLeft} boxSize={4} />}
+                borderRadius="lg"
+                fontWeight="600"
+              >
                 Voltar
-              </button>
+              </Button>
             )}
 
-            <div className="cliente-nav-info">
-              <span>Passo {currentStep} de 5</span>
-            </div>
+            <Text fontSize="sm" color="gray.600" fontWeight="500">
+              Passo {currentStep} de 5
+            </Text>
 
-            <button
-              className="cliente-btn-next"
+            <Button
+              colorScheme="purple"
+              size="lg"
               onClick={currentStep === 5 ? handleSubmit : handleNextStep}
-              disabled={!canProceed() || submitting}
+              disabled={!canProceed()}
+              rightIcon={!submitting ? <Icon as={ArrowRight} boxSize={4} /> : undefined}
+              borderRadius="lg"
+              fontWeight="600"
+              isLoading={submitting}
+              loadingText="Salvando..."
+              opacity={canProceed() ? 1 : 0.5}
+              cursor={canProceed() ? "pointer" : "not-allowed"}
             >
-              {submitting ? (
-                <>
-                  <div className="cliente-spinner-mini"></div>
-                  Salvando...
-                </>
-              ) : currentStep === 5 ? (
-                "Confirmar Agendamento"
-              ) : (
-                "Continuar"
-              )}
-              {!submitting && <ArrowRight size={16} />}
-            </button>
-          </div>
-        </footer>
+              {currentStep === 5 ? "Confirmar Agendamento" : "Continuar"}
+            </Button>
+          </Flex>
+        </Box>
       )}
     </div>
   )
