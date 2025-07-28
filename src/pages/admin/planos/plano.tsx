@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, Stack } from "@chakra-ui/react"
 import "./plano.css"
-import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight, Package } from "lucide-react"
+import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
 import { auth } from '../../../firebase/firebase'
 import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
@@ -13,11 +13,6 @@ export default function Plano() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
-  const [isPremium, setIsPremium] = useState(false)
-  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
-  const [dataInicioTesteGratis, setDataInicioTesteGratis] = useState<string | null>(null)
-  const [diasRestantesTeste, setDiasRestantesTeste] = useState<number | null>(null)
-  const [showPromotion, setShowPromotion] = useState(true)
   const [testeGratisAtivo, setTesteGratisAtivo] = useState(false)
   const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
   const [loadingConta, setLoadingConta] = useState(true);
@@ -32,21 +27,7 @@ export default function Plano() {
     getDocs(qConta).then(snapshot => {
       if (!snapshot.empty) {
         const contaData = snapshot.docs[0].data();
-        setIsPremium(contaData.premium === true);
-        setTipoPlano(contaData.tipoPlano || null);
-        setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
-        // Calcular dias restantes do teste grátis
-        if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === '')) {
-          const inicio = new Date(contaData.data_inicio_teste_gratis);
-          const hoje = new Date();
-          const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
-          const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-          const diff = Math.floor((hojeDia.getTime() - inicioDia.getTime()) / (1000 * 60 * 60 * 24));
-          setDiasRestantesTeste(Math.max(0, 7 - diff));
-        } else {
-          setDiasRestantesTeste(null);
-        }
       }
       setLoadingConta(false);
     });
@@ -63,11 +44,7 @@ export default function Plano() {
       dias_restantes_teste_gratis: 7,
       ja_pegou_premium_gratis: true
     })
-    setIsPremium(true)
-    setTipoPlano('gratis') // ATUALIZAR ESTADO LOCAL
-    setShowPromotion(false)
     setTesteGratisAtivo(true)
-    setDiasRestantesTeste(7)
     setJaPegouPremiumGratis(true)
     // Redirecionar para o dashboard para liberar as rotas
     navigate(`/dashboard/${auth.currentUser.uid}`)

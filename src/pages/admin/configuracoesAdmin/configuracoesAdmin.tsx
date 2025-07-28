@@ -5,8 +5,6 @@ import {
   Building2,
   Clock,
   Palette,
-  Copy,
-  Check,
   Settings,
   Save,
   Camera,
