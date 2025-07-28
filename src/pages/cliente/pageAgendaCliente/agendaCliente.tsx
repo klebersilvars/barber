@@ -28,16 +28,12 @@ import {
   Text,
   Button,
   Input,
-  Grid,
-  GridItem,
   Badge,
-  useColorModeValue,
   Flex,
   Container,
   Heading,
   SimpleGrid,
   Icon,
-  useToast,
   Textarea,
 } from "@chakra-ui/react"
 import "./agendaCliente.css"
@@ -282,7 +278,7 @@ const AgendaCliente = () => {
 
       // Salvar na coleção agendaAdmin
       const agendaRef = collection(firestore, "agendaAdmin")
-      const docRef = await addDoc(agendaRef, appointmentData)
+      await addDoc(agendaRef, appointmentData)
       
       // Ir para tela de sucesso
       setCurrentStep(6)
