@@ -82,6 +82,14 @@ export default function DashboardUser() {
         setTipoPlano(contaData.tipoPlano || null);
         setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
+        
+        // Debug logs
+        console.log('Dados da conta:', {
+          premium: contaData.premium,
+          tipoPlano: contaData.tipoPlano,
+          diasRestantes: contaData.dias_plano_pago_restante
+        });
+        
         // Calcular dias restantes do teste grátis
         if (contaData.data_inicio_teste_gratis && (!contaData.tipoPlano || contaData.tipoPlano === '')) {
           const inicio = new Date(contaData.data_inicio_teste_gratis);
@@ -232,7 +240,8 @@ export default function DashboardUser() {
     `/dashboard/${uid}`
   ];
   const allowedPathsGratisExpirado = [
-    `/dashboard/${uid}/plano`
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/configuracoes`
   ];
   const allowedPathsIndividual = [
     `/dashboard/${uid}/servicos`,
@@ -266,12 +275,16 @@ export default function DashboardUser() {
   }
 
   let filteredMenuItems = menuItems.map(item => ({ ...item, disabled: false }));
+  
+  // SEMPRE permitir acesso às páginas de plano e configurações
+  const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`];
+  
   if (tipoPlano === 'gratis' || tipoPlano === '') {
     if (isPlanoExpirado('gratis', dataInicioTesteGratis)) {
-      // Grátis expirado: só Plano e Pagamento
+      // Grátis expirado: Plano, Configurações
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: !allowedPathsGratisExpirado.includes(item.path)
+        disabled: !alwaysAllowedPaths.includes(item.path)
       }));
     } else {
       // Grátis ativo: Plano, Serviços, Configurações, Agenda Online, Dashboard
@@ -282,10 +295,10 @@ export default function DashboardUser() {
     }
   } else if (tipoPlano === 'individual') {
     if (isPlanoExpirado('individual', dataInicioTesteGratis)) {
-      // Individual expirado: bloqueia tudo
+      // Individual expirado: bloqueia tudo EXCETO plano e configurações
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: true
+        disabled: !alwaysAllowedPaths.includes(item.path)
       }));
     } else {
       // Individual ativo: Serviços, Agenda Online, Configurações, Plano e Pagamento, Dashboard
@@ -296,10 +309,10 @@ export default function DashboardUser() {
     }
   } else if (tipoPlano === 'empresa') {
     if (isPlanoExpirado('empresa', dataInicioTesteGratis)) {
-      // Empresa expirado: bloqueia tudo
+      // Empresa expirado: bloqueia tudo EXCETO plano e configurações
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: true
+        disabled: !alwaysAllowedPaths.includes(item.path)
       }));
     } else {
       // Empresa ativo: libera tudo
@@ -309,10 +322,10 @@ export default function DashboardUser() {
       }));
     }
   } else {
-    // Caso não tenha plano, bloqueia tudo menos plano e pagamento
+    // Caso não tenha plano, permite apenas plano e configurações
     filteredMenuItems = menuItems.map(item => ({
       ...item,
-      disabled: item.path !== `/dashboard/${uid}/plano`
+      disabled: !alwaysAllowedPaths.includes(item.path)
     }));
   }
 
@@ -344,10 +357,19 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid || !tipoPlano) return;
 
+    // SEMPRE permitir acesso às páginas de plano e configurações
+    const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `#logout`];
+    
+    // Se estiver em uma página sempre permitida, não fazer nada
+    if (alwaysAllowedPaths.some(path => location.pathname.startsWith(path))) {
+      return;
+    }
+
     let allowedPaths: string[] = [];
+    
     if (tipoPlano === 'gratis' || tipoPlano === '') {
       allowedPaths = isPlanoExpirado('gratis', dataInicioTesteGratis)
-        ? [`/dashboard/${uid}/plano`, `#logout`]
+        ? [...alwaysAllowedPaths]
         : [
             `/dashboard/${uid}/plano`,
             `/dashboard/${uid}/servicos`,
@@ -358,7 +380,7 @@ export default function DashboardUser() {
           ];
     } else if (tipoPlano === 'individual') {
       allowedPaths = isPlanoExpirado('individual', dataInicioTesteGratis)
-        ? [`#logout`]
+        ? [...alwaysAllowedPaths]
         : [
             `/dashboard/${uid}/servicos`,
             `/dashboard/${uid}/agenda`,
@@ -369,17 +391,18 @@ export default function DashboardUser() {
           ];
     } else if (tipoPlano === 'empresa') {
       allowedPaths = isPlanoExpirado('empresa', dataInicioTesteGratis)
-        ? []
+        ? [...alwaysAllowedPaths]
         : [
             ...menuItems.map(item => item.path)
           ];
     } else {
-      allowedPaths = [`/dashboard/${uid}/plano`];
+      // Caso não tenha plano, permite apenas plano e configurações
+      allowedPaths = [...alwaysAllowedPaths];
     }
 
-    if (location.pathname === '#logout') return; // Nunca bloqueie o logout
     const isAllowed = allowedPaths.some(path => location.pathname.startsWith(path));
     if (!isAllowed) {
+      console.log('Redirecionando para plano - rota não permitida:', location.pathname);
       navigate(`/dashboard/${uid}/plano`);
     }
   }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname, diasPlanoPagoRestante]);

@@ -1,24 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Building2,
-  Phone,
-  Mail,
-  Upload,
   Clock,
   Palette,
-  Save,
+  Copy,
+  Check,
   Settings,
+  Save,
   Camera,
-  Globe,
+  Upload,
   Trash2,
+  Phone,
+  Mail,
+  Globe,
 } from "lucide-react"
 import "./configuracoesAdmin.css"
-import { getAuth } from "firebase/auth"
-import { firestore } from '../../../firebase/firebase'
+import { firestore, auth } from '../../../firebase/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { useRef } from "react"
 
 const ConfiguracoesAdmin = () => {
   // Estados para as configurações
@@ -42,9 +42,11 @@ const ConfiguracoesAdmin = () => {
     complemento: "",
     slug: ""
   })
-  const auth = getAuth()
 
-  // Buscar dados da conta logada ao entrar na página
+  // Estados para verificar premium
+  const [isPremium, setIsPremium] = useState(false)
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+
   useEffect(() => {
     const fetchConta = async () => {
       if (!auth.currentUser?.uid) return
@@ -67,6 +69,19 @@ const ConfiguracoesAdmin = () => {
           complemento: data.complemento || "",
           slug: data.slug || ""
         }))
+        
+        // Verificar se tem qualquer plano ativo (premium = true OU qualquer tipoPlano)
+        const hasAnyPlan = data.premium === true || data.tipoPlano;
+        setIsPremium(hasAnyPlan)
+        setTipoPlano(data.tipoPlano || null)
+        
+        // Debug logs
+        console.log('Configurações - Dados da conta:', {
+          premium: data.premium,
+          tipoPlano: data.tipoPlano,
+          hasAnyPlan: hasAnyPlan,
+          isPremium: hasAnyPlan
+        });
       }
     }
     fetchConta()
@@ -100,8 +115,8 @@ const ConfiguracoesAdmin = () => {
     wednesday: { open: "08:00", close: "18:00", closed: false },
     thursday: { open: "08:00", close: "18:00", closed: false },
     friday: { open: "08:00", close: "18:00", closed: false },
-    saturday: { open: "08:00", close: "16:00", closed: false },
-    sunday: { open: "09:00", close: "15:00", closed: true },
+    saturday: { open: "09:00", close: "17:00", closed: false },
+    sunday: { open: "09:00", close: "17:00", closed: true },
   })
 
   const [policies, setPolicies] = useState({
@@ -124,7 +139,7 @@ const ConfiguracoesAdmin = () => {
   const tabs = [
     { id: "salon", label: "Informações do Salão", icon: Building2 },
     { id: "schedule", label: "Horários e Políticas", icon: Clock },
-    { id: "appearance", label: "Aparência e Identidade", icon: Palette },
+    { id: "appearance", label: "Link próprio e Aparência", icon: Palette, premiumRequired: true },
   ]
 
   const weekDays = [
@@ -256,7 +271,7 @@ const ConfiguracoesAdmin = () => {
       <div className="configuracoes-header">
         <div className="header-content">
           <div className="header-title">
-            <Settings className="header-icon" />
+            <Settings size={24} />
             <div>
               <h1>Configurações do Sistema</h1>
               <p>Personalize seu salão e defina suas políticas de atendimento</p>
@@ -273,16 +288,28 @@ const ConfiguracoesAdmin = () => {
 
       {/* Navigation Tabs */}
       <div className="configuracoes-nav">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`nav-tab ${activeTab === tab.id ? "active" : ""}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <tab.icon size={20} />
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          // Verificar se tem qualquer plano ativo (premium = true OU qualquer tipoPlano)
+          const hasAnyPlan = isPremium || tipoPlano;
+          const isDisabled = tab.premiumRequired && !hasAnyPlan;
+          return (
+            <button
+              key={tab.id}
+              className={`nav-tab ${activeTab === tab.id ? "active" : ""} ${isDisabled ? "disabled" : ""}`}
+              onClick={() => {
+                if (!isDisabled) {
+                  setActiveTab(tab.id);
+                }
+              }}
+              disabled={isDisabled}
+              title={isDisabled ? "Ative o Premium para acessar esta funcionalidade" : ""}
+            >
+              <tab.icon size={20} />
+              <span>{tab.label}</span>
+              {isDisabled && <span className="premium-badge">PREMIUM</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}
@@ -644,124 +671,143 @@ const ConfiguracoesAdmin = () => {
 
         {/* Aparência e Identidade */}
         {activeTab === "appearance" && (
-          <div className="config-section">
-            <div className="section-header">
-              <Palette size={24} />
-              <div>
-                <h2>Aparência e Identidade</h2>
-                <p>Personalize a aparência da sua página de agendamento online</p>
-              </div>
-            </div>
-
-            <div className="config-grid">
-              {/* Cor Principal */}
-              <div className="config-card">
-                <h3>Cor Principal</h3>
-                <div className="color-picker-section">
-                  <div className="current-color">
-                    <div
-                      className="color-preview"
-                      style={{ backgroundColor: primaryColor }}
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                    ></div>
-                    <span>{primaryColor}</span>
-                  </div>
-
-                  <div className="predefined-colors">
-                    {predefinedColors.map((color) => (
-                      <button
-                        key={color}
-                        className={`color-option ${primaryColor === color ? "active" : ""}`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setPrimaryColor(color)}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="custom-color">
-                    <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
-                    <span>Cor personalizada</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Nome de Exibição */}
-              <div className="config-card">
-                <h3>Nome de Exibição</h3>
-                <div className="form-group">
-                  <label htmlFor="display-name">Nome para Agendamento Online</label>
-                  <input
-                    type="text"
-                    id="display-name"
-                    value={appearance.displayName}
-                    onChange={(e) => setAppearance((prev) => ({ ...prev, displayName: e.target.value }))}
-                    placeholder="Nome que aparecerá na página de agendamento"
-                  />
-                  <small>Pode ser diferente do nome oficial do salão</small>
-                </div>
-              </div>
-
-              {/* Link de Agendamento */}
-              <div className="config-card full-width">
-                <h3>Link de Agendamento Online</h3>
-                <div className="url-generator">
-                  <div className="url-preview">
-                    <Globe size={18} />
-                    <span>{generateBookingUrl()}</span>
-                    <button className="btn-copy" onClick={handleCopyUrl} type="button">
-                      {copied ? "Copiado!" : "Copiar"}
-                    </button>
-                  </div>
-
-                  <div className="url-toggle">
-                    <input
-                      type="checkbox"
-                      id="enable-custom-page"
-                      checked={appearance.enableCustomPage}
-                      onChange={(e) => setAppearance((prev) => ({ ...prev, enableCustomPage: e.target.checked }))}
-                    />
-                    <label htmlFor="enable-custom-page">Ativar página personalizada de agendamento</label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mensagens Personalizadas */}
-              <div className="config-card">
-                <h3>Mensagem de Boas-vindas</h3>
-                <div className="form-group">
-                  <label htmlFor="welcome-message">Texto de Boas-vindas</label>
-                  <textarea
-                    id="welcome-message"
-                    value={appearance.welcomeMessage}
-                    onChange={(e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
-                    placeholder="Bem-vindo ao nosso salão! Escolha o melhor horário para você."
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <div className="config-card">
-                <h3>Mensagem de Agradecimento</h3>
-                <div className="form-group">
-                  <label htmlFor="thank-you-message">Texto após Agendamento</label>
-                  <textarea
-                    id="thank-you-message"
-                    value={appearance.thankYouMessage}
-                    onChange={(e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
-                    placeholder="Obrigado por agendar conosco! Confirmaremos seu horário em breve."
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              {/* Botão para salvar aparência */}
-              <div className="config-card full-width" style={{ textAlign: 'right' }}>
-                <button className="btn-save" onClick={handleSaveAparencia}>
-                  <Save size={18} />
-                  Salvar Aparência
+          <div className="tab-panel">
+            {!isPremium && !tipoPlano ? (
+              <div className="premium-required-message">
+                <div className="premium-icon">🎨</div>
+                <h2>Funcionalidade Premium</h2>
+                <p>
+                  A personalização de aparência e identidade está disponível apenas para usuários Premium.
+                  Ative o Premium para personalizar cores, mensagens e identidade visual do seu agendamento.
+                </p>
+                <button 
+                  className="btn-primary"
+                  onClick={() => {
+                    // Navegar para a página de planos
+                    window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`;
+                  }}
+                >
+                  Ativar Premium
                 </button>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="panel-header">
+                  <h2>Link personalizado e Aparência</h2>
+                  <p>Pegue seu link personalizado e personalize a aparência da sua página de agendamento online</p>
+                </div>
+
+                <div className="config-grid">
+                  {/* Cor Principal */}
+                  <div className="config-card">
+                    <h3>Cor Principal</h3>
+                    <div className="color-picker-section">
+                      <div className="current-color">
+                        <div
+                          className="color-preview"
+                          style={{ backgroundColor: primaryColor }}
+                          onClick={() => setShowColorPicker(!showColorPicker)}
+                        ></div>
+                        <span>{primaryColor}</span>
+                      </div>
+
+                      <div className="predefined-colors">
+                        {predefinedColors.map((color) => (
+                          <button
+                            key={color}
+                            className={`color-option ${primaryColor === color ? "active" : ""}`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setPrimaryColor(color)}
+                          />
+                        ))}
+                      </div>
+
+                      <div className="custom-color">
+                        <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
+                        <span>Cor personalizada</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nome de Exibição */}
+                  <div className="config-card">
+                    <h3>Nome de Exibição</h3>
+                    <div className="form-group">
+                      <label htmlFor="display-name">Nome para Agendamento Online</label>
+                      <input
+                        type="text"
+                        id="display-name"
+                        value={appearance.displayName}
+                        onChange={(e) => setAppearance((prev) => ({ ...prev, displayName: e.target.value }))}
+                        placeholder="Nome que aparecerá na página de agendamento"
+                      />
+                      <small>Pode ser diferente do nome oficial do salão</small>
+                    </div>
+                  </div>
+
+                  {/* Link de Agendamento */}
+                  <div className="config-card full-width">
+                    <h3>Link de Agendamento Online</h3>
+                    <div className="url-generator">
+                      <div className="url-preview">
+                        <Globe size={18} />
+                        <span>{generateBookingUrl()}</span>
+                        <button className="btn-copy" onClick={handleCopyUrl} type="button">
+                          {copied ? "Copiado!" : "Copiar"}
+                        </button>
+                      </div>
+
+                      <div className="url-toggle">
+                        <input
+                          type="checkbox"
+                          id="enable-custom-page"
+                          checked={appearance.enableCustomPage}
+                          onChange={(e) => setAppearance((prev) => ({ ...prev, enableCustomPage: e.target.checked }))}
+                        />
+                        <label htmlFor="enable-custom-page">Ativar página personalizada de agendamento</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mensagens Personalizadas */}
+                  <div className="config-card">
+                    <h3>Mensagem de Boas-vindas</h3>
+                    <div className="form-group">
+                      <label htmlFor="welcome-message">Texto de Boas-vindas</label>
+                      <textarea
+                        id="welcome-message"
+                        value={appearance.welcomeMessage}
+                        onChange={(e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
+                        placeholder="Bem-vindo ao nosso salão! Escolha o melhor horário para você."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="config-card">
+                    <h3>Mensagem de Agradecimento</h3>
+                    <div className="form-group">
+                      <label htmlFor="thank-you-message">Texto após Agendamento</label>
+                      <textarea
+                        id="thank-you-message"
+                        value={appearance.thankYouMessage}
+                        onChange={(e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
+                        placeholder="Obrigado por agendar conosco! Confirmaremos seu horário em breve."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botão para salvar aparência */}
+                  <div className="config-card full-width" style={{ textAlign: 'right' }}>
+                    <button className="btn-save" onClick={handleSaveAparencia}>
+                      <Save size={18} />
+                      Salvar Aparência
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

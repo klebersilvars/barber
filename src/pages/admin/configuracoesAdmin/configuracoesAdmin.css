@@ -146,33 +146,57 @@
     width: 100%;
   }
   
-  .nav-tab {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    border-radius: var(--radius-md);
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition);
-    flex: 1;
-    justify-content: center;
-    min-height: 48px;
-  }
-  
-  .nav-tab:hover {
-    background: var(--background);
-    color: var(--primary);
-  }
-  
-  .nav-tab.active {
-    background: var(--primary);
-    color: white;
-    box-shadow: var(--shadow-sm);
-  }
+  /* Tab Navigation */
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  position: relative;
+}
+
+.nav-tab:hover:not(.disabled) {
+  background: #f1f5f9;
+  color: #5d3fd3;
+}
+
+.nav-tab.active {
+  background: #5d3fd3;
+  color: white;
+}
+
+.nav-tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #94a3b8;
+}
+
+.nav-tab.disabled:hover {
+  background: none;
+  color: #94a3b8;
+}
+
+.premium-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #f59e0b;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
   
   /* Content - largura total */
   .configuracoes-content {
@@ -1664,4 +1688,48 @@
       --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     }
   }
+  
+/* Premium Required Message */
+.premium-required-message {
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.premium-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+}
+
+.premium-required-message h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 16px;
+}
+
+.premium-required-message p {
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.premium-required-message .btn-primary {
+  background: #5d3fd3;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.premium-required-message .btn-primary:hover {
+  background: #4c32b3;
+  transform: translateY(-1px);
+}
   
