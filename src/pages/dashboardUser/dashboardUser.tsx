@@ -73,6 +73,41 @@ export default function DashboardUser() {
   // Unificar busca dos dados da conta para evitar duplicidade e garantir atualização dos dias
   useEffect(() => {
     if (!uid) return;
+
+    // Lógica de decremento diário dos dias de plano
+    (async () => {
+      const lastDecrementKey = `lastDecrement_${uid}`;
+      const today = new Date().toISOString().split('T')[0];
+      const lastDecrement = localStorage.getItem(lastDecrementKey);
+      let campoPlano = '';
+      let valorAtual = null;
+      let novoValor = null;
+      let docRef = doc(firestore, 'contas', uid);
+
+      // Buscar dados atuais
+      const contaSnap = await getDoc(docRef);
+      if (contaSnap.exists()) {
+        const contaData = contaSnap.data();
+        // Plano grátis
+        if (contaData.tipoPlano === 'gratis' && contaData.dias_restantes_teste_gratis > 0) {
+          campoPlano = 'dias_restantes_teste_gratis';
+          valorAtual = contaData.dias_restantes_teste_gratis;
+        }
+        // Plano individual/empresa
+        if ((contaData.tipoPlano === 'individual' || contaData.tipoPlano === 'empresa') && contaData.dias_plano_pago_restante > 0) {
+          campoPlano = 'dias_plano_pago_restante';
+          valorAtual = contaData.dias_plano_pago_restante;
+        }
+      }
+      // Só decrementa se tiver campo válido e não for o mesmo dia
+      if (campoPlano && valorAtual > 0 && lastDecrement !== today) {
+        novoValor = valorAtual - 1;
+        await updateDoc(docRef, { [campoPlano]: novoValor });
+        localStorage.setItem(lastDecrementKey, today);
+      }
+    })();
+
+    // Busca dos dados da conta (mantém como estava)
     const contasRef = collection(firestore, 'contas');
     const qConta = query(contasRef, where('__name__', '==', uid));
     getDocs(qConta).then(snapshot => {
@@ -84,16 +119,7 @@ export default function DashboardUser() {
         setDataInicioTesteGratis(contaData.data_inicio_teste_gratis || null);
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
-        // Usar o campo do banco para dias restantes do teste grátis
         setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
-        // Debug logs
-        console.log('Dados da conta:', {
-          premium: contaData.premium,
-          tipoPlano: contaData.tipoPlano,
-          diasRestantes: contaData.dias_plano_pago_restante,
-          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis,
-          diasRestantesTeste: contaData.dias_restantes_teste_gratis
-        });
       }
     });
   }, [uid]);
