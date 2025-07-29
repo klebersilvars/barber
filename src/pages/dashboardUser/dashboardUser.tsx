@@ -200,6 +200,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/servicos`,
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}`
   ];
   const allowedPathsGratisExpirado = [
@@ -210,13 +211,14 @@ export default function DashboardUser() {
     `/dashboard/${uid}/agenda`,
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}`
   ];
   // Empresa: todas as rotas liberadas
 
   // Função para checar se o plano está expirado (usando dias_plano_pago_restante para planos pagos)
   function isPlanoExpirado(tipo: string | null, dataInicio: string | null) {
-    if (!tipo || !dataInicio) return false;
+    if (!tipo) return false;
     
     // Para planos pagos, usar dias_plano_pago_restante
     if (tipo === 'individual' || tipo === 'empresa') {
@@ -225,6 +227,7 @@ export default function DashboardUser() {
     
     // Para plano grátis, usar cálculo de data
     if (tipo === 'gratis' || tipo === '') {
+      if (!dataInicio) return false;
       const inicio = new Date(dataInicio);
       const hoje = new Date();
       const inicioDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
@@ -255,10 +258,10 @@ export default function DashboardUser() {
         disabled: !allowedPathsGratisExpirado.includes(item.path)
       }));
     } else {
-      // Grátis ativo sem premium: só Plano
+      // Grátis ativo sem premium: libera as rotas básicas incluindo cliente
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: !allowedPathsGratisExpirado.includes(item.path)
+        disabled: !['/dashboard/${uid}/plano', '/dashboard/${uid}/cliente', '/dashboard/${uid}/servicos', '/dashboard/${uid}/configuracoes', '/dashboard/${uid}/agenda', `/dashboard/${uid}`, '#logout'].includes(item.path)
       }));
     }
   } else if (tipoPlano === 'individual') {
@@ -269,7 +272,7 @@ export default function DashboardUser() {
         disabled: !alwaysAllowedPaths.includes(item.path)
       }));
     } else {
-      // Individual ativo: Serviços, Agenda Online, Configurações, Plano e Pagamento, Dashboard
+      // Individual ativo: Serviços, Agenda Online, Configurações, Plano e Pagamento, Cliente, Dashboard
       filteredMenuItems = menuItems.map(item => ({
         ...item,
         disabled: !allowedPathsIndividual.includes(item.path)
@@ -336,10 +339,13 @@ export default function DashboardUser() {
     let allowedPaths: string[] = [];
     
     if (tipoPlano === 'gratis' || tipoPlano === '') {
-      allowedPaths = isPlanoExpirado('gratis', dataInicioTesteGratis)
+      const isExpirado = isPlanoExpirado('gratis', dataInicioTesteGratis);
+      
+      allowedPaths = isExpirado
         ? [...alwaysAllowedPaths]
         : [
             `/dashboard/${uid}/plano`,
+            `/dashboard/${uid}/cliente`,
             `/dashboard/${uid}/servicos`,
             `/dashboard/${uid}/configuracoes`,
             `/dashboard/${uid}/agenda`,
@@ -347,10 +353,13 @@ export default function DashboardUser() {
             `#logout`
           ];
     } else if (tipoPlano === 'individual') {
-      allowedPaths = isPlanoExpirado('individual', dataInicioTesteGratis)
+      const isExpirado = isPlanoExpirado('individual', dataInicioTesteGratis);
+      
+      allowedPaths = isExpirado
         ? [...alwaysAllowedPaths]
         : [
             `/dashboard/${uid}/servicos`,
+            `/dashboard/${uid}/cliente`,
             `/dashboard/${uid}/agenda`,
             `/dashboard/${uid}/configuracoes`,
             `/dashboard/${uid}/plano`,
@@ -358,7 +367,9 @@ export default function DashboardUser() {
             `#logout`
           ];
     } else if (tipoPlano === 'empresa') {
-      allowedPaths = isPlanoExpirado('empresa', dataInicioTesteGratis)
+      const isExpirado = isPlanoExpirado('empresa', dataInicioTesteGratis);
+      
+      allowedPaths = isExpirado
         ? [...alwaysAllowedPaths]
         : [
             ...menuItems.map(item => item.path)
@@ -367,8 +378,9 @@ export default function DashboardUser() {
       // Caso não tenha plano, permite apenas plano e configurações
       allowedPaths = [...alwaysAllowedPaths];
     }
-
+    
     const isAllowed = allowedPaths.some(path => location.pathname.startsWith(path));
+    
     if (!isAllowed) {
       console.log('Redirecionando para plano - rota não permitida:', location.pathname);
       navigate(`/dashboard/${uid}/plano`);
