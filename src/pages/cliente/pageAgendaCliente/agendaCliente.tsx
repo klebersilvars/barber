@@ -306,28 +306,27 @@ const AgendaCliente = () => {
     }
   }
 
-  // Filtrar profissionais que fazem o serviço selecionado, incluindo o administrador se necessário
+  // Filtrar profissionais que fazem o serviço selecionado
   const availableProfessionals = (() => {
     if (selectedService && Array.isArray(selectedService.profissionaisServico)) {
-      // Profissionais colaboradores
       const filtered = professionals.filter((prof) => selectedService.profissionaisServico.includes(prof.nome))
-      // Se o nome do administrador (establishment.nomeEstabelecimento) estiver no array, adiciona como opção
+      // Se o admin/proprietário está no array de profissionais do serviço, adicionar como opção
       if (
         establishment &&
         selectedService.profissionaisServico.includes(establishment.nomeEstabelecimento)
       ) {
-        filtered.unshift({
+        filtered.unshift({ // Adicionar no início do array
           id: 'admin',
           nome: establishment.nomeEstabelecimento,
           cargo: 'Administrador',
-          photo: establishment.logo || '',
+          photo: establishment.logo || '', // Usar logo do estabelecimento como foto
           experiencia: '',
           descricao: 'Administrador do salão',
         })
       }
       return filtered
     }
-    return professionals
+    return professionals // Se não há serviço selecionado ou não há profissionais específicos, mostrar todos
   })()
 
   // Função para montar mensagem de confirmação
