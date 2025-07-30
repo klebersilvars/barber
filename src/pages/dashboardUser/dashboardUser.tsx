@@ -79,35 +79,38 @@ export default function DashboardUser() {
       const lastDecrementKey = `lastDecrement_${uid}`;
       const today = new Date().toISOString().split('T')[0];
       const lastDecrement = localStorage.getItem(lastDecrementKey);
-      let campoPlano = '';
-      let valorAtual = null;
-      let novoValor = null;
       let docRef = doc(firestore, 'contas', uid);
 
       // Buscar dados atuais
       const contaSnap = await getDoc(docRef);
       if (contaSnap.exists()) {
         const contaData = contaSnap.data();
-        // Plano grátis
+        let precisaDecrementar = false;
+        let campoParaDecrementar = '';
+        let valorAtual = 0;
+
+        // Verificar se precisa decrementar baseado no tipo de plano
         if (contaData.tipoPlano === 'gratis' && contaData.dias_restantes_teste_gratis > 0) {
-          campoPlano = 'dias_restantes_teste_gratis';
+          campoParaDecrementar = 'dias_restantes_teste_gratis';
           valorAtual = contaData.dias_restantes_teste_gratis;
-        }
-        // Plano individual/empresa
-        if ((contaData.tipoPlano === 'individual' || contaData.tipoPlano === 'empresa') && contaData.dias_plano_pago_restante > 0) {
-          campoPlano = 'dias_plano_pago_restante';
+          precisaDecrementar = true;
+        } else if ((contaData.tipoPlano === 'individual' || contaData.tipoPlano === 'empresa') && contaData.dias_plano_pago_restante > 0) {
+          campoParaDecrementar = 'dias_plano_pago_restante';
           valorAtual = contaData.dias_plano_pago_restante;
+          precisaDecrementar = true;
         }
-      }
-      // Só decrementa se tiver campo válido e não for o mesmo dia
-      if (campoPlano && valorAtual > 0 && lastDecrement !== today) {
-        novoValor = valorAtual - 1;
-        await updateDoc(docRef, { [campoPlano]: novoValor });
-        localStorage.setItem(lastDecrementKey, today);
+
+        // Só decrementa se não foi decrementado hoje
+        if (precisaDecrementar && lastDecrement !== today) {
+          const novoValor = valorAtual - 1;
+          await updateDoc(docRef, { [campoParaDecrementar]: novoValor });
+          localStorage.setItem(lastDecrementKey, today);
+          console.log(`Decrementado ${campoParaDecrementar}: ${valorAtual} -> ${novoValor}`);
+        }
       }
     })();
 
-    // Busca dos dados da conta (mantém como estava)
+    // Busca dos dados da conta para atualizar o estado
     const contasRef = collection(firestore, 'contas');
     const qConta = query(contasRef, where('__name__', '==', uid));
     getDocs(qConta).then(snapshot => {
@@ -120,6 +123,15 @@ export default function DashboardUser() {
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
         setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
+        
+        // Debug logs
+        console.log('Dados da conta carregados:', {
+          tipoPlano: contaData.tipoPlano,
+          premium: contaData.premium,
+          diasRestantesTeste: contaData.dias_restantes_teste_gratis,
+          diasPlanoPagoRestante: contaData.dias_plano_pago_restante,
+          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis
+        });
       }
     });
   }, [uid]);
@@ -177,32 +189,32 @@ export default function DashboardUser() {
     checkTesteGratis()
   }, [uid])
 
-  // Verificar planos pagos (sem decremento, apenas leitura)
-  useEffect(() => {
-    if (!uid) return;
-    
-    const verificarPlanoPago = async () => {
-      const docRef = doc(firestore, 'contas', uid);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        // Se tem plano pago (individual ou empresa)
-        if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa')) {
-          setDiasPlanoPagoRestante(data.dias_plano_pago_restante ?? null);
-          
-          // Se chegou a 0 dias (verificação do backend)
-          if (data.dias_plano_pago_restante <= 0) {
-            setIsPremium(false);
-            setTipoPlano('');
-          }
-        }
-      }
-    };
-    
-    verificarPlanoPago();
-  }, [uid]);
+  // Verificar planos pagos (sem decremento, apenas leitura) - REMOVIDO pois já está unificado no useEffect principal
+  // useEffect(() => {
+  //   if (!uid) return;
+  //   
+  //   const verificarPlanoPago = async () => {
+  //     const docRef = doc(firestore, 'contas', uid);
+  //     const docSnap = await getDoc(docRef);
+  //     
+  //     if (docSnap.exists()) {
+  //       const data = docSnap.data();
+  //       
+  //       // Se tem plano pago (individual ou empresa)
+  //       if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa')) {
+  //         setDiasPlanoPagoRestante(data.dias_plano_pago_restante ?? null);
+  //         
+  //         // Se chegou a 0 dias (verificação do backend)
+  //         if (data.dias_plano_pago_restante <= 0) {
+  //           setIsPremium(false);
+  //           setTipoPlano('');
+  //         }
+  //       }
+  //     }
+  //   };
+  //   
+  //   verificarPlanoPago();
+  // }, [uid]);
 
   // Removido: const formatCurrency = (value: number) => { ... }
 
@@ -365,41 +377,32 @@ export default function DashboardUser() {
     let allowedPaths: string[] = [];
     
     if (tipoPlano === 'gratis' || tipoPlano === '') {
-      const isExpirado = isPlanoExpirado('gratis', dataInicioTesteGratis);
-      
-      allowedPaths = isExpirado
-        ? [...alwaysAllowedPaths]
-        : [
-            `/dashboard/${uid}/plano`,
-            `/dashboard/${uid}/cliente`,
-            `/dashboard/${uid}/servicos`,
-            `/dashboard/${uid}/configuracoes`,
-            `/dashboard/${uid}/agenda`,
-            `/dashboard/${uid}`,
-            `#logout`
-          ];
+      // Para plano grátis, sempre permitir cliente, serviços, agenda e configurações
+      allowedPaths = [
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/cliente`,
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
     } else if (tipoPlano === 'individual') {
-      const isExpirado = isPlanoExpirado('individual', dataInicioTesteGratis);
-      
-      allowedPaths = isExpirado
-        ? [...alwaysAllowedPaths]
-        : [
-            `/dashboard/${uid}/servicos`,
-            `/dashboard/${uid}/cliente`,
-            `/dashboard/${uid}/agenda`,
-            `/dashboard/${uid}/configuracoes`,
-            `/dashboard/${uid}/plano`,
-            `/dashboard/${uid}`,
-            `#logout`
-          ];
+      // Para plano individual, permitir cliente, serviços, agenda e configurações
+      allowedPaths = [
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/cliente`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
     } else if (tipoPlano === 'empresa') {
-      const isExpirado = isPlanoExpirado('empresa', dataInicioTesteGratis);
-      
-      allowedPaths = isExpirado
-        ? [...alwaysAllowedPaths]
-        : [
-            ...menuItems.map(item => item.path)
-          ];
+      // Para plano empresa, permitir tudo
+      allowedPaths = [
+        ...menuItems.map(item => item.path)
+      ];
     } else {
       // Caso não tenha plano, permite apenas plano e configurações
       allowedPaths = [...alwaysAllowedPaths];
@@ -411,20 +414,20 @@ export default function DashboardUser() {
       console.log('Redirecionando para plano - rota não permitida:', location.pathname);
       navigate(`/dashboard/${uid}/plano`);
     }
-  }, [uid, tipoPlano, dataInicioTesteGratis, location.pathname, diasPlanoPagoRestante]);
+  }, [uid, tipoPlano, location.pathname]);
 
-  // Buscar dias_plano_pago_restante do Firestore
-  useEffect(() => {
-    if (!uid) return;
-    const contasRef = collection(firestore, 'contas');
-    const qConta = query(contasRef, where('__name__', '==', uid));
-    getDocs(qConta).then(snapshot => {
-      if (!snapshot.empty) {
-        const contaData = snapshot.docs[0].data();
-        setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
-      }
-    });
-  }, [uid]);
+  // Buscar dias_plano_pago_restante do Firestore - REMOVIDO pois já está unificado no useEffect principal
+  // useEffect(() => {
+  //   if (!uid) return;
+  //   const contasRef = collection(firestore, 'contas');
+  //   const qConta = query(contasRef, where('__name__', '==', uid));
+  //   getDocs(qConta).then(snapshot => {
+  //     if (!snapshot.empty) {
+  //       const contaData = snapshot.docs[0].data();
+  //       setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
+  //     }
+  //   });
+  // }, [uid]);
 
   return (
     <div className="dashboard-container">
