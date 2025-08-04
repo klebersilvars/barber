@@ -835,10 +835,10 @@ const AgendaCliente = () => {
                       Escolha a Data
                     </Heading>
                     <Input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
                       size="lg"
                       borderRadius="lg"
                       borderColor="gray.300"
@@ -853,24 +853,24 @@ const AgendaCliente = () => {
                   </Box>
 
                   {/* Seleção de Horário */}
-                  {selectedDate && (
+              {selectedDate && (
                     <Box>
                       <Heading as="h3" size="md" mb={4} color="gray.700">
                         Horários Disponíveis
                       </Heading>
                       <SimpleGrid columns={{ base: 2, md: 3, lg: 4 }} spacing={3}>
-                        {availableTimes.map((time) => {
-                          const ocupado = busyTimes.includes(time)
+                    {availableTimes.map((time) => {
+                      const ocupado = busyTimes.includes(time)
                           const isSelected = selectedTime === time
                           
-                          return (
+                      return (
                             <Button
-                              key={time}
+                          key={time}
                               size="lg"
                               variant={isSelected ? "solid" : "outline"}
                               colorScheme={isSelected ? "purple" : "gray"}
-                              onClick={() => !ocupado && setSelectedTime(time)}
-                              disabled={ocupado}
+                          onClick={() => !ocupado && setSelectedTime(time)}
+                          disabled={ocupado}
                               height="60px"
                               borderRadius="lg"
                               fontSize="md"
@@ -917,7 +917,7 @@ const AgendaCliente = () => {
               </Container>
 
               {/* Resumo do Agendamento */}
-              {selectedDate && selectedTime && (
+            {selectedDate && selectedTime && (
                 <Box
                   bg="white"
                   borderRadius="xl"
@@ -986,10 +986,10 @@ const AgendaCliente = () => {
                       Nome Completo *
                     </Text>
                     <Input
-                      type="text"
-                      value={clientData.name}
-                      onChange={(e) => setClientData((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="Digite seu nome completo"
+                    type="text"
+                    value={clientData.name}
+                    onChange={(e) => setClientData((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Digite seu nome completo"
                       size="lg"
                       borderRadius="lg"
                       borderColor="gray.300"
@@ -1000,8 +1000,8 @@ const AgendaCliente = () => {
                       _hover={{
                         borderColor: "gray.400",
                       }}
-                      required
-                    />
+                    required
+                  />
                   </Box>
 
                   {/* WhatsApp */}
@@ -1010,10 +1010,10 @@ const AgendaCliente = () => {
                       WhatsApp *
                     </Text>
                     <Input
-                      type="tel"
-                      value={clientData.phone}
-                      onChange={handlePhoneChange}
-                      placeholder="(11) 99999-9999"
+                    type="tel"
+                    value={clientData.phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(11) 99999-9999"
                       size="lg"
                       borderRadius="lg"
                       borderColor="gray.300"
@@ -1024,8 +1024,8 @@ const AgendaCliente = () => {
                       _hover={{
                         borderColor: "gray.400",
                       }}
-                      required
-                    />
+                    required
+                  />
                   </Box>
 
                   {/* E-mail */}
@@ -1034,10 +1034,10 @@ const AgendaCliente = () => {
                       E-mail (opcional)
                     </Text>
                     <Input
-                      type="email"
-                      value={clientData.email}
-                      onChange={(e) => setClientData((prev) => ({ ...prev, email: e.target.value }))}
-                      placeholder="seu@email.com"
+                    type="email"
+                    value={clientData.email}
+                    onChange={(e) => setClientData((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="seu@email.com"
                       size="lg"
                       borderRadius="lg"
                       borderColor="gray.300"
@@ -1057,12 +1057,12 @@ const AgendaCliente = () => {
                       Forma de Pagamento
                     </Text>
                     <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
-                      {paymentMethods.map((method) => (
+                    {paymentMethods.map((method) => (
                         <Button
-                          key={method.id}
+                        key={method.id}
                           variant={clientData.paymentMethod === method.id ? "solid" : "outline"}
                           colorScheme={clientData.paymentMethod === method.id ? "purple" : "gray"}
-                          onClick={() => setClientData((prev) => ({ ...prev, paymentMethod: method.id }))}
+                        onClick={() => setClientData((prev) => ({ ...prev, paymentMethod: method.id }))}
                           height="60px"
                           borderRadius="lg"
                           fontSize="sm"
@@ -1090,9 +1090,9 @@ const AgendaCliente = () => {
                       Observações (opcional)
                     </Text>
                     <Textarea
-                      value={clientData.notes}
-                      onChange={(e) => setClientData((prev) => ({ ...prev, notes: e.target.value }))}
-                      placeholder="Alguma observação especial ou preferência..."
+                    value={clientData.notes}
+                    onChange={(e) => setClientData((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Alguma observação especial ou preferência..."
                       size="lg"
                       borderRadius="lg"
                       borderColor="gray.300"
@@ -1103,7 +1103,7 @@ const AgendaCliente = () => {
                       _hover={{
                         borderColor: "gray.400",
                       }}
-                      rows={3}
+                    rows={3}
                       resize="vertical"
                     />
                   </Box>
@@ -1252,7 +1252,7 @@ const AgendaCliente = () => {
                         <Text fontSize="sm" color="gray.600">
                           {selectedProfessional?.cargo || "Profissional"}
                         </Text>
-                        {selectedProfessional?.rating && (
+                    {selectedProfessional?.rating && (
                           <HStack spacing={1}>
                             <Icon as={Star} color="yellow.400" boxSize={3} />
                             <Text fontSize="sm" color="gray.600">
@@ -1283,10 +1283,10 @@ const AgendaCliente = () => {
                         <Text fontSize="md" color="gray.800">
                           {selectedDate ?
                             new Date(selectedDate + 'T00:00:00').toLocaleDateString("pt-BR", {
-                              weekday: "long",
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
                             }) : ''}
                         </Text>
                       </HStack>
@@ -1321,19 +1321,19 @@ const AgendaCliente = () => {
                         <Text fontWeight="500" color="gray.600">WhatsApp:</Text>
                         <Text color="gray.800">{formatPhone(clientData.phone)}</Text>
                       </HStack>
-                      {clientData.email && (
+                  {clientData.email && (
                         <HStack justify="space-between" w="full">
                           <Text fontWeight="500" color="gray.600">E-mail:</Text>
                           <Text color="gray.800">{clientData.email}</Text>
                         </HStack>
-                      )}
-                      {clientData.paymentMethod && (
+                  )}
+                  {clientData.paymentMethod && (
                         <HStack justify="space-between" w="full">
                           <Text fontWeight="500" color="gray.600">Pagamento:</Text>
                           <Text color="gray.800">{paymentMethods.find((p) => p.id === clientData.paymentMethod)?.name}</Text>
                         </HStack>
-                      )}
-                      {clientData.notes && (
+                  )}
+                  {clientData.notes && (
                         <HStack justify="space-between" w="full" align="start">
                           <Text fontWeight="500" color="gray.600">Observações:</Text>
                           <Text color="gray.800" textAlign="right" maxW="200px">{clientData.notes}</Text>
@@ -1408,7 +1408,7 @@ const AgendaCliente = () => {
                       color="blue.700"
                       lineHeight="1.4"
                     >
-                      {establishment.mensagemAgradecimento ? (
+                {establishment.mensagemAgradecimento ? (
                         establishment.mensagemAgradecimento
                       ) : (
                         "Seu agendamento foi realizado com sucesso."
@@ -1429,7 +1429,7 @@ const AgendaCliente = () => {
                       <HStack spacing={3}>
                         <Icon as={Calendar} color="gray.500" boxSize={5} />
                         <Text fontSize="md" color="gray.800">
-                          {new Date(selectedDate).toLocaleDateString("pt-BR")} às {selectedTime}
+                    {new Date(selectedDate).toLocaleDateString("pt-BR")} às {selectedTime}
                         </Text>
                       </HStack>
                       
@@ -1469,7 +1469,7 @@ const AgendaCliente = () => {
                         transform: "scale(0.98)",
                       }}
                     >
-                      WhatsApp
+                  WhatsApp
                     </Button>
                     
                     <Button
@@ -1490,7 +1490,7 @@ const AgendaCliente = () => {
                         transform: "scale(0.98)",
                       }}
                     >
-                      Fazer Novo Agendamento
+                  Fazer Novo Agendamento
                     </Button>
                   </VStack>
 

@@ -74,42 +74,6 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid) return;
 
-    // Lógica de decremento diário dos dias de plano
-    (async () => {
-      const lastDecrementKey = `lastDecrement_${uid}`;
-      const today = new Date().toISOString().split('T')[0];
-      const lastDecrement = localStorage.getItem(lastDecrementKey);
-      let docRef = doc(firestore, 'contas', uid);
-
-      // Buscar dados atuais
-      const contaSnap = await getDoc(docRef);
-      if (contaSnap.exists()) {
-        const contaData = contaSnap.data();
-        let precisaDecrementar = false;
-        let campoParaDecrementar = '';
-        let valorAtual = 0;
-
-        // Verificar se precisa decrementar baseado no tipo de plano
-        if (contaData.tipoPlano === 'gratis' && contaData.dias_restantes_teste_gratis > 0) {
-          campoParaDecrementar = 'dias_restantes_teste_gratis';
-          valorAtual = contaData.dias_restantes_teste_gratis;
-          precisaDecrementar = true;
-        } else if ((contaData.tipoPlano === 'individual' || contaData.tipoPlano === 'empresa') && contaData.dias_plano_pago_restante > 0) {
-          campoParaDecrementar = 'dias_plano_pago_restante';
-          valorAtual = contaData.dias_plano_pago_restante;
-          precisaDecrementar = true;
-        }
-
-        // Só decrementa se não foi decrementado hoje
-        if (precisaDecrementar && lastDecrement !== today) {
-          const novoValor = valorAtual - 1;
-          await updateDoc(docRef, { [campoParaDecrementar]: novoValor });
-          localStorage.setItem(lastDecrementKey, today);
-          console.log(`Decrementado ${campoParaDecrementar}: ${valorAtual} -> ${novoValor}`);
-        }
-      }
-    })();
-
     // Busca dos dados da conta para atualizar o estado
     const contasRef = collection(firestore, 'contas');
     const qConta = query(contasRef, where('__name__', '==', uid));
@@ -439,7 +403,7 @@ export default function DashboardUser() {
           <DrawerHeader borderBottomWidth="1px" pb={4}>
             <VStack align="center">
               <HStack spacing={3}>
-                <Scissors className="logo-icon" />
+              <Scissors className="logo-icon" />
                 <Heading size="md">Trezu</Heading>
               </HStack>
             </VStack>
@@ -448,24 +412,24 @@ export default function DashboardUser() {
             <VStack spacing={4}>
               {filteredMenuItems.map((item, index) => {
                 const isDisabled = item.disabled;
-                return (
+              return (
                   <Button
-                    key={index}
+                  key={index}
                     variant="ghost"
                     w="100%"
                     justifyContent="start"
                     onClick={() => {
                       onClose();
-                      if (isDisabled) {
-                        return;
-                      }
-                      if (item.path === "#logout") {
-                        handleLogout();
-                      } else {
-                        navigate(item.path);
-                      }
-                    }}
-                    disabled={isDisabled}
+                    if (isDisabled) {
+                      return;
+                    }
+                    if (item.path === "#logout") {
+                      handleLogout();
+                    } else {
+                      navigate(item.path);
+                    }
+                  }}
+                  disabled={isDisabled}
                     _hover={{ bg: borderColor }}
                     _active={{ bg: borderColor }}
                     p={3}

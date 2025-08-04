@@ -208,6 +208,109 @@ app.post('/api/decrement-premium-days', async (req, res) => {
   }
 });
 
+// Endpoint para decrementar dias automaticamente (cron job)
+app.get('/api/cron/decrementar-dias', async (req, res) => {
+  const { token } = req.query;
+  const authHeader = req.headers.authorization;
+  
+  // Verificar token de segurança
+  const expectedToken = process.env.CRON_TOKEN || '123456';
+  const providedToken = token || (authHeader && authHeader.replace('Bearer ', ''));
+  
+  if (providedToken !== expectedToken) {
+    console.log('Tentativa de acesso não autorizada ao endpoint de cron');
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    console.log('Iniciando decremento automático de dias...');
+    
+    // Buscar todos os documentos onde premium é true
+    const contasRef = db.collection('contas');
+    const snapshot = await contasRef.where('premium', '==', true).get();
+    
+    if (snapshot.empty) {
+      console.log('Nenhuma conta premium encontrada');
+      return res.json({ message: 'Nenhuma conta premium encontrada', processed: 0 });
+    }
+
+    const batch = db.batch();
+    let processedCount = 0;
+    let decrementedCount = 0;
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      processedCount++;
+
+      // Verificar plano grátis
+      if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
+        const novosDias = data.dias_restantes_teste_gratis - 1;
+        
+        if (novosDias <= 0) {
+          // Plano expirou
+          batch.update(doc.ref, {
+            premium: false,
+            dias_restantes_teste_gratis: 0,
+            tipoPlano: 'nenhum'
+          });
+          console.log(`Conta ${doc.id}: Plano grátis expirou`);
+        } else {
+          // Decrementar dias
+          batch.update(doc.ref, {
+            dias_restantes_teste_gratis: novosDias
+          });
+          console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
+        }
+        decrementedCount++;
+      }
+      // Verificar planos pagos (individual ou empresa)
+      else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+        const novosDias = data.dias_plano_pago_restante - 1;
+        
+        if (novosDias <= 0) {
+          // Plano expirou
+          batch.update(doc.ref, {
+            premium: false,
+            dias_plano_pago_restante: 0,
+            tipoPlano: 'nenhum'
+          });
+          console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
+        } else {
+          // Decrementar dias
+          batch.update(doc.ref, {
+            dias_plano_pago_restante: novosDias
+          });
+          console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
+        }
+        decrementedCount++;
+      }
+    }
+
+    // Executar todas as atualizações em batch
+    if (decrementedCount > 0) {
+      await batch.commit();
+      console.log(`Decremento concluído: ${decrementedCount} contas atualizadas`);
+    }
+
+    const response = {
+      message: 'Decremento automático concluído',
+      processed: processedCount,
+      decremented: decrementedCount,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Resposta do cron job:', response);
+    return res.json(response);
+
+  } catch (error) {
+    console.error('Erro no cron job de decremento:', error);
+    return res.status(500).json({ 
+      error: 'Erro interno no servidor',
+      message: error.message 
+    });
+  }
+});
+
 // Endpoint para testar decremento manualmente (apenas para desenvolvimento)
 app.post('/api/test-decrement', async (req, res) => {
   try {
