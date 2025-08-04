@@ -46,6 +46,7 @@ import {
 import "./configuracoesAdmin.css"
 import { firestore, auth } from '../../../firebase/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { ENDPOINTS } from '../../../config/backend'
 
 const ConfiguracoesAdmin = () => {
   const bg = useColorModeValue('white', 'gray.800')
@@ -239,7 +240,7 @@ const ConfiguracoesAdmin = () => {
       formData.append('logo', file)
       formData.append('uid', auth.currentUser?.uid || '')
 
-      const response = await fetch('https://trezu-backend.onrender.com/api/upload-logo', {
+      const response = await fetch(ENDPOINTS.UPLOAD_LOGO, {
         method: 'POST',
         body: formData,
       })

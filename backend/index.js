@@ -34,31 +34,48 @@ const upload = multer({
 const db = initializeFirebase();
 
 const app = express();
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://www.trezu.com.br',
-    'https://trezu.com.br',
-    'https://trezu-backend.onrender.com'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true,
-}));
 
-// Middleware adicional para CORS
+// Configuração CORS mais robusta
 app.use((req, res, next) => {
+  // Permitir todos os métodos
   res.header('Access-Control-Allow-Origin', 'https://www.trezu.com.br');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 horas
   
+  // Responder imediatamente para requisições OPTIONS
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
+    return res.status(200).end();
   }
+  
+  next();
 });
+
+// Configuração CORS adicional usando o middleware cors
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir requisições sem origin (como mobile apps)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://www.trezu.com.br',
+      'https://trezu.com.br',
+      'https://barber-backend-qlt6.onrender.com'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -396,36 +413,66 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
 
 // Endpoint de teste para CORS
 app.get('/api/test-cors', (req, res) => {
+  console.log('Teste CORS - Headers recebidos:', req.headers);
+  console.log('Teste CORS - Origin:', req.headers.origin);
+  console.log('Teste CORS - Method:', req.method);
+  
   res.json({ 
     message: 'CORS está funcionando!',
     timestamp: new Date().toISOString(),
-    origin: req.headers.origin
+    origin: req.headers.origin,
+    method: req.method,
+    headers: req.headers
+  });
+});
+
+// Endpoint de teste para POST
+app.post('/api/test-cors-post', (req, res) => {
+  console.log('Teste CORS POST - Headers recebidos:', req.headers);
+  console.log('Teste CORS POST - Origin:', req.headers.origin);
+  console.log('Teste CORS POST - Body:', req.body);
+  
+  res.json({ 
+    message: 'CORS POST está funcionando!',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin,
+    method: req.method,
+    body: req.body
   });
 });
 
 // Endpoint para upload de logo
 app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
   try {
-    console.log('Recebendo requisição de upload de logo');
+    console.log('=== INÍCIO DO UPLOAD DE LOGO ===');
+    console.log('Headers recebidos:', req.headers);
+    console.log('Origin:', req.headers.origin);
+    console.log('Method:', req.method);
+    console.log('Content-Type:', req.headers['content-type']);
     
     if (!req.file) {
-      console.log('Nenhum arquivo enviado');
+      console.log('❌ Nenhum arquivo enviado');
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
 
     const { uid } = req.body;
     if (!uid) {
-      console.log('UID não fornecido');
+      console.log('❌ UID não fornecido');
       return res.status(400).json({ error: 'UID do usuário é obrigatório' });
     }
 
-    console.log(`Processando upload para usuário: ${uid}`);
+    console.log(`✅ Processando upload para usuário: ${uid}`);
+    console.log('Arquivo recebido:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
 
     // Converter buffer para base64
     const base64Image = req.file.buffer.toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${base64Image}`;
 
-    console.log('Fazendo upload para Cloudinary...');
+    console.log('🔄 Fazendo upload para Cloudinary...');
 
     // Upload para o Cloudinary
     const uploadResult = await cloudinary.uploader.upload(dataURI, {
@@ -438,7 +485,7 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
       ]
     });
 
-    console.log('Upload para Cloudinary concluído:', uploadResult.secure_url);
+    console.log('✅ Upload para Cloudinary concluído:', uploadResult.secure_url);
 
     // Salvar URL no Firestore
     const docRef = db.collection('contas').doc(uid);
@@ -446,7 +493,8 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
       logo_url: uploadResult.secure_url
     });
 
-    console.log('URL salva no Firestore com sucesso');
+    console.log('✅ URL salva no Firestore com sucesso');
+    console.log('=== FIM DO UPLOAD DE LOGO ===');
 
     res.status(200).json({
       success: true,
@@ -455,7 +503,8 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erro no upload da logo:', error);
+    console.error('❌ Erro no upload da logo:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ 
       error: 'Erro ao fazer upload da logo',
       details: error.message 
