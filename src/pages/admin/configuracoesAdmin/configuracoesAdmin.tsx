@@ -22,6 +22,8 @@ const ConfiguracoesAdmin = () => {
   // Estados para as configurações
   const [activeTab, setActiveTab] = useState("salon")
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [primaryColor, setPrimaryColor] = useState("#5d3fd3")
   const [showColorPicker, setShowColorPicker] = useState(false)
 
@@ -88,6 +90,12 @@ const ConfiguracoesAdmin = () => {
             thankYouMessage: data.aparenciaAgendamento.mensagemAgradecimento || "",
           }))
           console.log('Configurações de aparência carregadas:', data.aparenciaAgendamento)
+        }
+        
+        // Carregar logo se existir
+        if (data.logo_url) {
+          setLogoUrl(data.logo_url)
+          setLogoPreview(data.logo_url)
         }
         
         // Debug logs
@@ -170,14 +178,81 @@ const ConfiguracoesAdmin = () => {
 
   const predefinedColors = ["#5d3fd3", "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16"]
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
+    if (!file) return
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione apenas arquivos de imagem (JPG, PNG, SVG)')
+      return
+    }
+
+    // Validar tamanho (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('O arquivo deve ter no máximo 2MB')
+      return
+    }
+
+    setUploadingLogo(true)
+
+    try {
+      // Criar preview local
       const reader = new FileReader()
       reader.onload = (e) => {
         setLogoPreview((e.target?.result as string) || null)
       }
       reader.readAsDataURL(file)
+
+      // Preparar FormData para upload
+      const formData = new FormData()
+      formData.append('logo', file)
+      formData.append('uid', auth.currentUser?.uid || '')
+
+      // Fazer upload para o backend
+      const response = await fetch('https://trezu-backend.onrender.com/api/upload-logo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro no upload')
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setLogoUrl(result.logo_url)
+        alert('Logo enviada com sucesso!')
+      } else {
+        throw new Error(result.error || 'Erro desconhecido')
+      }
+
+    } catch (error) {
+      console.error('Erro no upload da logo:', error)
+      alert('Erro ao enviar logo. Tente novamente.')
+      setLogoPreview(null)
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const handleRemoveLogo = async () => {
+    if (!auth.currentUser?.uid) return
+
+    try {
+      // Remover do Firestore
+      const docRef = doc(firestore, 'contas', auth.currentUser.uid)
+      await updateDoc(docRef, {
+        logo_url: null
+      })
+
+      setLogoUrl(null)
+      setLogoPreview(null)
+      alert('Logo removida com sucesso!')
+    } catch (error) {
+      console.error('Erro ao remover logo:', error)
+      alert('Erro ao remover logo. Tente novamente.')
     }
   }
 
@@ -408,13 +483,23 @@ const ConfiguracoesAdmin = () => {
                       accept="image/*"
                       onChange={handleLogoUpload}
                       style={{ display: "none" }}
+                      disabled={uploadingLogo}
                     />
-                    <label htmlFor="logo-upload" className="btn-upload">
-                      <Upload size={18} />
-                      Escolher Imagem
+                    <label htmlFor="logo-upload" className={`btn-upload ${uploadingLogo ? 'disabled' : ''}`}>
+                      {uploadingLogo ? (
+                        <>
+                          <div className="spinner"></div>
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={18} />
+                          Escolher Imagem
+                        </>
+                      )}
                     </label>
-                    {logoPreview && (
-                      <button className="btn-remove" onClick={() => setLogoPreview(null)}>
+                    {logoPreview && !uploadingLogo && (
+                      <button className="btn-remove" onClick={handleRemoveLogo}>
                         <Trash2 size={18} />
                         Remover
                       </button>

@@ -5,6 +5,30 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
 import admin from 'firebase-admin';
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
+
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configurar Multer para upload de arquivos
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas'), false);
+    }
+  }
+});
 
 // Inicializar Firebase Admin SDK
 if (!admin.apps.length) {
@@ -321,6 +345,54 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
     return res.status(500).json({ 
       error: 'Erro interno no servidor',
       message: error.message 
+    });
+  }
+});
+
+// Endpoint para upload de logo
+app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+
+    const { uid } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: 'UID do usuário é obrigatório' });
+    }
+
+    // Converter buffer para base64
+    const base64Image = req.file.buffer.toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${base64Image}`;
+
+    // Upload para o Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(dataURI, {
+      folder: 'barber-logos',
+      public_id: `logo_${uid}`,
+      overwrite: true,
+      transformation: [
+        { width: 300, height: 300, crop: 'limit' },
+        { quality: 'auto' }
+      ]
+    });
+
+    // Salvar URL no Firestore
+    const docRef = db.collection('contas').doc(uid);
+    await docRef.update({
+      logo_url: uploadResult.secure_url
+    });
+
+    res.status(200).json({
+      success: true,
+      logo_url: uploadResult.secure_url,
+      message: 'Logo enviada com sucesso!'
+    });
+
+  } catch (error) {
+    console.error('Erro no upload da logo:', error);
+    res.status(500).json({ 
+      error: 'Erro ao fazer upload da logo',
+      details: error.message 
     });
   }
 });
