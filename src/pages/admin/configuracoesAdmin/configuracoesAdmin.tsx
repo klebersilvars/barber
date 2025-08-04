@@ -22,7 +22,6 @@ const ConfiguracoesAdmin = () => {
   // Estados para as configurações
   const [activeTab, setActiveTab] = useState("salon")
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [primaryColor, setPrimaryColor] = useState("#5d3fd3")
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -94,7 +93,6 @@ const ConfiguracoesAdmin = () => {
         
         // Carregar logo se existir
         if (data.logo_url) {
-          setLogoUrl(data.logo_url)
           setLogoPreview(data.logo_url)
         }
         
@@ -222,7 +220,7 @@ const ConfiguracoesAdmin = () => {
       const result = await response.json()
       
       if (result.success) {
-        setLogoUrl(result.logo_url)
+        setLogoPreview(result.logo_url)
         alert('Logo enviada com sucesso!')
       } else {
         throw new Error(result.error || 'Erro desconhecido')
@@ -247,7 +245,6 @@ const ConfiguracoesAdmin = () => {
         logo_url: null
       })
 
-      setLogoUrl(null)
       setLogoPreview(null)
       alert('Logo removida com sucesso!')
     } catch (error) {
