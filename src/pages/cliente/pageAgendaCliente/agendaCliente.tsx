@@ -134,6 +134,7 @@ const AgendaCliente = () => {
           id: establishmentDoc.id,
           ...establishmentData
         })
+        
         setServices(servicosData)
         setProfessionals(colaboradoresData)
         setShowLoading(false)
@@ -369,7 +370,21 @@ const AgendaCliente = () => {
         <div className="cliente-loading">
           <div className="cliente-loading-content">
             <div className="cliente-loading-logo">
-              <Scissors className="cliente-loading-icon" />
+              {establishment?.logo_url ? (
+                <img 
+                  src={establishment.logo_url} 
+                  alt={`Logo ${establishment.nomeEstabelecimento}`}
+                  style={{
+                    width: '60px',
+                    height: '60px',
+                    objectFit: 'cover',
+                    borderRadius: '50%',
+                    border: '2px solid white'
+                  }}
+                />
+              ) : (
+                <Scissors className="cliente-loading-icon" />
+              )}
             </div>
             <div className="cliente-loading-text">
               <h2>Carregando estabelecimento...</h2>
@@ -495,8 +510,24 @@ const AgendaCliente = () => {
       {/* Header com logo */}
       <header className="cliente-header">
         <div className="cliente-logo">
-          <Scissors className="cliente-logo-icon" />
-          <span className="cliente-logo-text">Trezu</span>
+          {establishment?.logo_url ? (
+            <img 
+              src={establishment.logo_url} 
+              alt={`Logo ${establishment.nomeEstabelecimento}`}
+              style={{
+                width: '32px',
+                height: '32px',
+                objectFit: 'cover',
+                borderRadius: '50%',
+                marginRight: '8px'
+              }}
+            />
+          ) : (
+            <Scissors className="cliente-logo-icon" />
+          )}
+          <span className="cliente-logo-text">
+            {establishment?.nomeEstabelecimento || 'Trezu'}
+          </span>
         </div>
       </header>
 
@@ -526,7 +557,21 @@ const AgendaCliente = () => {
                   <div className="cliente-hero-content">
                     <div className="cliente-establishment-logo-section">
                       <div className="cliente-logo-placeholder">
-                        <Scissors size={40} />
+                        {establishment.logo_url ? (
+                          <img 
+                            src={establishment.logo_url} 
+                            alt={`Logo ${establishment.nomeEstabelecimento}`}
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              objectFit: 'cover',
+                              borderRadius: '50%',
+                              border: '2px solid white'
+                            }}
+                          />
+                        ) : (
+                          <Scissors size={40} />
+                        )}
                       </div>
                       <div className="cliente-establishment-main-info">
                         <h1 className="cliente-establishment-name">{establishment.nomeEstabelecimento}</h1>
@@ -1168,8 +1213,21 @@ const AgendaCliente = () => {
                         alignItems="center"
                         justifyContent="center"
                         flexShrink={0}
+                        overflow="hidden"
                       >
-                        <Icon as={Scissors} color="gray.500" boxSize={6} />
+                        {establishment.logo_url ? (
+                          <img 
+                            src={establishment.logo_url} 
+                            alt={`Logo ${establishment.nomeEstabelecimento}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        ) : (
+                          <Icon as={Scissors} color="gray.500" boxSize={6} />
+                        )}
                       </Box>
                       <VStack align="start" spacing={1} flex={1}>
                         <Text fontWeight="600" fontSize="lg" color="gray.800">
