@@ -35,6 +35,19 @@ const db = initializeFirebase();
 
 const app = express();
 
+// Configurações do Firebase
+const FIREBASE_TYPE = process.env.FIREBASE_TYPE || "service_account";
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
+const FIREBASE_PRIVATE_KEY_ID = process.env.FIREBASE_PRIVATE_KEY_ID;
+const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
+const FIREBASE_CLIENT_ID = process.env.FIREBASE_CLIENT_ID;
+const FIREBASE_AUTH_URI = process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth";
+const FIREBASE_TOKEN_URI = process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token";
+const FIREBASE_AUTH_PROVIDER_X509_CERT_URL = process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs";
+const FIREBASE_CLIENT_X509_CERT_URL = process.env.FIREBASE_CLIENT_X509_CERT_URL;
+const FIREBASE_UNIVERSE_DOMAIN = process.env.FIREBASE_UNIVERSE_DOMAIN || "googleapis.com";
+
 // Configuração CORS mais robusta
 app.use((req, res, next) => {
   // Permitir todos os métodos
@@ -279,113 +292,125 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
   try {
     console.log('Iniciando decremento automático de dias...');
     
-    // Buscar todos os documentos onde premium é true com retry
-    let snapshot;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        const contasRef = db.collection('contas');
-        snapshot = await contasRef.where('premium', '==', true).get();
-        break; // Se chegou aqui, deu certo
-      } catch (error) {
-        retryCount++;
-        console.log(`Tentativa ${retryCount} falhou:`, error.message);
-        
-        if (retryCount >= maxRetries) {
-          throw new Error(`Falha após ${maxRetries} tentativas: ${error.message}`);
-        }
-        
-        // Esperar antes de tentar novamente
-        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
-      }
-    }
-    
-    if (snapshot.empty) {
-      console.log('Nenhuma conta premium encontrada');
-      return res.json({ message: 'Nenhuma conta premium encontrada', processed: 0 });
-    }
-
-    const batch = db.batch();
+    // Abordagem mais robusta: buscar documentos em lotes menores
     let processedCount = 0;
     let decrementedCount = 0;
     let errorCount = 0;
-
-    for (const doc of snapshot.docs) {
+    let lastDoc = null;
+    const batchSize = 10; // Processar 10 documentos por vez
+    
+    while (true) {
       try {
-        const data = doc.data();
-        processedCount++;
-
-        // Verificar plano grátis
-        if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
-          const novosDias = data.dias_restantes_teste_gratis - 1;
-          
-          if (novosDias <= 0) {
-            // Plano expirou
-            batch.update(doc.ref, {
-              premium: false,
-              dias_restantes_teste_gratis: 0,
-              tipoPlano: 'nenhum'
-            });
-            console.log(`Conta ${doc.id}: Plano grátis expirou`);
-          } else {
-            // Decrementar dias
-            batch.update(doc.ref, {
-              dias_restantes_teste_gratis: novosDias
-            });
-            console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
-          }
-          decrementedCount++;
+        // Buscar lote de documentos
+        let query = db.collection('contas').where('premium', '==', true).limit(batchSize);
+        
+        if (lastDoc) {
+          query = query.startAfter(lastDoc);
         }
-        // Verificar planos pagos (individual ou empresa)
-        else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
-          const novosDias = data.dias_plano_pago_restante - 1;
-          
-          if (novosDias <= 0) {
-            // Plano expirou
-            batch.update(doc.ref, {
-              premium: false,
-              dias_plano_pago_restante: 0,
-              tipoPlano: 'nenhum'
-            });
-            console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
-          } else {
-            // Decrementar dias
-            batch.update(doc.ref, {
-              dias_plano_pago_restante: novosDias
-            });
-            console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
-          }
-          decrementedCount++;
-        }
-      } catch (docError) {
-        errorCount++;
-        console.error(`Erro ao processar documento ${doc.id}:`, docError.message);
-        // Continuar com o próximo documento
-      }
-    }
-
-    // Executar todas as atualizações em batch com retry
-    if (decrementedCount > 0) {
-      let batchRetryCount = 0;
-      const maxBatchRetries = 3;
-      
-      while (batchRetryCount < maxBatchRetries) {
-        try {
-          await batch.commit();
-          console.log(`Decremento concluído: ${decrementedCount} contas atualizadas`);
+        
+        const snapshot = await query.get();
+        
+        if (snapshot.empty) {
+          console.log('Nenhum documento restante para processar');
           break;
-        } catch (batchError) {
-          batchRetryCount++;
-          console.log(`Tentativa ${batchRetryCount} do batch falhou:`, batchError.message);
-          
-          if (batchRetryCount >= maxBatchRetries) {
-            throw new Error(`Falha no batch após ${maxBatchRetries} tentativas: ${batchError.message}`);
+        }
+        
+        // Processar cada documento individualmente
+        for (const doc of snapshot.docs) {
+          try {
+            const data = doc.data();
+            processedCount++;
+            
+            let needsUpdate = false;
+            const updates = {};
+            
+            // Verificar plano grátis
+            if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
+              const novosDias = data.dias_restantes_teste_gratis - 1;
+              
+              if (novosDias <= 0) {
+                // Plano expirou
+                updates.premium = false;
+                updates.dias_restantes_teste_gratis = 0;
+                updates.tipoPlano = 'nenhum';
+                console.log(`Conta ${doc.id}: Plano grátis expirou`);
+              } else {
+                // Decrementar dias
+                updates.dias_restantes_teste_gratis = novosDias;
+                console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
+              }
+              needsUpdate = true;
+              decrementedCount++;
+            }
+            // Verificar planos pagos (individual ou empresa)
+            else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+              const novosDias = data.dias_plano_pago_restante - 1;
+              
+              if (novosDias <= 0) {
+                // Plano expirou
+                updates.premium = false;
+                updates.dias_plano_pago_restante = 0;
+                updates.tipoPlano = 'nenhum';
+                console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
+              } else {
+                // Decrementar dias
+                updates.dias_plano_pago_restante = novosDias;
+                console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
+              }
+              needsUpdate = true;
+              decrementedCount++;
+            }
+            
+            // Atualizar documento se necessário
+            if (needsUpdate) {
+              // Usar updateDoc com retry individual
+              let updateRetryCount = 0;
+              const maxUpdateRetries = 3;
+              
+              while (updateRetryCount < maxUpdateRetries) {
+                try {
+                  await doc.ref.update(updates);
+                  console.log(`Documento ${doc.id} atualizado com sucesso`);
+                  break;
+                } catch (updateError) {
+                  updateRetryCount++;
+                  console.log(`Tentativa ${updateRetryCount} de atualizar ${doc.id} falhou:`, updateError.message);
+                  
+                  if (updateRetryCount >= maxUpdateRetries) {
+                    console.error(`Falha ao atualizar ${doc.id} após ${maxUpdateRetries} tentativas`);
+                    errorCount++;
+                  } else {
+                    // Esperar antes de tentar novamente
+                    await new Promise(resolve => setTimeout(resolve, 1000 * updateRetryCount));
+                  }
+                }
+              }
+            }
+            
+          } catch (docError) {
+            errorCount++;
+            console.error(`Erro ao processar documento ${doc.id}:`, docError.message);
+            // Continuar com o próximo documento
           }
-          
-          // Esperar antes de tentar novamente
-          await new Promise(resolve => setTimeout(resolve, 3000 * batchRetryCount));
+        }
+        
+        // Atualizar lastDoc para a próxima iteração
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        
+        // Pequena pausa entre lotes para evitar sobrecarga
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (batchError) {
+        console.error('Erro ao processar lote:', batchError.message);
+        errorCount++;
+        
+        // Se o erro for gRPC, tentar novamente após uma pausa maior
+        if (batchError.message.includes('gRPC') || batchError.message.includes('DECODER')) {
+          console.log('Erro gRPC detectado, aguardando 5 segundos antes de tentar novamente...');
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          // Para outros erros, continuar
+          break;
         }
       }
     }
@@ -659,6 +684,51 @@ app.post('/api/test-decrement', async (req, res) => {
   } catch (err) {
     console.error('Erro ao buscar dados:', err.message);
     res.status(500).json({ error: 'Erro ao buscar dados.' });
+  }
+});
+
+// Endpoint de teste para verificar conectividade com Firestore
+app.get('/api/test-firestore', async (req, res) => {
+  try {
+    console.log('=== TESTE DE CONECTIVIDADE FIRESTORE ===');
+    
+    // Teste 1: Verificar se o Firebase está inicializado
+    if (!db) {
+      throw new Error('Firebase não está inicializado');
+    }
+    console.log('✅ Firebase inicializado');
+    
+    // Teste 2: Tentar buscar um documento simples
+    const testQuery = db.collection('contas').limit(1);
+    const testSnapshot = await testQuery.get();
+    console.log('✅ Query simples executada com sucesso');
+    console.log(`📊 Documentos encontrados: ${testSnapshot.size}`);
+    
+    // Teste 3: Tentar uma operação de escrita (apenas teste, não salva)
+    const testDoc = db.collection('test_connection').doc('temp');
+    await testDoc.set({
+      test: true,
+      timestamp: new Date().toISOString()
+    });
+    console.log('✅ Operação de escrita testada com sucesso');
+    
+    // Limpar documento de teste
+    await testDoc.delete();
+    console.log('✅ Documento de teste removido');
+    
+    res.json({
+      success: true,
+      message: 'Conectividade com Firestore OK',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro no teste de conectividade:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
