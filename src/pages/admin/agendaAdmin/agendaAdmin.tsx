@@ -53,7 +53,6 @@ const AgendaAdmin = () => {
   const [showFilters, setShowFilters] = useState(false)
 
   // PWA States
-  const [showPWAInstall, setShowPWAInstall] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isMobile, setIsMobile] = useState(false)
   const { isOpen: isPWAOpen, onOpen: onPWAModalOpen, onClose: onPWAModalClose } = useDisclosure()
@@ -134,12 +133,12 @@ const AgendaAdmin = () => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      setShowPWAInstall(true)
+      // setShowPWAInstall(true) // This line is removed
     }
     
     // Detectar se já foi instalado
     const handleAppInstalled = () => {
-      setShowPWAInstall(false)
+      // setShowPWAInstall(false) // This line is removed
       setDeferredPrompt(null)
       toast({
         title: "Aplicativo instalado!",
@@ -173,7 +172,7 @@ const AgendaAdmin = () => {
     }
     
     setDeferredPrompt(null)
-    setShowPWAInstall(false)
+    // setShowPWAInstall(false) // This line is removed
   }
   
   // Mostrar modal PWA para dispositivos móveis
