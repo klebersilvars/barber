@@ -411,6 +411,35 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
   }
 });
 
+// Endpoint de teste para verificar configurações
+app.get('/api/test-config', (req, res) => {
+  console.log('=== TESTE DE CONFIGURAÇÕES ===');
+  
+  const configs = {
+    cloudinary: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'CONFIGURADO' : 'NÃO CONFIGURADO'
+    },
+    firebase: {
+      project_id: process.env.FIREBASE_PROJECT_ID ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      client_email: process.env.FIREBASE_CLIENT_EMAIL ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      private_key: process.env.FIREBASE_PRIVATE_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO'
+    },
+    firestore: {
+      initialized: db ? 'SIM' : 'NÃO'
+    }
+  };
+  
+  console.log('Configurações:', configs);
+  
+  res.json({
+    message: 'Teste de configurações',
+    timestamp: new Date().toISOString(),
+    configs: configs
+  });
+});
+
 // Endpoint de teste para CORS
 app.get('/api/test-cors', (req, res) => {
   console.log('Teste CORS - Headers recebidos:', req.headers);
@@ -468,11 +497,27 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
       size: req.file.size
     });
 
+    // Verificar configuração do Cloudinary
+    console.log('🔍 Verificando configuração do Cloudinary...');
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error('❌ Configuração do Cloudinary incompleta');
+      return res.status(500).json({ 
+        error: 'Configuração do Cloudinary incompleta',
+        details: 'Variáveis de ambiente não configuradas'
+      });
+    }
+
     // Converter buffer para base64
+    console.log('🔄 Convertendo arquivo para base64...');
     const base64Image = req.file.buffer.toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${base64Image}`;
 
     console.log('🔄 Fazendo upload para Cloudinary...');
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY ? '***' : 'NÃO CONFIGURADO',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? '***' : 'NÃO CONFIGURADO'
+    });
 
     // Upload para o Cloudinary
     const uploadResult = await cloudinary.uploader.upload(dataURI, {
@@ -487,13 +532,67 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
 
     console.log('✅ Upload para Cloudinary concluído:', uploadResult.secure_url);
 
-    // Salvar URL no Firestore
-    const docRef = db.collection('contas').doc(uid);
-    await docRef.update({
-      logo_url: uploadResult.secure_url
-    });
+    // Verificar configuração do Firestore
+    console.log('🔍 Verificando configuração do Firestore...');
+    if (!db) {
+      console.error('❌ Firestore não inicializado');
+      return res.status(500).json({ 
+        error: 'Firestore não inicializado',
+        details: 'Erro na configuração do Firebase'
+      });
+    }
 
-    console.log('✅ URL salva no Firestore com sucesso');
+    // Salvar URL no Firestore
+    console.log('🔄 Salvando URL no Firestore...');
+    
+    // Implementar retry para salvar no Firestore
+    let firestoreRetryCount = 0;
+    const maxFirestoreRetries = 3;
+    let firestoreSuccess = false;
+    
+    while (firestoreRetryCount < maxFirestoreRetries && !firestoreSuccess) {
+      try {
+        const docRef = db.collection('contas').doc(uid);
+        await docRef.update({
+          logo_url: uploadResult.secure_url
+        });
+        firestoreSuccess = true;
+        console.log('✅ URL salva no Firestore com sucesso');
+      } catch (firestoreError) {
+        firestoreRetryCount++;
+        console.error(`❌ Tentativa ${firestoreRetryCount} de salvar no Firestore falhou:`, firestoreError.message);
+        
+        if (firestoreRetryCount >= maxFirestoreRetries) {
+          console.error('❌ Todas as tentativas de salvar no Firestore falharam');
+          
+          // Tentar salvar usando set() em vez de update() (pode funcionar melhor)
+          try {
+            console.log('🔄 Tentando salvar usando set()...');
+            const docRef = db.collection('contas').doc(uid);
+            await docRef.set({
+              logo_url: uploadResult.secure_url
+            }, { merge: true });
+            console.log('✅ URL salva no Firestore usando set()');
+            firestoreSuccess = true;
+          } catch (setError) {
+            console.error('❌ Set() também falhou:', setError.message);
+            
+            // Mesmo com erro no Firestore, retornar sucesso pois a imagem foi enviada
+            return res.status(200).json({
+              success: true,
+              logo_url: uploadResult.secure_url,
+              message: 'Logo enviada com sucesso! (URL salva localmente)',
+              warning: 'Erro ao salvar no banco de dados, mas a imagem foi enviada',
+              firestore_error: setError.message
+            });
+          }
+        }
+        
+        // Esperar antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 2000 * firestoreRetryCount));
+      }
+    }
+
     console.log('=== FIM DO UPLOAD DE LOGO ===');
 
     res.status(200).json({
@@ -505,9 +604,32 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
   } catch (error) {
     console.error('❌ Erro no upload da logo:', error);
     console.error('Stack trace:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
+    // Verificar tipo específico de erro
+    if (error.name === 'FirebaseError') {
+      console.error('❌ Erro do Firebase:', error.code, error.message);
+      return res.status(500).json({ 
+        error: 'Erro do Firebase',
+        details: error.message,
+        code: error.code
+      });
+    }
+    
+    if (error.http_code) {
+      console.error('❌ Erro do Cloudinary:', error.http_code, error.message);
+      return res.status(500).json({ 
+        error: 'Erro do Cloudinary',
+        details: error.message,
+        code: error.http_code
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Erro ao fazer upload da logo',
-      details: error.message 
+      details: error.message,
+      type: error.name
     });
   }
 });

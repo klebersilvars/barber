@@ -33,15 +33,22 @@ const initializeFirebase = () => {
 
   const db = admin.firestore();
 
-  // Configurar Firestore com retry e timeout
+  // Configurar Firestore com retry e timeout mais robustos
   db.settings({
     ignoreUndefinedProperties: true,
-    timeoutSeconds: 60,
-    maxRetries: 3,
+    timeoutSeconds: 120, // Aumentar timeout
+    maxRetries: 5, // Aumentar retries
     // Configurações adicionais para estabilidade
     cacheSizeBytes: admin.firestore.CACHE_SIZE_UNLIMITED,
     experimentalForceLongPolling: true,
-    experimentalAutoDetectLongPolling: true
+    experimentalAutoDetectLongPolling: true,
+    // Configurações para resolver problemas de gRPC
+    retryOptions: {
+      initialRetryDelayMillis: 1000,
+      maxRetryDelayMillis: 10000,
+      retryDelayMultiplier: 2,
+      maxRetries: 5
+    }
   });
 
   return db;
