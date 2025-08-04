@@ -234,12 +234,11 @@ const ConfiguracoesAdmin = () => {
       }
       reader.readAsDataURL(file)
 
-      // Preparar FormData para upload
+      // Upload via backend (mais confiável)
       const formData = new FormData()
       formData.append('logo', file)
       formData.append('uid', auth.currentUser?.uid || '')
 
-      // Fazer upload para o backend
       const response = await fetch('https://trezu-backend.onrender.com/api/upload-logo', {
         method: 'POST',
         body: formData,
@@ -251,7 +250,13 @@ const ConfiguracoesAdmin = () => {
 
       const result = await response.json()
       
-      if (result.success) {
+      if (result.success && result.logo_url) {
+        // Salvar URL no Firestore
+        const docRef = doc(firestore, 'contas', auth.currentUser?.uid || '')
+        await updateDoc(docRef, {
+          logo_url: result.logo_url
+        })
+
         setLogoPreview(result.logo_url)
         alert('Logo enviada com sucesso!')
       } else {

@@ -399,25 +399,25 @@ const EstablishmentsContent = () => {
   }
 
   return (
-    <Box>
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg">Estabelecimentos</Heading>
-      </Flex>
-      <Card>
-        <CardBody>
-          <TableContainer>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Nome</Th>
+  <Box>
+    <Flex justify="space-between" align="center" mb={6}>
+      <Heading size="lg">Estabelecimentos</Heading>
+    </Flex>
+    <Card>
+      <CardBody>
+        <TableContainer>
+          <Table variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Nome</Th>
                   <Th>Plano</Th>
-                  <Th>Status</Th>
+                <Th>Status</Th>
                   <Th>Dias Restantes</Th>
                   <Th>Email</Th>
-                  <Th>Ações</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+                <Th>Ações</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
                 {loading ? (
                   <Tr><Td colSpan={6}>Carregando...</Td></Tr>
                 ) : estabelecimentos.length === 0 ? (
@@ -435,25 +435,25 @@ const EstablishmentsContent = () => {
                         ) : (
                           <Badge colorScheme="red">Inativo</Badge>
                         )}
-                      </Td>
-                      <Td>
+                  </Td>
+                  <Td>
                         {getDiasRestantes(estab) !== null ? getDiasRestantes(estab) : '-'}
-                      </Td>
+                  </Td>
                       <Td>{estab.email}</Td>
-                      <Td>
-                        <HStack spacing={2}>
+                  <Td>
+                    <HStack spacing={2}>
                           <Button size="xs" variant="outline" onClick={() => { setSelected(estab); setShowEditModal(true); }}>Editar</Button>
                           <Button size="xs" variant="outline" colorScheme="red" onClick={() => { setSelected(estab); setShowRemoveModal(true); }}>Remover</Button>
-                        </HStack>
-                      </Td>
-                    </Tr>
+                    </HStack>
+                  </Td>
+                </Tr>
                   ))
                 )}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </CardBody>
-      </Card>
+            </Tbody>
+          </Table>
+        </TableContainer>
+      </CardBody>
+    </Card>
 
       {/* Modal de Remover */}
       <Drawer isOpen={showRemoveModal} placement="bottom" onClose={() => setShowRemoveModal(false)} size="xs">
@@ -558,8 +558,8 @@ const EstablishmentsContent = () => {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
-    </Box>
-  )
+  </Box>
+)
 }
 
 const FinancialContent = () => {
@@ -596,40 +596,40 @@ const FinancialContent = () => {
   };
 
   return (
-    <Box>
-      <Heading size="lg" mb={6}>
-        Gestão Financeira
-      </Heading>
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
-        <Card>
-          <CardBody>
-            <Stat>
-              <StatLabel>Receita Bruta</StatLabel>
+  <Box>
+    <Heading size="lg" mb={6}>
+      Gestão Financeira
+    </Heading>
+    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+      <Card>
+        <CardBody>
+          <Stat>
+            <StatLabel>Receita Bruta</StatLabel>
               <StatNumber>R$ {receitaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-              <StatHelpText>Este mês</StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
+            <StatHelpText>Este mês</StatHelpText>
+          </Stat>
+        </CardBody>
+      </Card>
         <Card></Card>
         <Card><CardBody></CardBody></Card>
       </SimpleGrid>
-      <Card>
-        <CardHeader>
-          <Heading size="md">Relatório Financeiro Detalhado</Heading>
-        </CardHeader>
-        <CardBody>
-          <TableContainer>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Estabelecimento</Th>
+    <Card>
+      <CardHeader>
+        <Heading size="md">Relatório Financeiro Detalhado</Heading>
+      </CardHeader>
+      <CardBody>
+        <TableContainer>
+          <Table variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Estabelecimento</Th>
                   <Th>Plano</Th>
                   <Th>Valor do Plano</Th>
-                  <Th>Status</Th>
+                <Th>Status</Th>
                   <Th>Pagamento</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+              </Tr>
+            </Thead>
+            <Tbody>
                 {loading ? (
                   <Tr><Td colSpan={5}>Carregando...</Td></Tr>
                 ) : estabelecimentos.length === 0 ? (
@@ -650,7 +650,7 @@ const FinancialContent = () => {
                         ) : (
                           <Badge colorScheme="gray">-</Badge>
                         )}
-                      </Td>
+                </Td>
                       <Td>
                         <Select
                           size="sm"
@@ -661,16 +661,16 @@ const FinancialContent = () => {
                           <option value="pago">Pago</option>
                           <option value="inadimplente">Inadimplente</option>
                         </Select>
-                      </Td>
-                    </Tr>
+                </Td>
+              </Tr>
                   ))
                 )}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </CardBody>
-      </Card>
-    </Box>
+            </Tbody>
+          </Table>
+        </TableContainer>
+      </CardBody>
+    </Card>
+  </Box>
   );
 };
 
@@ -678,37 +678,37 @@ const SettingsContent = () => {
   const { isOpen: isLogsOpen, onOpen: onOpenLogs, onClose: onCloseLogs } = useDisclosure();
 
   return (
-    <Box>
-      <Heading size="lg" mb={6}>
-        Configurações da Plataforma
-      </Heading>
-      <VStack spacing={6} align="stretch">
+  <Box>
+    <Heading size="lg" mb={6}>
+      Configurações da Plataforma
+    </Heading>
+    <VStack spacing={6} align="stretch">
 
-        <Card>
-          <CardHeader>
-            <Heading size="md">Segurança</Heading>
-          </CardHeader>
-          <CardBody>
-            <VStack spacing={4} align="stretch">
+      <Card>
+        <CardHeader>
+          <Heading size="md">Segurança</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack spacing={4} align="stretch">
               
-              <Box>
-                <Text fontWeight="semibold" mb={2}>
-                  Logs de Acesso
-                </Text>
-                <Text fontSize="sm" color="gray.600">
-                  Visualizar histórico de acessos ao sistema
-                </Text>
+            <Box>
+              <Text fontWeight="semibold" mb={2}>
+                Logs de Acesso
+              </Text>
+              <Text fontSize="sm" color="gray.600">
+                Visualizar histórico de acessos ao sistema
+              </Text>
                 <Button size="sm" mt={2} variant="outline" onClick={onOpenLogs}>
-                  Ver Logs
-                </Button>
-              </Box>
-            </VStack>
-          </CardBody>
-        </Card>
+                Ver Logs
+              </Button>
+            </Box>
+          </VStack>
+        </CardBody>
+      </Card>
         <LogsModal isOpen={isLogsOpen} onClose={onCloseLogs} />
-      </VStack>
-    </Box>
-  )
+    </VStack>
+  </Box>
+)
 }
 
 interface LogAcesso {
@@ -844,14 +844,14 @@ export default function DashboardFundador() {
   }
 
   return (
-    <Box minH="100vh" bg={useColorModeValue("gray.100", "gray.900")}> 
+    <Box minH="100vh" bg={useColorModeValue("gray.100", "gray.900")}>
       {/* Sidebar apenas no desktop */}
       <Box display={{ base: "none", md: "block" }}>
-        <SidebarContent
-          onClose={() => onClose}
-          activeSection={activeSection}
-          setActiveSection={setActiveSection}
-        />
+      <SidebarContent
+        onClose={() => onClose}
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+      />
       </Box>
       {/* Drawer apenas no mobile */}
       <Drawer
