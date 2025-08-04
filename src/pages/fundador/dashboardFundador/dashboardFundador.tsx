@@ -266,14 +266,26 @@ const EstablishmentsContent = () => {
   const [editData, setEditData] = useState<any | null>(null)
   const toast = useToast()
 
+  // Função para calcular dias restantes baseado no tipoPlano
+  const getDiasRestantes = (estabelecimento: any) => {
+    if (estabelecimento.tipoPlano === 'gratis') {
+      return estabelecimento.dias_restantes_teste_gratis ?? null;
+    } else if (estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') {
+      return estabelecimento.dias_plano_pago_restante ?? null;
+    }
+    return null;
+  };
+
   useEffect(() => {
-    const fetchEstabs = async () => {
-      setLoading(true)
-      const snap = await getDocs(collection(firestore, 'contas'))
+    setLoading(true)
+    // Usar onSnapshot para atualização em tempo real
+    const unsubscribe = onSnapshot(collection(firestore, 'contas'), (snap) => {
       setEstabelecimentos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
       setLoading(false)
-    }
-    fetchEstabs()
+    })
+    
+    // Cleanup function
+    return () => unsubscribe()
   }, [])
 
   // Preencher editData ao abrir modal
@@ -414,7 +426,7 @@ const EstablishmentsContent = () => {
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : 'Nenhum'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}</Td>
                       <Td>
                         {estab.premium ? (
                           <Badge colorScheme="green">Premium</Badge>
@@ -425,10 +437,7 @@ const EstablishmentsContent = () => {
                         )}
                       </Td>
                       <Td>
-                        {estab.tipoPlano === 'individual' || estab.tipoPlano === 'empresa'
-                          ? (estab.dias_plano_pago_restante ?? '-')
-                          : (estab.data_inicio_teste_gratis ? (7 - Math.floor((new Date().getTime() - new Date(estab.data_inicio_teste_gratis).getTime()) / (1000 * 60 * 60 * 24))) : '-')
-                        }
+                        {getDiasRestantes(estab) !== null ? getDiasRestantes(estab) : '-'}
                       </Td>
                       <Td>{estab.email}</Td>
                       <Td>

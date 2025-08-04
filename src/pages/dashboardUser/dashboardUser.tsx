@@ -24,7 +24,7 @@ import { HamburgerIcon } from "@chakra-ui/icons"
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth";
 import { firestore } from '../../firebase/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import Modal from "./Modal"
 import { 
   Box, 
@@ -70,14 +70,25 @@ export default function DashboardUser() {
   const textColor = useColorModeValue('gray.800', 'white');
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300');
 
+  // Função para calcular dias restantes baseado no tipoPlano
+  const getDiasRestantes = () => {
+    if (tipoPlano === 'gratis') {
+      return diasRestantesTeste;
+    } else if (tipoPlano === 'individual' || tipoPlano === 'empresa') {
+      return diasPlanoPagoRestante;
+    }
+    return null;
+  };
+
   // Unificar busca dos dados da conta para evitar duplicidade e garantir atualização dos dias
   useEffect(() => {
     if (!uid) return;
 
-    // Busca dos dados da conta para atualizar o estado
+    // Usar onSnapshot para atualização em tempo real
     const contasRef = collection(firestore, 'contas');
     const qConta = query(contasRef, where('__name__', '==', uid));
-    getDocs(qConta).then(snapshot => {
+    
+    const unsubscribe = onSnapshot(qConta, (snapshot) => {
       if (!snapshot.empty) {
         const contaData = snapshot.docs[0].data();
         setEstabelecimentoNome(contaData.nomeEstabelecimento || '');
@@ -98,6 +109,9 @@ export default function DashboardUser() {
         });
       }
     });
+
+    // Cleanup function
+    return () => unsubscribe();
   }, [uid]);
 
   // Função para ativar o teste grátis
@@ -152,33 +166,6 @@ export default function DashboardUser() {
     }
     checkTesteGratis()
   }, [uid])
-
-  // Verificar planos pagos (sem decremento, apenas leitura) - REMOVIDO pois já está unificado no useEffect principal
-  // useEffect(() => {
-  //   if (!uid) return;
-  //   
-  //   const verificarPlanoPago = async () => {
-  //     const docRef = doc(firestore, 'contas', uid);
-  //     const docSnap = await getDoc(docRef);
-  //     
-  //     if (docSnap.exists()) {
-  //       const data = docSnap.data();
-  //       
-  //       // Se tem plano pago (individual ou empresa)
-  //       if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa')) {
-  //         setDiasPlanoPagoRestante(data.dias_plano_pago_restante ?? null);
-  //         
-  //         // Se chegou a 0 dias (verificação do backend)
-  //         if (data.dias_plano_pago_restante <= 0) {
-  //           setIsPremium(false);
-  //           setTipoPlano('');
-  //         }
-  //       }
-  //     }
-  //   };
-  //   
-  //   verificarPlanoPago();
-  // }, [uid]);
 
   // Removido: const formatCurrency = (value: number) => { ... }
 
@@ -379,19 +366,6 @@ export default function DashboardUser() {
       navigate(`/dashboard/${uid}/plano`);
     }
   }, [uid, tipoPlano, location.pathname]);
-
-  // Buscar dias_plano_pago_restante do Firestore - REMOVIDO pois já está unificado no useEffect principal
-  // useEffect(() => {
-  //   if (!uid) return;
-  //   const contasRef = collection(firestore, 'contas');
-  //   const qConta = query(contasRef, where('__name__', '==', uid));
-  //   getDocs(qConta).then(snapshot => {
-  //     if (!snapshot.empty) {
-  //       const contaData = snapshot.docs[0].data();
-  //       setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
-  //     }
-  //   });
-  // }, [uid]);
 
   return (
     <div className="dashboard-container">
@@ -598,9 +572,7 @@ export default function DashboardUser() {
                 </Text>
                 <Text fontSize="xl" fontWeight="bold">
                   Dias Restantes: <Text as="span" color="green.500" fontWeight="extrabold">{
-                    tipoPlano === 'gratis'
-                      ? (diasRestantesTeste !== null ? diasRestantesTeste : '-')
-                      : (diasPlanoPagoRestante !== null ? diasPlanoPagoRestante : '-')
+                    getDiasRestantes() !== null ? getDiasRestantes() : '-'
                   }</Text>
                 </Text>
               </Stack>

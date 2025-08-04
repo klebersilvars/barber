@@ -55,7 +55,7 @@ export default function Plano() {
       id: "individual",
       name: "Individual",
       description: "Para profissionais autônomos ou pequenos negócios",
-      monthlyPrice: 10.0,
+      monthlyPrice: 28.90,
       yearlyPrice: 100.0,
       popular: false,
       features: [
@@ -78,7 +78,7 @@ export default function Plano() {
       id: "empresa",
       name: "Empresa",
       description: "Para estabelecimentos em crescimento",
-      monthlyPrice: 20.0,
+      monthlyPrice: 58.00,
       yearlyPrice: 200.0,
       popular: true,
       features: [
