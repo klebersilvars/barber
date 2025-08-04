@@ -59,9 +59,12 @@ app.use(cors({
     'https://www.trezu.com.br',
     'https://trezu.com.br'
   ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
 }));
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Mercado Pago Access Token (coloque sua chave de produção ou sandbox aqui)
 const MP_ACCESS_TOKEN = process.env.API_KEY_MERCADO_PAGO

@@ -14,11 +14,43 @@ import {
   Mail,
   Globe,
 } from "lucide-react"
+import {
+  Box,
+  Button,
+  Text,
+  VStack,
+  HStack,
+  Icon,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Textarea,
+  Select,
+  Badge,
+  Flex,
+  Container,
+  Heading,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Card,
+  CardBody,
+  CardHeader,
+  SimpleGrid,
+  Spinner,
+  useColorModeValue,
+  Switch,
+  Image,
+  Center,
+} from "@chakra-ui/react"
 import "./configuracoesAdmin.css"
 import { firestore, auth } from '../../../firebase/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 const ConfiguracoesAdmin = () => {
+  const bg = useColorModeValue('white', 'gray.800')
+  const borderColor = useColorModeValue('gray.200', 'gray.700')
+  
   // Estados para as configurações
   const [activeTab, setActiveTab] = useState("salon")
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -399,560 +431,713 @@ const ConfiguracoesAdmin = () => {
   }
 
   return (
-    <div className="configuracoes-container">
+    <Box className="configuracoes-container" bg={bg} minH="100vh">
       {/* Header */}
-      <div className="configuracoes-header">
-        <div className="header-content">
-          <div className="header-title">
-            <Settings size={24} />
-            <div>
-              <h1>Configurações do Sistema</h1>
-              <p>Personalize seu salão e defina suas políticas de atendimento</p>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button className="btn-save" onClick={handleSave}>
-              <Save size={18} />
+      <Box className="configuracoes-header" bg="white" shadow="sm" borderBottom="1px" borderColor={borderColor}>
+        <Container maxW="container.xl" py={6}>
+          <Flex justify="space-between" align="center">
+            <HStack spacing={4}>
+              <Icon as={Settings} boxSize={6} color="purple.500" />
+              <Box>
+                <Heading size="lg" color="gray.800">Configurações do Sistema</Heading>
+                <Text color="gray.600" fontSize="sm">Personalize seu salão e defina suas políticas de atendimento</Text>
+              </Box>
+            </HStack>
+            <Button
+              leftIcon={<Icon as={Save} />}
+              colorScheme="purple"
+              onClick={handleSave}
+            >
               Salvar Alterações
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </Flex>
+        </Container>
+      </Box>
 
       {/* Navigation Tabs */}
-      <div className="configuracoes-nav">
-        {tabs.map((tab) => {
-          // Verificar se tem qualquer plano ativo (premium = true OU qualquer tipoPlano)
-          const hasAnyPlan = isPremium || tipoPlano;
-          const isDisabled = tab.premiumRequired && !hasAnyPlan;
-          return (
-            <button
-              key={tab.id}
-              className={`nav-tab ${activeTab === tab.id ? "active" : ""} ${isDisabled ? "disabled" : ""}`}
-              onClick={() => {
-                if (!isDisabled) {
-                  setActiveTab(tab.id);
-                }
-              }}
-              disabled={isDisabled}
-              title={isDisabled ? "Ative o Premium para acessar esta funcionalidade" : ""}
-            >
-              <tab.icon size={20} />
-              <span>{tab.label}</span>
-              {isDisabled && <span className="premium-badge">PREMIUM</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Content */}
-      <div className="configuracoes-content">
-        {/* Informações do Salão */}
-        {activeTab === "salon" && (
-          <div className="config-section">
-            <div className="section-header">
-              <Building2 size={24} />
-              <div>
-                <h2>Informações do Salão</h2>
-                <p>Configure as informações básicas do seu estabelecimento</p>
-              </div>
-            </div>
-
-            <div className="config-grid">
-              {/* Logo Upload */}
-              <div className="config-card full-width">
-                <h3>Logo do Estabelecimento</h3>
-                <div className="logo-upload-area">
-                  <div className="logo-preview">
-                    {logoPreview ? (
-                      <img src={logoPreview || "/placeholder.svg"} alt="Logo preview" />
-                    ) : (
-                      <div className="logo-placeholder">
-                        <Camera size={32} />
-                        <span>Nenhuma imagem selecionada</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="upload-controls">
-                    <input
-                      type="file"
-                      id="logo-upload"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      style={{ display: "none" }}
-                      disabled={uploadingLogo}
-                    />
-                    <label htmlFor="logo-upload" className={`btn-upload ${uploadingLogo ? 'disabled' : ''}`}>
-                      {uploadingLogo ? (
-                        <>
-                          <div className="spinner"></div>
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={18} />
-                          Escolher Imagem
-                        </>
-                      )}
-                    </label>
-                    {logoPreview && !uploadingLogo && (
-                      <button className="btn-remove" onClick={handleRemoveLogo}>
-                        <Trash2 size={18} />
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <small>Formatos aceitos: JPG, PNG, SVG. Tamanho máximo: 2MB</small>
-                </div>
-              </div>
-
-              {/* Informações Básicas */}
-              <div className="config-card">
-                <h3>Informações Básicas</h3>
-                <div className="form-group">
-                  <label htmlFor="salon-name">Nome do Salão *</label>
-                  <input
-                    type="text"
-                    id="salon-name"
-                    value={salonInfo.name}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Digite o nome do seu salão"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="salon-phone">Telefone *</label>
-                  <div className="input-with-icon">
-                    <Phone size={18} />
-                    <input
-                      type="tel"
-                      id="salon-phone"
-                      value={salonInfo.phone}
-                      onChange={(e) => setSalonInfo((prev) => ({ ...prev, phone: e.target.value }))}
-                      placeholder="(11) 99999-9999"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="salon-email">E-mail *</label>
-                  <div className="input-with-icon">
-                    <Mail size={18} />
-                    <input
-                      type="email"
-                      id="salon-email"
-                      value={salonInfo.email}
-                      onChange={(e) => setSalonInfo((prev) => ({ ...prev, email: e.target.value }))}
-                      placeholder="contato@seusalao.com"
-                    />
-                  </div>
-                </div>
-
-                {/* Endereço */}
-                <div className="form-group">
-                  <label htmlFor="salon-cep">CEP *</label>
-                  <input
-                    type="text"
-                    id="salon-cep"
-                    value={salonInfo.cep}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, cep: e.target.value }))}
-                    onBlur={() => buscarEnderecoPorCep(salonInfo.cep)}
-                    placeholder="Digite o CEP"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-rua">Rua</label>
-                  <input
-                    type="text"
-                    id="salon-rua"
-                    value={salonInfo.rua}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, rua: e.target.value }))}
-                    placeholder="Rua"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-numero">Número</label>
-                  <input
-                    type="text"
-                    id="salon-numero"
-                    value={salonInfo.numero}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, numero: e.target.value }))}
-                    placeholder="Número"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-bairro">Bairro</label>
-                  <input
-                    type="text"
-                    id="salon-bairro"
-                    value={salonInfo.bairro}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, bairro: e.target.value }))}
-                    placeholder="Bairro"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-cidade">Cidade</label>
-                  <input
-                    type="text"
-                    id="salon-cidade"
-                    value={salonInfo.cidade}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, cidade: e.target.value }))}
-                    placeholder="Cidade"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-estado">Estado</label>
-                  <input
-                    type="text"
-                    id="salon-estado"
-                    value={salonInfo.estado}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, estado: e.target.value }))}
-                    placeholder="Estado"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="salon-complemento">Complemento</label>
-                  <input
-                    type="text"
-                    id="salon-complemento"
-                    value={salonInfo.complemento}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, complemento: e.target.value }))}
-                    placeholder="Complemento"
-                  />
-                </div>
-              </div>
-
-              {/* Descrição */}
-              <div className="config-card full-width">
-                <h3>Descrição do Estabelecimento</h3>
-                <div className="form-group">
-                  <label htmlFor="salon-description">Conte um pouco sobre seu salão</label>
-                  <textarea
-                    id="salon-description"
-                    value={salonInfo.description}
-                    onChange={(e) => setSalonInfo((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descreva os serviços, ambiente, diferenciais do seu salão..."
-                    rows={4}
-                  />
-                  <small>Esta descrição aparecerá na página de agendamento online</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Horários e Políticas */}
-        {activeTab === "schedule" && (
-          <div className="config-section">
-            <div className="section-header">
-              <Clock size={24} />
-              <div>
-                <h2>Horários e Políticas de Atendimento</h2>
-                <p>Configure os horários de funcionamento e políticas do seu salão</p>
-              </div>
-            </div>
-
-            <div className="config-grid">
-              {/* Horários de Funcionamento */}
-              <div className="config-card full-width">
-                <h3>Horários de Funcionamento</h3>
-                <div className="working-hours-grid">
-                  {weekDays.map((day) => (
-                    <div key={day.key} className="day-schedule">
-                      <div className="day-header">
-                        <label className="day-name">{day.label}</label>
-                        <div className="day-toggle">
-                          <input
-                            type="checkbox"
-                            id={`${day.key}-closed`}
-                            checked={!workingHours[day.key as WeekDayKey].closed}
-                            onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "closed", (!e.target.checked).toString())}
-                          />
-                          <label htmlFor={`${day.key}-closed`}>Aberto</label>
-                        </div>
-                      </div>
-
-                      {!workingHours[day.key as WeekDayKey].closed && (
-                        <div className="time-inputs">
-                          <div className="time-group">
-                            <label>Abertura</label>
-                            <input
-                              type="time"
-                              value={workingHours[day.key as WeekDayKey].open}
-                              onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "open", e.target.value)}
-                            />
-                          </div>
-                          <div className="time-separator">até</div>
-                          <div className="time-group">
-                            <label>Fechamento</label>
-                            <input
-                              type="time"
-                              value={workingHours[day.key as WeekDayKey].close}
-                              onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "close", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {workingHours[day.key as WeekDayKey].closed && (
-                        <div className="closed-indicator">
-                          <span>Fechado</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button className="btn-save" style={{ marginTop: 24 }} onClick={handleSaveHorarios}>
-                  <Save size={18} />
-                  Salvar Horários e Políticas
-                </button>
-              </div>
-
-              {/* Configurações de Atendimento */}
-              <div className="config-card">
-                <h3>Configurações de Atendimento</h3>
-
-                <div className="form-group">
-                  <label htmlFor="appointment-interval">Intervalo entre Atendimentos</label>
-                  <select
-                    id="appointment-interval"
-                    value={policies.appointmentInterval}
-                    onChange={(e) =>
-                      setPolicies((prev) => ({ ...prev, appointmentInterval: Number.parseInt(e.target.value) }))
-                    }
-                  >
-                    <option value={15}>15 minutos</option>
-                    <option value={30}>30 minutos</option>
-                    <option value={45}>45 minutos</option>
-                    <option value={60}>1 hora</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="max-appointments">Limite de Atendimentos por Dia</label>
-                  <input
-                    type="number"
-                    id="max-appointments"
-                    value={policies.maxAppointmentsPerDay}
-                    onChange={(e) =>
-                      setPolicies((prev) => ({ ...prev, maxAppointmentsPerDay: Number.parseInt(e.target.value) }))
-                    }
-                    min="1"
-                    max="20"
-                  />
-                  <small>Por profissional</small>
-                </div>
-              </div>
-
-              {/* Políticas de Cancelamento */}
-              <div className="config-card">
-                <h3>Políticas de Cancelamento e Remarcação</h3>
-
-                <div className="form-group">
-                  <label htmlFor="cancellation-hours">Prazo para Cancelamento</label>
-                  <select
-                    id="cancellation-hours"
-                    value={policies.cancellationHours}
-                    onChange={(e) =>
-                      setPolicies((prev) => ({ ...prev, cancellationHours: Number.parseInt(e.target.value) }))
-                    }
-                  >
-                    <option value={2}>2 horas antes</option>
-                    <option value={4}>4 horas antes</option>
-                    <option value={12}>12 horas antes</option>
-                    <option value={24}>24 horas antes</option>
-                    <option value={48}>48 horas antes</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="reschedule-hours">Prazo para Remarcação</label>
-                  <select
-                    id="reschedule-hours"
-                    value={policies.rescheduleHours}
-                    onChange={(e) =>
-                      setPolicies((prev) => ({ ...prev, rescheduleHours: Number.parseInt(e.target.value) }))
-                    }
-                  >
-                    <option value={2}>2 horas antes</option>
-                    <option value={4}>4 horas antes</option>
-                    <option value={12}>12 horas antes</option>
-                    <option value={24}>24 horas antes</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Textos das Políticas */}
-              <div className="config-card full-width">
-                <h3>Textos das Políticas</h3>
-
-                <div className="form-group">
-                  <label htmlFor="cancellation-policy">Política de Cancelamento</label>
-                  <textarea
-                    id="cancellation-policy"
-                    value={policies.cancellationPolicy}
-                    onChange={(e) => setPolicies((prev) => ({ ...prev, cancellationPolicy: e.target.value }))}
-                    placeholder="Descreva sua política de cancelamento..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="reschedule-policy">Política de Remarcação</label>
-                  <textarea
-                    id="reschedule-policy"
-                    value={policies.reschedulePolicy}
-                    onChange={(e) => setPolicies((prev) => ({ ...prev, reschedulePolicy: e.target.value }))}
-                    placeholder="Descreva sua política de remarcação..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Aparência e Identidade */}
-        {activeTab === "appearance" && (
-          <div className="tab-panel">
-            {!isPremium && !tipoPlano ? (
-              <div className="premium-required-message">
-                <div className="premium-icon">🎨</div>
-                <h2>Funcionalidade Premium</h2>
-                <p>
-                  A personalização de aparência e identidade está disponível apenas para usuários Premium.
-                  Ative o Premium para personalizar cores, mensagens e identidade visual do seu agendamento.
-                </p>
-                <button 
-                  className="btn-primary"
+      <Box className="configuracoes-nav" bg="white" borderBottom="1px" borderColor={borderColor}>
+        <Container maxW="container.xl">
+          <HStack spacing={0} overflowX="auto" py={4}>
+            {tabs.map((tab) => {
+              const hasAnyPlan = isPremium || tipoPlano;
+              const isDisabled = tab.premiumRequired && !hasAnyPlan;
+              return (
+                <Button
+                  key={tab.id}
+                  variant={activeTab === tab.id ? "solid" : "ghost"}
+                  colorScheme="purple"
+                  leftIcon={<Icon as={tab.icon} />}
+                  isDisabled={isDisabled}
                   onClick={() => {
-                    // Navegar para a página de planos
-                    window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`;
+                    if (!isDisabled) {
+                      setActiveTab(tab.id);
+                    }
+                  }}
+                  size="md"
+                  borderRadius="md"
+                  _disabled={{
+                    opacity: 0.6,
+                    cursor: "not-allowed"
                   }}
                 >
-                  Ativar Premium
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="panel-header">
-                  <h2>Link personalizado e Aparência</h2>
-                  <p>Pegue seu link personalizado e personalize a aparência da sua página de agendamento online</p>
-                </div>
+                  <HStack spacing={2}>
+                    <Text>{tab.label}</Text>
+                    {isDisabled && (
+                      <Badge colorScheme="purple" size="sm">PREMIUM</Badge>
+                    )}
+                  </HStack>
+                </Button>
+              );
+            })}
+          </HStack>
+        </Container>
+      </Box>
 
-                <div className="config-grid">
-                  {/* Cor Principal */}
-                  <div className="config-card">
-                    <h3>Cor Principal</h3>
-                    <div className="color-picker-section">
-                      <div className="current-color">
-                        <div
-                          className="color-preview"
-                          style={{ backgroundColor: primaryColor }}
-                          onClick={() => setShowColorPicker(!showColorPicker)}
-                        ></div>
-                        <span>{primaryColor}</span>
-                      </div>
+      {/* Content */}
+      <Box className="configuracoes-content" py={8}>
+        <Container maxW="container.xl">
+          {/* Informações do Salão */}
+          {activeTab === "salon" && (
+            <VStack spacing={8} align="stretch">
+              <Card>
+                <CardHeader>
+                  <HStack spacing={3}>
+                    <Icon as={Building2} color="purple.500" />
+                    <Box>
+                      <Heading size="md">Informações do Salão</Heading>
+                      <Text color="gray.600" fontSize="sm">Configure as informações básicas do seu estabelecimento</Text>
+                    </Box>
+                  </HStack>
+                </CardHeader>
+                <CardBody>
+                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
+                    {/* Logo Upload */}
+                    <Card>
+                      <CardHeader>
+                        <Heading size="sm">Logo do Estabelecimento</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <VStack spacing={4}>
+                          <Box
+                            border="2px dashed"
+                            borderColor={logoPreview ? "green.200" : "gray.200"}
+                            borderRadius="lg"
+                            p={6}
+                            textAlign="center"
+                            bg={logoPreview ? "green.50" : "gray.50"}
+                            minH="120px"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            {logoPreview ? (
+                              <Image
+                                src={logoPreview}
+                                alt="Logo preview"
+                                maxH="200px"
+                                objectFit="contain"
+                                borderRadius="md"
+                              />
+                            ) : (
+                              <VStack spacing={2}>
+                                <Icon as={Camera} boxSize={8} color="gray.400" />
+                                <Text color="gray.500" fontSize="sm">Nenhuma imagem selecionada</Text>
+                              </VStack>
+                            )}
+                          </Box>
+                          
+                          <HStack spacing={3}>
+                            <input
+                              type="file"
+                              id="logo-upload"
+                              accept="image/*"
+                              onChange={handleLogoUpload}
+                              style={{ display: "none" }}
+                              disabled={uploadingLogo}
+                            />
+                            <Button
+                              as="label"
+                              htmlFor="logo-upload"
+                              leftIcon={uploadingLogo ? <Spinner size="sm" /> : <Icon as={Upload} />}
+                              colorScheme="purple"
+                              isLoading={uploadingLogo}
+                              loadingText="Enviando..."
+                              disabled={uploadingLogo}
+                            >
+                              Escolher Imagem
+                            </Button>
+                            
+                            {logoPreview && !uploadingLogo && (
+                              <Button
+                                leftIcon={<Icon as={Trash2} />}
+                                colorScheme="red"
+                                variant="outline"
+                                onClick={handleRemoveLogo}
+                              >
+                                Remover
+                              </Button>
+                            )}
+                          </HStack>
+                          
+                          <Text fontSize="xs" color="gray.500">
+                            Formatos aceitos: JPG, PNG, SVG. Tamanho máximo: 2MB
+                          </Text>
+                        </VStack>
+                      </CardBody>
+                    </Card>
 
-                      <div className="predefined-colors">
-                        {predefinedColors.map((color) => (
-                          <button
-                            key={color}
-                            className={`color-option ${primaryColor === color ? "active" : ""}`}
-                            style={{ backgroundColor: color }}
-                            onClick={() => setPrimaryColor(color)}
-                          />
-                        ))}
-                      </div>
+                    {/* Informações Básicas */}
+                    <Card>
+                      <CardHeader>
+                        <Heading size="sm">Informações Básicas</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <VStack spacing={4}>
+                          <FormControl>
+                            <FormLabel>Nome do Salão *</FormLabel>
+                            <Input
+                              value={salonInfo.name}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, name: e.target.value }))}
+                              placeholder="Digite o nome do seu salão"
+                            />
+                          </FormControl>
 
-                      <div className="custom-color">
-                        <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
-                        <span>Cor personalizada</span>
-                      </div>
-                    </div>
-                  </div>
+                          <FormControl>
+                            <FormLabel>Telefone *</FormLabel>
+                            <InputGroup>
+                              <InputLeftElement
+                                pointerEvents="none"
+                                children={<Icon as={Phone} color="gray.400" />}
+                              />
+                              <Input
+                                value={salonInfo.phone}
+                                onChange={(e) => setSalonInfo((prev) => ({ ...prev, phone: e.target.value }))}
+                                placeholder="(11) 99999-9999"
+                              />
+                            </InputGroup>
+                          </FormControl>
 
-                  {/* Nome de Exibição
-                  <div className="config-card">
-                    <h3>Nome de Exibição</h3>
-                    <div className="form-group">
-                      <label htmlFor="display-name">Nome para Agendamento Online</label>
-                      <input
-                        type="text"
-                        id="display-name"
-                        value={appearance.displayName}
-                        onChange={(e) => setAppearance((prev) => ({ ...prev, displayName: e.target.value }))}
-                        placeholder="Nome que aparecerá na página de agendamento"
-                      />
-                      <small>Pode ser diferente do nome oficial do salão</small>
-                    </div>
-                  </div> */}
+                          <FormControl>
+                            <FormLabel>E-mail *</FormLabel>
+                            <InputGroup>
+                              <InputLeftElement
+                                pointerEvents="none"
+                                children={<Icon as={Mail} color="gray.400" />}
+                              />
+                              <Input
+                                value={salonInfo.email}
+                                onChange={(e) => setSalonInfo((prev) => ({ ...prev, email: e.target.value }))}
+                                placeholder="contato@seusalao.com"
+                              />
+                            </InputGroup>
+                          </FormControl>
 
-                  {/* Link de Agendamento */}
-                  <div className="config-card full-width">
-                    <h3>Link de Agendamento Online</h3>
-                    <div className="url-generator">
-                      <div className="url-preview">
-                        <Globe size={18} />
-                        <span>{generateBookingUrl()}</span>
-                        <button className="btn-copy" onClick={handleCopyUrl} type="button">
-                          {copied ? "Copiado!" : "Copiar"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                          <FormControl>
+                            <FormLabel>CEP *</FormLabel>
+                            <InputGroup>
+                              <InputLeftElement
+                                pointerEvents="none"
+                                children={<Icon as={Globe} color="gray.400" />}
+                              />
+                              <Input
+                                value={salonInfo.cep}
+                                onChange={(e) => setSalonInfo((prev) => ({ ...prev, cep: e.target.value }))}
+                                onBlur={() => buscarEnderecoPorCep(salonInfo.cep)}
+                                placeholder="Digite o CEP"
+                              />
+                            </InputGroup>
+                          </FormControl>
 
-                  {/* Mensagens Personalizadas */}
-                  <div className="config-card">
-                    <h3>Mensagem de Boas-vindas</h3>
-                    <div className="form-group">
-                      <label htmlFor="welcome-message">Texto de Boas-vindas</label>
-                      <textarea
-                        id="welcome-message"
-                        value={appearance.welcomeMessage}
-                        onChange={(e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
-                        placeholder="Bem-vindo ao nosso salão! Escolha o melhor horário para você."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
+                          <FormControl>
+                            <FormLabel>Rua</FormLabel>
+                            <Input
+                              value={salonInfo.rua}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, rua: e.target.value }))}
+                              placeholder="Rua"
+                            />
+                          </FormControl>
 
-                  <div className="config-card">
-                    <h3>Mensagem de Agradecimento</h3>
-                    <div className="form-group">
-                      <label htmlFor="thank-you-message">Texto após Agendamento</label>
-                      <textarea
-                        id="thank-you-message"
-                        value={appearance.thankYouMessage}
-                        onChange={(e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
-                        placeholder="Obrigado por agendar conosco! Confirmaremos seu horário em breve."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
+                          <FormControl>
+                            <FormLabel>Número</FormLabel>
+                            <Input
+                              value={salonInfo.numero}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, numero: e.target.value }))}
+                              placeholder="Número"
+                            />
+                          </FormControl>
 
-                  {/* Botão para salvar aparência */}
-                  <div className="config-card full-width" style={{ textAlign: 'right' }}>
-                    <button className="btn-save" onClick={handleSaveAparencia}>
-                      <Save size={18} />
-                      Salvar Aparência
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+                          <FormControl>
+                            <FormLabel>Bairro</FormLabel>
+                            <Input
+                              value={salonInfo.bairro}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, bairro: e.target.value }))}
+                              placeholder="Bairro"
+                            />
+                          </FormControl>
+
+                          <FormControl>
+                            <FormLabel>Cidade</FormLabel>
+                            <Input
+                              value={salonInfo.cidade}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, cidade: e.target.value }))}
+                              placeholder="Cidade"
+                            />
+                          </FormControl>
+
+                          <FormControl>
+                            <FormLabel>Estado</FormLabel>
+                            <Input
+                              value={salonInfo.estado}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, estado: e.target.value }))}
+                              placeholder="Estado"
+                            />
+                          </FormControl>
+
+                          <FormControl>
+                            <FormLabel>Complemento</FormLabel>
+                            <Input
+                              value={salonInfo.complemento}
+                              onChange={(e) => setSalonInfo((prev) => ({ ...prev, complemento: e.target.value }))}
+                              placeholder="Complemento"
+                            />
+                          </FormControl>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  {/* Descrição */}
+                  <Card>
+                    <CardHeader>
+                      <Heading size="sm">Descrição do Estabelecimento</Heading>
+                    </CardHeader>
+                    <CardBody>
+                      <FormControl>
+                        <FormLabel>Conte um pouco sobre seu salão</FormLabel>
+                        <Textarea
+                          value={salonInfo.description}
+                          onChange={(e) => setSalonInfo((prev) => ({ ...prev, description: e.target.value }))}
+                          placeholder="Descreva os serviços, ambiente, diferenciais do seu salão..."
+                          rows={4}
+                        />
+                        <FormHelperText>
+                          Esta descrição aparecerá na página de agendamento online
+                        </FormHelperText>
+                      </FormControl>
+                    </CardBody>
+                  </Card>
+                </CardBody>
+              </Card>
+            </VStack>
+          )}
+
+          {/* Horários e Políticas */}
+          {activeTab === "schedule" && (
+            <VStack spacing={8} align="stretch">
+              <Card>
+                <CardHeader>
+                  <HStack spacing={3}>
+                    <Icon as={Clock} color="purple.500" />
+                    <Box>
+                      <Heading size="md">Horários e Políticas de Atendimento</Heading>
+                      <Text color="gray.600" fontSize="sm">Configure os horários de funcionamento e políticas do seu salão</Text>
+                    </Box>
+                  </HStack>
+                </CardHeader>
+                <CardBody>
+                  <VStack spacing={6}>
+                    {/* Horários de Funcionamento */}
+                    <Card>
+                      <CardHeader>
+                        <Heading size="sm">Horários de Funcionamento</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <VStack spacing={4}>
+                          {weekDays.map((day) => (
+                            <Box
+                              key={day.key}
+                              p={4}
+                              border="1px"
+                              borderColor={borderColor}
+                              borderRadius="md"
+                              w="full"
+                            >
+                              <Flex justify="space-between" align="center" mb={3}>
+                                <Text fontWeight="semibold">{day.label}</Text>
+                                <HStack spacing={3}>
+                                  <Text fontSize="sm">Aberto</Text>
+                                  <Switch
+                                    isChecked={!workingHours[day.key as WeekDayKey].closed}
+                                    onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "closed", (!e.target.checked).toString())}
+                                    colorScheme="purple"
+                                  />
+                                </HStack>
+                              </Flex>
+
+                              {!workingHours[day.key as WeekDayKey].closed && (
+                                <HStack spacing={4} align="center">
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">Abertura</FormLabel>
+                                    <Input
+                                      type="time"
+                                      value={workingHours[day.key as WeekDayKey].open}
+                                      onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "open", e.target.value)}
+                                      size="sm"
+                                    />
+                                  </FormControl>
+                                  
+                                  <Text fontSize="sm" color="gray.500">até</Text>
+                                  
+                                  <FormControl>
+                                    <FormLabel fontSize="sm">Fechamento</FormLabel>
+                                    <Input
+                                      type="time"
+                                      value={workingHours[day.key as WeekDayKey].close}
+                                      onChange={(e) => handleWorkingHourChange(day.key as WeekDayKey, "close", e.target.value)}
+                                      size="sm"
+                                    />
+                                  </FormControl>
+                                </HStack>
+                              )}
+
+                              {workingHours[day.key as WeekDayKey].closed && (
+                                <Center p={3} bg="gray.50" borderRadius="md">
+                                  <Text color="gray.500" fontWeight="medium">Fechado</Text>
+                                </Center>
+                              )}
+                            </Box>
+                          ))}
+                        </VStack>
+                        
+                        <Button
+                          leftIcon={<Icon as={Save} />}
+                          colorScheme="purple"
+                          onClick={handleSaveHorarios}
+                          mt={6}
+                        >
+                          Salvar Horários e Políticas
+                        </Button>
+                      </CardBody>
+                    </Card>
+
+                    <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+                      {/* Configurações de Atendimento */}
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Configurações de Atendimento</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <VStack spacing={4}>
+                            <FormControl>
+                              <FormLabel>Intervalo entre Atendimentos</FormLabel>
+                              <Select
+                                value={policies.appointmentInterval}
+                                onChange={(e) => setPolicies((prev) => ({ ...prev, appointmentInterval: Number.parseInt(e.target.value) }))}
+                              >
+                                <option value={15}>15 minutos</option>
+                                <option value={30}>30 minutos</option>
+                                <option value={45}>45 minutos</option>
+                                <option value={60}>1 hora</option>
+                              </Select>
+                            </FormControl>
+
+                            <FormControl>
+                              <FormLabel>Limite de Atendimentos por Dia</FormLabel>
+                              <Input
+                                type="number"
+                                value={policies.maxAppointmentsPerDay}
+                                onChange={(e) => setPolicies((prev) => ({ ...prev, maxAppointmentsPerDay: Number.parseInt(e.target.value) }))}
+                                min={1}
+                                max={20}
+                              />
+                              <FormHelperText>Por profissional</FormHelperText>
+                            </FormControl>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+
+                      {/* Políticas de Cancelamento */}
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Políticas de Cancelamento e Remarcação</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <VStack spacing={4}>
+                            <FormControl>
+                              <FormLabel>Prazo para Cancelamento</FormLabel>
+                              <Select
+                                value={policies.cancellationHours}
+                                onChange={(e) => setPolicies((prev) => ({ ...prev, cancellationHours: Number.parseInt(e.target.value) }))}
+                              >
+                                <option value={2}>2 horas antes</option>
+                                <option value={4}>4 horas antes</option>
+                                <option value={12}>12 horas antes</option>
+                                <option value={24}>24 horas antes</option>
+                                <option value={48}>48 horas antes</option>
+                              </Select>
+                            </FormControl>
+
+                            <FormControl>
+                              <FormLabel>Prazo para Remarcação</FormLabel>
+                              <Select
+                                value={policies.rescheduleHours}
+                                onChange={(e) => setPolicies((prev) => ({ ...prev, rescheduleHours: Number.parseInt(e.target.value) }))}
+                              >
+                                <option value={2}>2 horas antes</option>
+                                <option value={4}>4 horas antes</option>
+                                <option value={12}>12 horas antes</option>
+                                <option value={24}>24 horas antes</option>
+                              </Select>
+                            </FormControl>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+                    </SimpleGrid>
+
+                    {/* Textos das Políticas */}
+                    <Card>
+                      <CardHeader>
+                        <Heading size="sm">Textos das Políticas</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+                          <FormControl>
+                            <FormLabel>Política de Cancelamento</FormLabel>
+                            <Textarea
+                              value={policies.cancellationPolicy}
+                              onChange={(e) => setPolicies((prev) => ({ ...prev, cancellationPolicy: e.target.value }))}
+                              placeholder="Descreva sua política de cancelamento..."
+                              rows={3}
+                            />
+                          </FormControl>
+
+                          <FormControl>
+                            <FormLabel>Política de Remarcação</FormLabel>
+                            <Textarea
+                              value={policies.reschedulePolicy}
+                              onChange={(e) => setPolicies((prev) => ({ ...prev, reschedulePolicy: e.target.value }))}
+                              placeholder="Descreva sua política de remarcação..."
+                              rows={3}
+                            />
+                          </FormControl>
+                        </SimpleGrid>
+                      </CardBody>
+                    </Card>
+                  </VStack>
+                </CardBody>
+              </Card>
+            </VStack>
+          )}
+
+          {/* Aparência e Identidade */}
+          {activeTab === "appearance" && (
+            <VStack spacing={8} align="stretch">
+              {!isPremium && !tipoPlano ? (
+                <Card>
+                  <CardBody>
+                    <Center py={12}>
+                      <VStack spacing={6} textAlign="center">
+                        <Box fontSize="4xl">🎨</Box>
+                        <Heading size="lg">Funcionalidade Premium</Heading>
+                        <Text color="gray.600" maxW="md">
+                          A personalização de aparência e identidade está disponível apenas para usuários Premium.
+                          Ative o Premium para personalizar cores, mensagens e identidade visual do seu agendamento.
+                        </Text>
+                        <Button
+                          colorScheme="purple"
+                          size="lg"
+                          onClick={() => {
+                            window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`;
+                          }}
+                        >
+                          Ativar Premium
+                        </Button>
+                      </VStack>
+                    </Center>
+                  </CardBody>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <HStack spacing={3}>
+                      <Icon as={Palette} color="purple.500" />
+                      <Box>
+                        <Heading size="md">Link personalizado e Aparência</Heading>
+                        <Text color="gray.600" fontSize="sm">Pegue seu link personalizado e personalize a aparência da sua página de agendamento online</Text>
+                      </Box>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody>
+                    <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
+                      {/* Cor Principal */}
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Cor Principal</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <VStack spacing={4}>
+                            <HStack spacing={4}>
+                              <Box
+                                w="40px"
+                                h="40px"
+                                borderRadius="md"
+                                bg={primaryColor}
+                                border="2px"
+                                borderColor={borderColor}
+                                cursor="pointer"
+                                onClick={() => setShowColorPicker(!showColorPicker)}
+                              />
+                              <Text>{primaryColor}</Text>
+                            </HStack>
+
+                            <HStack spacing={2} flexWrap="wrap">
+                              {predefinedColors.map((color) => (
+                                <Box
+                                  key={color}
+                                  w="32px"
+                                  h="32px"
+                                  borderRadius="sm"
+                                  bg={color}
+                                  border="2px"
+                                  borderColor={primaryColor === color ? "gray.800" : "transparent"}
+                                  cursor="pointer"
+                                  onClick={() => setPrimaryColor(color)}
+                                  _hover={{ transform: "scale(1.1)" }}
+                                  transition="all 0.2s"
+                                />
+                              ))}
+                            </HStack>
+
+                            <HStack spacing={3}>
+                              <Input
+                                type="color"
+                                value={primaryColor}
+                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                w="40px"
+                                h="40px"
+                                p={0}
+                                border="none"
+                                borderRadius="md"
+                                cursor="pointer"
+                              />
+                              <Text fontSize="sm" color="gray.600">Cor personalizada</Text>
+                            </HStack>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+
+                      {/* Link de Agendamento */}
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Link de Agendamento Online</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <VStack spacing={4}>
+                            <HStack
+                              p={3}
+                              bg="gray.50"
+                              borderRadius="md"
+                              w="full"
+                              spacing={3}
+                            >
+                              <Icon as={Globe} color="purple.500" />
+                              <Text
+                                fontFamily="mono"
+                                color="purple.600"
+                                fontWeight="medium"
+                                flex={1}
+                                wordBreak="break-all"
+                              >
+                                {generateBookingUrl()}
+                              </Text>
+                              <Button
+                                size="sm"
+                                colorScheme="purple"
+                                onClick={handleCopyUrl}
+                              >
+                                {copied ? "Copiado!" : "Copiar"}
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+
+                      {/* Mensagens Personalizadas */}
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Mensagem de Boas-vindas</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <FormControl>
+                            <FormLabel>Texto de Boas-vindas</FormLabel>
+                            <Textarea
+                              value={appearance.welcomeMessage}
+                              onChange={(e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
+                              placeholder="Bem-vindo ao nosso salão! Escolha o melhor horário para você."
+                              rows={3}
+                            />
+                          </FormControl>
+                        </CardBody>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <Heading size="sm">Mensagem de Agradecimento</Heading>
+                        </CardHeader>
+                        <CardBody>
+                          <FormControl>
+                            <FormLabel>Texto após Agendamento</FormLabel>
+                            <Textarea
+                              value={appearance.thankYouMessage}
+                              onChange={(e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
+                              placeholder="Obrigado por agendar conosco! Confirmaremos seu horário em breve."
+                              rows={3}
+                            />
+                          </FormControl>
+                        </CardBody>
+                      </Card>
+                    </SimpleGrid>
+
+                    {/* Botão para salvar aparência */}
+                    <Card>
+                      <CardBody>
+                        <Flex justify="flex-end">
+                          <Button
+                            leftIcon={<Icon as={Save} />}
+                            colorScheme="purple"
+                            onClick={handleSaveAparencia}
+                          >
+                            Salvar Aparência
+                          </Button>
+                        </Flex>
+                      </CardBody>
+                    </Card>
+                  </CardBody>
+                </Card>
+              )}
+            </VStack>
+          )}
+        </Container>
+      </Box>
 
       {/* Floating Save Button */}
-      <div className="floating-save">
-        <button className="btn-floating-save" onClick={handleSave}>
-          <Save size={20} />
+      <Box
+        position="fixed"
+        bottom={6}
+        right={6}
+        zIndex={1000}
+      >
+        <Button
+          leftIcon={<Icon as={Save} />}
+          colorScheme="purple"
+          size="lg"
+          onClick={handleSave}
+          shadow="lg"
+        >
           Salvar Todas as Configurações
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Box>
+    </Box>
   )
 }
 
