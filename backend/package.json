@@ -1,19 +1,37 @@
 {
-  "name": "barber-backend",
+  "name": "trezu-backend",
   "version": "1.0.0",
+  "description": "Backend para sistema de agendamento Trezu",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "axios": "^1.6.7",
-    "body-parser": "^1.20.2",
-    "cloudinary": "^1.41.3",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.0",
     "express": "^4.18.2",
-    "firebase-admin": "^11.10.1",
-    "multer": "^1.4.5-lts.1"
-  }
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "axios": "^1.6.0",
+    "firebase-admin": "^12.0.0",
+    "cloudinary": "^1.41.0",
+    "multer": "^1.4.5-lts.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "trezu",
+    "agendamento",
+    "backend",
+    "firebase",
+    "cloudinary"
+  ],
+  "author": "Trezu Team",
+  "license": "MIT"
 }

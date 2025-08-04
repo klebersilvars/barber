@@ -4,9 +4,9 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
-import admin from 'firebase-admin';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
+import initializeFirebase from './firebase-config.js';
 
 // Configurar Cloudinary
 cloudinary.config({
@@ -31,26 +31,7 @@ const upload = multer({
 });
 
 // Inicializar Firebase Admin SDK
-if (!admin.apps.length) {
-  const serviceAccount = {
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
-  };
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    projectId: process.env.FIREBASE_PROJECT_ID
-  });
-}
-const db = admin.firestore();
+const db = initializeFirebase();
 
 const app = express();
 app.use(cors({
@@ -266,9 +247,28 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
   try {
     console.log('Iniciando decremento automático de dias...');
     
-    // Buscar todos os documentos onde premium é true
-    const contasRef = db.collection('contas');
-    const snapshot = await contasRef.where('premium', '==', true).get();
+    // Buscar todos os documentos onde premium é true com retry
+    let snapshot;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        const contasRef = db.collection('contas');
+        snapshot = await contasRef.where('premium', '==', true).get();
+        break; // Se chegou aqui, deu certo
+      } catch (error) {
+        retryCount++;
+        console.log(`Tentativa ${retryCount} falhou:`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          throw new Error(`Falha após ${maxRetries} tentativas: ${error.message}`);
+        }
+        
+        // Esperar antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+      }
+    }
     
     if (snapshot.empty) {
       console.log('Nenhuma conta premium encontrada');
@@ -278,65 +278,91 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
     const batch = db.batch();
     let processedCount = 0;
     let decrementedCount = 0;
+    let errorCount = 0;
 
     for (const doc of snapshot.docs) {
-      const data = doc.data();
-      processedCount++;
+      try {
+        const data = doc.data();
+        processedCount++;
 
-      // Verificar plano grátis
-      if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
-        const novosDias = data.dias_restantes_teste_gratis - 1;
-        
-        if (novosDias <= 0) {
-          // Plano expirou
-          batch.update(doc.ref, {
-            premium: false,
-            dias_restantes_teste_gratis: 0,
-            tipoPlano: 'nenhum'
-          });
-          console.log(`Conta ${doc.id}: Plano grátis expirou`);
-        } else {
-          // Decrementar dias
-          batch.update(doc.ref, {
-            dias_restantes_teste_gratis: novosDias
-          });
-          console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
+        // Verificar plano grátis
+        if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
+          const novosDias = data.dias_restantes_teste_gratis - 1;
+          
+          if (novosDias <= 0) {
+            // Plano expirou
+            batch.update(doc.ref, {
+              premium: false,
+              dias_restantes_teste_gratis: 0,
+              tipoPlano: 'nenhum'
+            });
+            console.log(`Conta ${doc.id}: Plano grátis expirou`);
+          } else {
+            // Decrementar dias
+            batch.update(doc.ref, {
+              dias_restantes_teste_gratis: novosDias
+            });
+            console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
+          }
+          decrementedCount++;
         }
-        decrementedCount++;
-      }
-      // Verificar planos pagos (individual ou empresa)
-      else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
-        const novosDias = data.dias_plano_pago_restante - 1;
-        
-        if (novosDias <= 0) {
-          // Plano expirou
-          batch.update(doc.ref, {
-            premium: false,
-            dias_plano_pago_restante: 0,
-            tipoPlano: 'nenhum'
-          });
-          console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
-        } else {
-          // Decrementar dias
-          batch.update(doc.ref, {
-            dias_plano_pago_restante: novosDias
-          });
-          console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
+        // Verificar planos pagos (individual ou empresa)
+        else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+          const novosDias = data.dias_plano_pago_restante - 1;
+          
+          if (novosDias <= 0) {
+            // Plano expirou
+            batch.update(doc.ref, {
+              premium: false,
+              dias_plano_pago_restante: 0,
+              tipoPlano: 'nenhum'
+            });
+            console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
+          } else {
+            // Decrementar dias
+            batch.update(doc.ref, {
+              dias_plano_pago_restante: novosDias
+            });
+            console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
+          }
+          decrementedCount++;
         }
-        decrementedCount++;
+      } catch (docError) {
+        errorCount++;
+        console.error(`Erro ao processar documento ${doc.id}:`, docError.message);
+        // Continuar com o próximo documento
       }
     }
 
-    // Executar todas as atualizações em batch
+    // Executar todas as atualizações em batch com retry
     if (decrementedCount > 0) {
-      await batch.commit();
-      console.log(`Decremento concluído: ${decrementedCount} contas atualizadas`);
+      let batchRetryCount = 0;
+      const maxBatchRetries = 3;
+      
+      while (batchRetryCount < maxBatchRetries) {
+        try {
+          await batch.commit();
+          console.log(`Decremento concluído: ${decrementedCount} contas atualizadas`);
+          break;
+        } catch (batchError) {
+          batchRetryCount++;
+          console.log(`Tentativa ${batchRetryCount} do batch falhou:`, batchError.message);
+          
+          if (batchRetryCount >= maxBatchRetries) {
+            throw new Error(`Falha no batch após ${maxBatchRetries} tentativas: ${batchError.message}`);
+          }
+          
+          // Esperar antes de tentar novamente
+          await new Promise(resolve => setTimeout(resolve, 3000 * batchRetryCount));
+        }
+      }
     }
 
     const response = {
       message: 'Decremento automático concluído',
       processed: processedCount,
       decremented: decrementedCount,
+      errors: errorCount,
       timestamp: new Date().toISOString()
     };
 
@@ -347,7 +373,8 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
     console.error('Erro no cron job de decremento:', error);
     return res.status(500).json({ 
       error: 'Erro interno no servidor',
-      message: error.message 
+      message: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
