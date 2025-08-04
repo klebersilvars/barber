@@ -38,12 +38,27 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://www.trezu.com.br',
-    'https://trezu.com.br'
+    'https://trezu.com.br',
+    'https://trezu-backend.onrender.com'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
 }));
+
+// Middleware adicional para CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://www.trezu.com.br');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -379,21 +394,38 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
   }
 });
 
+// Endpoint de teste para CORS
+app.get('/api/test-cors', (req, res) => {
+  res.json({ 
+    message: 'CORS está funcionando!',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin
+  });
+});
+
 // Endpoint para upload de logo
 app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
   try {
+    console.log('Recebendo requisição de upload de logo');
+    
     if (!req.file) {
+      console.log('Nenhum arquivo enviado');
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
 
     const { uid } = req.body;
     if (!uid) {
+      console.log('UID não fornecido');
       return res.status(400).json({ error: 'UID do usuário é obrigatório' });
     }
+
+    console.log(`Processando upload para usuário: ${uid}`);
 
     // Converter buffer para base64
     const base64Image = req.file.buffer.toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${base64Image}`;
+
+    console.log('Fazendo upload para Cloudinary...');
 
     // Upload para o Cloudinary
     const uploadResult = await cloudinary.uploader.upload(dataURI, {
@@ -406,11 +438,15 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
       ]
     });
 
+    console.log('Upload para Cloudinary concluído:', uploadResult.secure_url);
+
     // Salvar URL no Firestore
     const docRef = db.collection('contas').doc(uid);
     await docRef.update({
       logo_url: uploadResult.secure_url
     });
+
+    console.log('URL salva no Firestore com sucesso');
 
     res.status(200).json({
       success: true,
