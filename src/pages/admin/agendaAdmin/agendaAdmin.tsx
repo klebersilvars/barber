@@ -28,12 +28,36 @@ import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
+import { 
+  Box, 
+  Button, 
+  Text, 
+  VStack, 
+  HStack, 
+  Icon, 
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure
+} from "@chakra-ui/react"
+import { Download as DownloadIcon, Smartphone } from "lucide-react"
 
 const AgendaAdmin = () => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
+
+  // PWA States
+  const [showPWAInstall, setShowPWAInstall] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const { isOpen: isPWAOpen, onOpen: onPWAModalOpen, onClose: onPWAModalClose } = useDisclosure()
+  const toast = useToast()
 
   // Modal states
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -94,6 +118,75 @@ const AgendaAdmin = () => {
 
   // Buscar nome do estabelecimento do admin logado
   const [estabelecimento, setEstabelecimento] = useState("")
+  
+  // PWA Logic
+  useEffect(() => {
+    // Detectar se é dispositivo móvel
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())
+      setIsMobile(isMobileDevice)
+    }
+    
+    checkMobile()
+    
+    // Detectar evento de instalação PWA
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowPWAInstall(true)
+    }
+    
+    // Detectar se já foi instalado
+    const handleAppInstalled = () => {
+      setShowPWAInstall(false)
+      setDeferredPrompt(null)
+      toast({
+        title: "Aplicativo instalado!",
+        description: "O CliqAgenda foi adicionado à sua tela inicial.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [toast])
+  
+  // Função para instalar PWA
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return
+    
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    
+    if (outcome === 'accepted') {
+      console.log('PWA instalado com sucesso')
+    } else {
+      console.log('PWA não foi instalado')
+    }
+    
+    setDeferredPrompt(null)
+    setShowPWAInstall(false)
+  }
+  
+  // Mostrar modal PWA para dispositivos móveis
+  useEffect(() => {
+    if (isMobile && !localStorage.getItem('pwa-install-dismissed')) {
+      const timer = setTimeout(() => {
+        onPWAModalOpen()
+      }, 3000) // Mostrar após 3 segundos
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isMobile, onPWAModalOpen])
+  
   useEffect(() => {
     if (!auth.currentUser?.uid) return
     const contasRef = collection(firestore, 'contas')
@@ -1084,6 +1177,65 @@ const AgendaAdmin = () => {
 
       {/* Histórico Geral Modal */}
       {/* Removed as per edit hint */}
+      
+      {/* PWA Install Modal */}
+      <Modal isOpen={isPWAOpen} onClose={onPWAModalClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack spacing={3}>
+              <Icon as={Smartphone} color="blue.500" />
+              <Text>Instalar CliqAgenda</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack spacing={4} align="stretch">
+              <Box textAlign="center">
+                <Icon as={DownloadIcon} size="48px" color="blue.500" mb={4} />
+                <Text fontSize="lg" fontWeight="bold" mb={2}>
+                  Instale o CliqAgenda no seu telefone!
+                </Text>
+                <Text color="gray.600" mb={4}>
+                  Tenha acesso rápido à sua agenda de agendamentos diretamente na tela inicial do seu dispositivo.
+                </Text>
+              </Box>
+              
+              <VStack spacing={3} align="stretch">
+                <Box p={4} bg="blue.50" borderRadius="md">
+                  <Text fontSize="sm" fontWeight="semibold" mb={2}>
+                    📱 Como instalar:
+                  </Text>
+                  <VStack spacing={2} align="start">
+                    <Text fontSize="sm">• <strong>Android:</strong> Toque em "Adicionar à tela inicial"</Text>
+                    <Text fontSize="sm">• <strong>iPhone:</strong> Toque no ícone de compartilhar e "Adicionar à tela inicial"</Text>
+                  </VStack>
+                </Box>
+                
+                <HStack spacing={3} justify="center">
+                  <Button
+                    colorScheme="blue"
+                    leftIcon={<DownloadIcon />}
+                    onClick={handleInstallPWA}
+                    size="lg"
+                  >
+                    Instalar Agora
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      localStorage.setItem('pwa-install-dismissed', 'true')
+                      onPWAModalClose()
+                    }}
+                  >
+                    Talvez depois
+                  </Button>
+                </HStack>
+              </VStack>
+            </VStack>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }
