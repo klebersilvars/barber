@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import "./pageHome.css"
 import barberImage from "../../assets/barber.jpg"
+import logoTrezu from "../../assets/LOGOTIPO-TREZU-BLUE.png"
 import {
   Calendar,
   Star,
-  Scissors,
   Phone,
   Mail,
   Check,
@@ -19,7 +19,7 @@ import {
   Zap,
   Award,
 } from "lucide-react"
-import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Text, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody } from "@chakra-ui/react"
+import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody } from "@chakra-ui/react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 
 export default function PageHome() {
@@ -96,8 +96,7 @@ export default function PageHome() {
         <Flex maxW="1200px" mx="auto" px={4} h="70px" align="center" justify="space-between">
           {/* Logo */}
           <HStack spacing={3}>
-            <Scissors className="logo-icon" color="#5d3fd3" />
-            <Text fontWeight="bold" fontSize="xl" color="#5d3fd3">Trezu</Text>
+            <img src={logoTrezu} alt="Trezu Logo" className="logo-image" />
           </HStack>
 
           {/* Menu Desktop */}
@@ -525,8 +524,7 @@ export default function PageHome() {
         <div className="footer-content">
           <div className="footer-section">
             <div className="logo">
-              <Scissors className="logo-icon" />
-              <span>Trezu</span>
+              <img src={logoTrezu} alt="Trezu Logo" className="logo-image" />
             </div>
             <p>O sistema completo para gestão de barbearias e salões de beleza</p>
             {/* <div className="footer-social">

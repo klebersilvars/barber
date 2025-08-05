@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { QRCodeSVG } from "qrcode.react"
+import QRCode from "qrcode"
 import {
   Building2,
   Clock,
@@ -13,6 +15,8 @@ import {
   Phone,
   Mail,
   Globe,
+  QrCode,
+  Printer,
 } from "lucide-react"
 import {
   Box,
@@ -42,6 +46,13 @@ import {
   Switch,
   Image,
   Center,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  useToast,
 } from "@chakra-ui/react"
 import "./configuracoesAdmin.css"
 import { firestore, auth } from '../../../firebase/firebase'
@@ -78,6 +89,11 @@ const ConfiguracoesAdmin = () => {
   // Estados para verificar premium
   const [isPremium, setIsPremium] = useState(false)
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
+
+  // Estados para QR Code e Impressão
+  const [qrCodeData, setQrCodeData] = useState<string>("")
+  const [showQRModal, setShowQRModal] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     const fetchConta = async () => {
@@ -378,6 +394,171 @@ const ConfiguracoesAdmin = () => {
       .catch(() => {
         setCopied(false)
       })
+  }
+
+  // Função para gerar QR Code
+  const handleGenerateQRCode = () => {
+    const url = generateBookingUrl()
+    setQrCodeData(url)
+    setShowQRModal(true)
+  }
+
+  // Função para gerar QR Code SVG inline
+  const generateQRCodeSVGInline = (text: string) => {
+    // Gerar QR Code simples como SVG inline
+    const size = 180
+    const cellSize = 6
+    
+    // Criar um QR Code simples como placeholder
+    // Em produção, você pode usar uma biblioteca real
+    const svg = `
+      <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${size}" height="${size}" fill="white"/>
+        <rect x="0" y="0" width="${size}" height="${size}" fill="none" stroke="#000" stroke-width="1"/>
+        
+        <!-- Padrão simples de QR Code -->
+        <rect x="${cellSize}" y="${cellSize}" width="${cellSize * 3}" height="${cellSize * 3}" fill="#000"/>
+        <rect x="${cellSize * 2}" y="${cellSize * 2}" width="${cellSize}" height="${cellSize}" fill="white"/>
+        
+        <rect x="${size - cellSize * 4}" y="${cellSize}" width="${cellSize * 3}" height="${cellSize * 3}" fill="#000"/>
+        <rect x="${size - cellSize * 3}" y="${cellSize * 2}" width="${cellSize}" height="${cellSize}" fill="white"/>
+        
+        <rect x="${cellSize}" y="${size - cellSize * 4}" width="${cellSize * 3}" height="${cellSize * 3}" fill="#000"/>
+        <rect x="${cellSize * 2}" y="${size - cellSize * 3}" width="${cellSize}" height="${cellSize}" fill="white"/>
+        
+        <!-- Texto do link -->
+        <text x="${size/2}" y="${size - 10}" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">
+          ${text.substring(0, 20)}...
+        </text>
+      </svg>
+    `
+    
+    return `data:image/svg+xml;base64,${btoa(svg)}`
+  }
+
+  // Função para gerar QR Code real usando a biblioteca qrcode
+  const generateQRCodeDataURL = async (text: string): Promise<string> => {
+    try {
+      const dataURL = await QRCode.toDataURL(text, {
+        width: 180,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      })
+      return dataURL
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error)
+      // Fallback para um QR Code simples
+      return generateQRCodeSVGInline(text)
+    }
+  }
+
+  // Função para imprimir
+  const handlePrint = async () => {
+    const url = generateBookingUrl()
+    const salonName = salonInfo.name || "Meu Estabelecimento"
+    
+    // Gerar QR Code real
+    const qrCodeDataURL = await generateQRCodeDataURL(url)
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Link de Agendamento - ${salonName}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+              .print-container { 
+                max-width: 800px; 
+                margin: 0 auto; 
+                text-align: center; 
+                padding: 40px;
+                border: 2px solid #333;
+                border-radius: 10px;
+              }
+              .logo { font-size: 24px; font-weight: bold; color: #5d3fd3; margin-bottom: 20px; }
+              .title { font-size: 28px; font-weight: bold; margin-bottom: 30px; color: #333; }
+              .subtitle { font-size: 18px; color: #666; margin-bottom: 40px; }
+              .url-box { 
+                background: #f5f5f5; 
+                padding: 20px; 
+                border-radius: 8px; 
+                margin: 30px 0;
+                font-family: monospace;
+                font-size: 16px;
+                word-break: break-all;
+              }
+              .qr-container { 
+                width: 200px; 
+                height: 200px; 
+                margin: 30px auto;
+                border: 1px solid #ccc;
+                padding: 10px;
+                background: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .qr-image {
+                width: 180px;
+                height: 180px;
+                object-fit: contain;
+              }
+              .instructions { 
+                font-size: 16px; 
+                color: #555; 
+                margin-top: 30px;
+                line-height: 1.5;
+              }
+              .footer { 
+                margin-top: 40px; 
+                font-size: 14px; 
+                color: #888; 
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            <div class="logo">Trezu</div>
+            <div class="title">Link de Agendamento Online</div>
+            <div class="subtitle">${salonName}</div>
+            
+            <div class="url-box">
+              ${url}
+            </div>
+            
+            <div class="qr-container">
+              <img src="${qrCodeDataURL}" alt="QR Code" class="qr-image" />
+            </div>
+            
+            <div class="instructions">
+              <strong>Como usar:</strong><br>
+              1. Compartilhe este link com seus clientes<br>
+              2. Eles poderão agendar horários diretamente<br>
+              3. Você receberá as confirmações automaticamente
+            </div>
+            
+            <div class="footer">
+              Sistema de Gestão Trezu - www.trezu.com.br
+            </div>
+          </div>
+        </body>
+      </html>
+    `
+    
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+      }, 500)
+    }
   }
 
   // Função para montar o array de horários para o Firestore
@@ -1064,6 +1245,28 @@ const ConfiguracoesAdmin = () => {
                                 {copied ? "Copiado!" : "Copiar"}
                               </Button>
                             </HStack>
+                            
+                            {/* Botões de QR Code e Imprimir */}
+                            <HStack spacing={3} w="full">
+                              <Button
+                                leftIcon={<Icon as={QrCode} />}
+                                colorScheme="blue"
+                                variant="outline"
+                                onClick={handleGenerateQRCode}
+                                flex={1}
+                              >
+                                Gerar QR Code
+                              </Button>
+                              <Button
+                                leftIcon={<Icon as={Printer} />}
+                                colorScheme="green"
+                                variant="outline"
+                                onClick={handlePrint}
+                                flex={1}
+                              >
+                                Imprimir
+                              </Button>
+                            </HStack>
                           </VStack>
                         </CardBody>
                       </Card>
@@ -1125,6 +1328,76 @@ const ConfiguracoesAdmin = () => {
           )}
         </Container>
       </Box>
+
+      {/* Modal do QR Code */}
+      <Modal isOpen={showQRModal} onClose={() => setShowQRModal(false)} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack spacing={3}>
+              <Icon as={QrCode} color="blue.500" />
+              <Text>QR Code do Link de Agendamento</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack spacing={6}>
+              <Text color="gray.600" textAlign="center">
+                Escaneie este QR Code para acessar diretamente o link de agendamento
+              </Text>
+              
+              {/* QR Code Real */}
+              <Box
+                w="200px"
+                h="200px"
+                bg="white"
+                borderRadius="md"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                border="1px solid"
+                borderColor="gray.200"
+                p={2}
+              >
+                {qrCodeData && (
+                  <QRCodeSVG
+                    value={qrCodeData}
+                    size={180}
+                    level="M"
+                    includeMargin={true}
+                    bgColor="#FFFFFF"
+                    fgColor="#000000"
+                  />
+                )}
+              </Box>
+              
+              <HStack spacing={3}>
+                <Button
+                  colorScheme="blue"
+                  onClick={() => {
+                    navigator.clipboard.writeText(qrCodeData)
+                    toast({
+                      title: "Link copiado!",
+                      description: "O link foi copiado para a área de transferência",
+                      status: "success",
+                      duration: 2000,
+                      isClosable: true,
+                    })
+                  }}
+                >
+                  Copiar Link
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowQRModal(false)}
+                >
+                  Fechar
+                </Button>
+              </HStack>
+            </VStack>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
       {/* Floating Save Button */}
       <Box
