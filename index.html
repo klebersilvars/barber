@@ -26,5 +26,20 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registrado: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registro falhou: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

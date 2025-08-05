@@ -98,7 +98,7 @@ const MP_BASE_URL = 'https://api.mercadopago.com/checkout/preferences';
 
 // Criar preferência de pagamento
 app.post('/api/create-preference', async (req, res) => {
-  const { planId, email, planName, price } = req.body;
+  const { planId, email, planName, price, dataTermino } = req.body;
   try {
     const preference = {
       items: [
@@ -123,7 +123,8 @@ app.post('/api/create-preference', async (req, res) => {
       auto_return: 'approved',
       notification_url: 'https://SEU_DOMINIO/api/mercadopago-webhook',
       metadata: {
-        tipoPlano: planId // individual ou empresa
+        tipoPlano: planId, // individual ou empresa
+        dataTermino: dataTermino // data de término do plano
       }
     };
     const response = await axios.post(MP_BASE_URL, preference, {
@@ -179,7 +180,28 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
           } else if (price === 20) {
             tipoPlano = 'empresa';
           }
+          
+          // Pegar data de término do metadata se disponível
+          let dataTermino = null;
+          if (payment.metadata && payment.metadata.dataTermino) {
+            dataTermino = payment.metadata.dataTermino;
+            console.log('Data de término recebida do metadata:', dataTermino);
+          } else {
+            // Calcular data de término padrão (30 dias)
+            const hoje = new Date();
+            const dataTerminoCalc = new Date(hoje);
+            dataTerminoCalc.setDate(hoje.getDate() + 30);
+            dataTermino = dataTerminoCalc.toISOString();
+            console.log('Data de término calculada:', dataTermino);
+          }
+          
           // Sempre 30 dias premium para ambos
+          const hoje = new Date();
+          const dataTerminoFinal = new Date(hoje);
+          dataTerminoFinal.setDate(hoje.getDate() + 30); // 30 dias de premium
+          
+          console.log('Salvando data de término no Firestore:', dataTermino || dataTerminoFinal.toISOString());
+          
           await docRef.update({
             premium: true,
             premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
@@ -187,6 +209,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             tipoPlano: tipoPlano,
             dias_plano_pago: 30,
             dias_plano_pago_restante: 30,
+            data_termino_plano_premium: dataTermino || dataTerminoFinal.toISOString(),
             status_pagamento: 'pago'
           });
           // Se for empresa, ativa colaboradores
@@ -348,16 +371,20 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
               
               if (novosDias <= 0) {
                 // Plano expirou
-                updates.premium = false;
-                updates.dias_plano_pago_restante = 0;
-                updates.tipoPlano = 'nenhum';
+                batch.update(doc.ref, {
+                  premium: false,
+                  dias_plano_pago_restante: 0,
+                  tipoPlano: 'nenhum',
+                  data_termino_plano_premium: null
+                });
                 console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
               } else {
                 // Decrementar dias
-                updates.dias_plano_pago_restante = novosDias;
+                batch.update(doc.ref, {
+                  dias_plano_pago_restante: novosDias
+                });
                 console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
               }
-              needsUpdate = true;
               decrementedCount++;
             }
             
@@ -428,6 +455,58 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
 
   } catch (error) {
     console.error('Erro no cron job de decremento:', error);
+    return res.status(500).json({ 
+      error: 'Erro interno no servidor',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Endpoint para verificar e desativar planos expirados baseado na data
+app.post('/api/verificar-planos-expirados', async (req, res) => {
+  try {
+    console.log('=== VERIFICANDO PLANOS EXPIRADOS ===');
+    
+    const contasRef = db.collection('contas');
+    const snapshot = await contasRef.where('premium', '==', true).get();
+    
+    let planosExpirados = 0;
+    const hoje = new Date();
+    
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const dataTermino = data.data_termino_plano_premium;
+      
+      if (dataTermino) {
+        const dataTerminoObj = new Date(dataTermino);
+        
+        // Se a data de término já passou, desativar premium
+        if (hoje >= dataTerminoObj) {
+          await doc.ref.update({
+            premium: false,
+            data_termino_plano_premium: null,
+            dias_plano_pago_restante: 0,
+            dias_restantes_teste_gratis: 0
+          });
+          
+          planosExpirados++;
+          console.log(`Plano expirado para ${doc.id}: ${data.nomeEstabelecimento}`);
+        }
+      }
+    }
+    
+    const response = {
+      message: 'Verificação de planos expirados concluída',
+      planosExpirados: planosExpirados,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('Resposta da verificação:', response);
+    return res.json(response);
+    
+  } catch (error) {
+    console.error('Erro na verificação de planos expirados:', error);
     return res.status(500).json({ 
       error: 'Erro interno no servidor',
       message: error.message,

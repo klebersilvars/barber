@@ -133,16 +133,15 @@ const AgendaAdmin = () => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      // setShowPWAInstall(true) // This line is removed
+      console.log('PWA install prompt disponível')
     }
     
     // Detectar se já foi instalado
     const handleAppInstalled = () => {
-      // setShowPWAInstall(false) // This line is removed
       setDeferredPrompt(null)
       toast({
         title: "Aplicativo instalado!",
-        description: "O CliqAgenda foi adicionado à sua tela inicial.",
+        description: "O Trezu foi adicionado à sua tela inicial.",
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -160,19 +159,60 @@ const AgendaAdmin = () => {
   
   // Função para instalar PWA
   const handleInstallPWA = async () => {
-    if (!deferredPrompt) return
-    
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    
-    if (outcome === 'accepted') {
-      console.log('PWA instalado com sucesso')
-    } else {
-      console.log('PWA não foi instalado')
+    try {
+      if (!deferredPrompt) {
+        console.log('Nenhum prompt de instalação disponível')
+        
+        // Para dispositivos móveis sem prompt, mostrar instruções manuais
+        if (isMobile) {
+          toast({
+            title: "Instalação Manual",
+            description: "Use o menu do navegador para adicionar à tela inicial",
+            status: "info",
+            duration: 5000,
+            isClosable: true,
+          })
+        }
+        return
+      }
+      
+      console.log('Iniciando instalação PWA...')
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      
+      if (outcome === 'accepted') {
+        console.log('PWA instalado com sucesso')
+        toast({
+          title: "Instalação iniciada!",
+          description: "O aplicativo está sendo adicionado à sua tela inicial.",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+      } else {
+        console.log('PWA não foi instalado')
+        toast({
+          title: "Instalação cancelada",
+          description: "Você pode instalar manualmente usando o menu do navegador.",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+      
+      setDeferredPrompt(null)
+      onPWAModalClose()
+      
+    } catch (error) {
+      console.error('Erro ao instalar PWA:', error)
+      toast({
+        title: "Erro na instalação",
+        description: "Tente instalar manualmente usando o menu do navegador.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      })
     }
-    
-    setDeferredPrompt(null)
-    // setShowPWAInstall(false) // This line is removed
   }
   
   // Mostrar modal PWA para dispositivos móveis
@@ -473,7 +513,7 @@ const AgendaAdmin = () => {
           <div className="logo-section">
             <Scissors className="logo-icon" />
             <div className="logo-text">
-              <h1>CliqAgenda</h1>
+              <h1>Trezu</h1>
               <p>Gestão Completa</p>
             </div>
           </div>
@@ -1178,58 +1218,97 @@ const AgendaAdmin = () => {
       {/* Removed as per edit hint */}
       
       {/* PWA Install Modal */}
-      <Modal isOpen={isPWAOpen} onClose={onPWAModalClose} size="md">
+      <Modal isOpen={isPWAOpen} onClose={onPWAModalClose} size={{ base: "sm", md: "md" }}>
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
+        <ModalContent mx={{ base: 2, md: 4 }} maxW={{ base: "95vw", md: "500px" }}>
+          <ModalHeader pb={3}>
             <HStack spacing={3}>
-              <Icon as={Smartphone} color="blue.500" />
-              <Text>Instalar CliqAgenda</Text>
+              <Icon as={Smartphone} color="blue.500" boxSize={5} />
+              <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="bold">
+                Instalar Trezu
+              </Text>
             </HStack>
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody pb={6}>
-            <VStack spacing={4} align="stretch">
+          <ModalBody pb={6} px={{ base: 4, md: 6 }}>
+            <VStack spacing={{ base: 3, md: 4 }} align="stretch">
               <Box textAlign="center">
-                <Icon as={DownloadIcon} size="48px" color="blue.500" mb={4} />
-                <Text fontSize="lg" fontWeight="bold" mb={2}>
-                  Instale o CliqAgenda no seu telefone!
+                <Icon as={DownloadIcon} boxSize={{ base: "40px", md: "48px" }} color="blue.500" mb={4} />
+                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" mb={2}>
+                  Instale o Trezu no seu telefone!
                 </Text>
-                <Text color="gray.600" mb={4}>
+                <Text color="gray.600" fontSize={{ base: "sm", md: "md" }} mb={4}>
                   Tenha acesso rápido à sua agenda de agendamentos diretamente na tela inicial do seu dispositivo.
                 </Text>
               </Box>
               
-              <VStack spacing={3} align="stretch">
-                <Box p={4} bg="blue.50" borderRadius="md">
-                  <Text fontSize="sm" fontWeight="semibold" mb={2}>
+              <VStack spacing={{ base: 3, md: 4 }} align="stretch">
+                <Box p={{ base: 3, md: 4 }} bg="blue.50" borderRadius="md">
+                  <Text fontSize="sm" fontWeight="semibold" mb={3}>
                     📱 Como instalar:
                   </Text>
                   <VStack spacing={2} align="start">
-                    <Text fontSize="sm">• <strong>Android:</strong> Toque em "Adicionar à tela inicial"</Text>
-                    <Text fontSize="sm">• <strong>iPhone:</strong> Toque no ícone de compartilhar e "Adicionar à tela inicial"</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }}>• <strong>Android/Chrome:</strong> Toque em "Adicionar à tela inicial"</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }}>• <strong>iPhone/Safari:</strong> Toque no ícone de compartilhar e "Adicionar à tela inicial"</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }}>• <strong>Outros navegadores:</strong> Use o menu do navegador para "Adicionar à tela inicial"</Text>
                   </VStack>
                 </Box>
                 
-                <HStack spacing={3} justify="center">
+                <Box p={{ base: 3, md: 4 }} bg="green.50" borderRadius="md">
+                  <Text fontSize="sm" fontWeight="semibold" mb={3} color="green.700">
+                    💡 Como instalar manualmente:
+                  </Text>
+                  <VStack spacing={2} align="start">
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="green.700">
+                      <strong>Android:</strong> Toque nos três pontos → "Adicionar à tela inicial"
+                    </Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="green.700">
+                      <strong>iPhone:</strong> Toque no ícone de compartilhar → "Adicionar à tela inicial"
+                    </Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="green.700">
+                      <strong>Outros:</strong> Use o menu do navegador para "Instalar aplicativo"
+                    </Text>
+                  </VStack>
+                </Box>
+                
+                <VStack spacing={3} align="stretch">
                   <Button
                     colorScheme="blue"
                     leftIcon={<DownloadIcon />}
                     onClick={handleInstallPWA}
-                    size="lg"
+                    size={{ base: "md", md: "lg" }}
+                    isDisabled={!deferredPrompt}
+                    w="full"
+                    h={{ base: "45px", md: "50px" }}
+                    fontSize={{ base: "sm", md: "md" }}
+                    fontWeight="semibold"
+                    borderRadius="md"
                   >
-                    Instalar Agora
+                    {deferredPrompt ? "Instalar Agora" : "Instalação Manual"}
                   </Button>
+                  
                   <Button
                     variant="outline"
                     onClick={() => {
                       localStorage.setItem('pwa-install-dismissed', 'true')
                       onPWAModalClose()
                     }}
+                    w="full"
+                    h={{ base: "40px", md: "45px" }}
+                    fontSize={{ base: "xs", md: "sm" }}
+                    borderRadius="md"
                   >
                     Talvez depois
                   </Button>
-                </HStack>
+                </VStack>
+                
+                {!deferredPrompt && (
+                  <Box p={{ base: 3, md: 4 }} bg="yellow.50" borderRadius="md" border="1px solid" borderColor="yellow.200">
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="yellow.800" textAlign="center" fontWeight="medium">
+                      ⚠️ Instalação automática não disponível neste navegador. Use as instruções acima para instalar manualmente.
+                    </Text>
+                  </Box>
+                )}
               </VStack>
             </VStack>
           </ModalBody>

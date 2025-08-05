@@ -266,9 +266,53 @@ const EstablishmentsContent = () => {
   const [editData, setEditData] = useState<any | null>(null)
   const toast = useToast()
 
+  // Função para formatar a data de término
+  const formatarDataTermino = (dataISO: string) => {
+    try {
+      let data: Date;
+      
+      // Verificar se é formato brasileiro (DD/MM/YYYY)
+      if (dataISO.includes('/')) {
+        const partes = dataISO.split('/');
+        if (partes.length === 3) {
+          // Converter DD/MM/YYYY para YYYY-MM-DD
+          const dia = partes[0];
+          const mes = partes[1];
+          const ano = partes[2];
+          const dataISOFormatada = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}T00:00:00.000Z`;
+          data = new Date(dataISOFormatada);
+        } else {
+          throw new Error('Formato de data brasileiro inválido');
+        }
+      } else {
+        // Tentar como ISO string
+        data = new Date(dataISO);
+      }
+      
+      // Verificar se a data é válida
+      if (isNaN(data.getTime())) {
+        return 'Data inválida';
+      }
+      
+      return data.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Erro na data';
+    }
+  };
+
   // Função para calcular dias restantes baseado no tipoPlano
   const getDiasRestantes = (estabelecimento: any) => {
-    if (estabelecimento.tipoPlano === 'gratis') {
+    if (estabelecimento.tipoPlano === 'vitalicio') {
+      return '∞'; // Símbolo de infinito para plano vitalício
+    } else if (estabelecimento.data_termino_plano_premium) {
+      // Usar a data formatada do campo data_termino_plano_premium
+      const dataFormatada = formatarDataTermino(estabelecimento.data_termino_plano_premium);
+      return `${dataFormatada}`;
+    } else if (estabelecimento.tipoPlano === 'gratis') {
       return estabelecimento.dias_restantes_teste_gratis ?? null;
     } else if (estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') {
       return estabelecimento.dias_plano_pago_restante ?? null;
@@ -355,7 +399,18 @@ const EstablishmentsContent = () => {
       }
       const agora = new Date();
       // Lógica de atualização de premium/plano
-      if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
+      if (editData.tipoPlano === 'vitalicio' && editData.premium) {
+        // Plano vitalício - apenas marca premium como true, sem dias restantes
+        updateObj.premium = true;
+        updateObj.tipoPlano = 'vitalicio';
+        updateObj.avaliacao_gratis = false;
+        // Não define dias restantes para plano vitalício (infinito)
+        updateObj.dias_plano_pago = null;
+        updateObj.dias_plano_pago_restante = null;
+        updateObj.dias_restantes_teste_gratis = null;
+        updateObj.data_inicio_teste_gratis = null;
+        updateObj.data_fim_teste_gratis = null;
+      } else if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
         // Ativar premium por 30 dias
         updateObj.premium = true;
         updateObj.tipoPlano = editData.tipoPlano;
@@ -412,7 +467,7 @@ const EstablishmentsContent = () => {
                 <Th>Nome</Th>
                   <Th>Plano</Th>
                 <Th>Status</Th>
-                  <Th>Dias Restantes</Th>
+                  <Th>Término do plano</Th>
                   <Th>Email</Th>
                 <Th>Ações</Th>
               </Tr>
@@ -426,7 +481,7 @@ const EstablishmentsContent = () => {
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'vitalicio' ? 'Vitalício' : estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}</Td>
                       <Td>
                         {estab.premium ? (
                           <Badge colorScheme="green">Premium</Badge>
@@ -535,6 +590,7 @@ const EstablishmentsContent = () => {
                         <option value="">Nenhum</option>
                         <option value="individual">Individual</option>
                         <option value="empresa">Empresa</option>
+                        <option value="vitalicio">Vitalício</option>
                       </Select>
                       <Box>
                         <Text fontSize="sm" mb={1} fontWeight="semibold">Status Premium</Text>
@@ -638,8 +694,8 @@ const FinancialContent = () => {
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : 'Nenhum'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'R$ 10,00' : estab.tipoPlano === 'empresa' ? 'R$ 20,00' : '-'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'vitalicio' ? 'Vitalício' : 'Nenhum'}</Td>
+                      <Td>{estab.tipoPlano === 'individual' ? 'R$ 10,00' : estab.tipoPlano === 'empresa' ? 'R$ 20,00' : estab.tipoPlano === 'vitalicio' ? 'R$ 0,00' : '-'}</Td>
                       <Td>
                         {estab.status_pagamento === 'inadimplente' ? (
                           <Badge colorScheme="red">NÃO PAGO</Badge>

@@ -63,6 +63,7 @@ export default function DashboardUser() {
   // Adicionar estado para diasPlanoPagoRestante
   const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
   const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
+  const [dataTerminoPlano, setDataTerminoPlano] = useState<string | null>(null);
 
   // Cores responsivas
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -70,19 +71,120 @@ export default function DashboardUser() {
   const textColor = useColorModeValue('gray.800', 'white');
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300');
 
-  // Função para calcular dias restantes baseado no tipoPlano
-  const getDiasRestantes = () => {
-    if (tipoPlano === 'gratis') {
-      return diasRestantesTeste;
-    } else if (tipoPlano === 'individual' || tipoPlano === 'empresa') {
-      return diasPlanoPagoRestante;
+  // Função para formatar a data de término
+  const formatarDataTermino = (dataISO: string) => {
+    console.log('=== formatarDataTermino CHAMADO ===');
+    console.log('Data recebida:', dataISO);
+    console.log('Tipo da data:', typeof dataISO);
+    
+    try {
+      let data: Date;
+      
+      // Verificar se é formato brasileiro (DD/MM/YYYY)
+      if (dataISO.includes('/')) {
+        console.log('Detectado formato brasileiro');
+        const partes = dataISO.split('/');
+        console.log('Partes da data:', partes);
+        if (partes.length === 3) {
+          // Converter DD/MM/YYYY para YYYY-MM-DD
+          const dia = partes[0];
+          const mes = partes[1];
+          const ano = partes[2];
+          const dataISOFormatada = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}T00:00:00.000Z`;
+          console.log('Data convertida para ISO:', dataISOFormatada);
+          data = new Date(dataISOFormatada);
+        } else {
+          throw new Error('Formato de data brasileiro inválido');
+        }
+      } else {
+        console.log('Tentando como ISO string');
+        // Tentar como ISO string
+        data = new Date(dataISO);
+      }
+      
+      console.log('Data objeto criado:', data);
+      console.log('Data é válida?', !isNaN(data.getTime()));
+      
+      // Verificar se a data é válida
+      if (isNaN(data.getTime())) {
+        console.error('Data inválida recebida:', dataISO);
+        return 'Data inválida';
+      }
+      
+      const resultado = data.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      
+      console.log('Resultado formatado:', resultado);
+      console.log('=== FIM formatarDataTermino ===');
+      return resultado;
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, 'Data recebida:', dataISO);
+      return 'Erro na data';
     }
-    return null;
+  };
+
+  // Função para verificar se o plano expirou baseado na data de término
+  const verificarExpiracaoPlano = async () => {
+    if (!auth.currentUser?.uid) return;
+    
+    try {
+      const docRef = doc(firestore, 'contas', auth.currentUser.uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const dataTermino = data.data_termino_plano_premium;
+        
+        if (dataTermino) {
+          const dataTerminoObj = new Date(dataTermino);
+          const hoje = new Date();
+          
+          // Comparar apenas a data (sem hora) para ser mais preciso
+          const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+          const terminoData = new Date(dataTerminoObj.getFullYear(), dataTerminoObj.getMonth(), dataTerminoObj.getDate());
+          
+          console.log('Verificando expiração do plano:', {
+            dataTermino: dataTermino,
+            hojeData: hojeData.toISOString(),
+            terminoData: terminoData.toISOString(),
+            expirou: hojeData >= terminoData
+          });
+          
+          // Se a data de término já passou, desativar premium
+          if (hojeData >= terminoData) {
+            console.log('Plano expirado - Desativando premium para:', auth.currentUser.uid);
+            
+            await updateDoc(docRef, {
+              premium: false,
+              data_termino_plano_premium: null,
+              dias_plano_pago_restante: 0,
+              dias_restantes_teste_gratis: 0,
+              tipoPlano: ''
+            });
+            
+            console.log('Premium desativado com sucesso');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar expiração do plano:', error);
+    }
   };
 
   // Unificar busca dos dados da conta para evitar duplicidade e garantir atualização dos dias
   useEffect(() => {
     if (!uid) return;
+
+    // Verificar expiração do plano ao carregar
+    verificarExpiracaoPlano();
+
+    // Verificar a cada 5 minutos se o plano expirou
+    const intervalId = setInterval(() => {
+      verificarExpiracaoPlano();
+    }, 5 * 60 * 1000); // 5 minutos
 
     // Usar onSnapshot para atualização em tempo real
     const contasRef = collection(firestore, 'contas');
@@ -98,6 +200,7 @@ export default function DashboardUser() {
         setDiasPlanoPagoRestante(contaData.dias_plano_pago_restante ?? null);
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
         setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
+        setDataTerminoPlano(contaData.data_termino_plano_premium || null);
         
         // Debug logs
         console.log('Dados da conta carregados:', {
@@ -105,13 +208,40 @@ export default function DashboardUser() {
           premium: contaData.premium,
           diasRestantesTeste: contaData.dias_restantes_teste_gratis,
           diasPlanoPagoRestante: contaData.dias_plano_pago_restante,
-          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis
+          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis,
+          dataTermino: contaData.data_termino_plano_premium,
+          dataTerminoPlano: contaData.data_termino_plano_premium || null
         });
+        
+        // Debug específico para data de término
+        if (contaData.data_termino_plano_premium) {
+          console.log('=== DEBUG DATA DE TÉRMINO ===');
+          console.log('Data bruta do Firebase:', contaData.data_termino_plano_premium);
+          console.log('Tipo da data:', typeof contaData.data_termino_plano_premium);
+          console.log('Data é válida?', !isNaN(new Date(contaData.data_termino_plano_premium).getTime()));
+          
+          try {
+            const dataObj = new Date(contaData.data_termino_plano_premium);
+            console.log('Data convertida:', dataObj);
+            console.log('Data formatada:', dataObj.toLocaleDateString('pt-BR'));
+            console.log('Data ISO:', dataObj.toISOString());
+          } catch (error) {
+            console.error('Erro ao processar data:', error);
+          }
+          
+          console.log('Estado dataTerminoPlano será:', contaData.data_termino_plano_premium || null);
+          console.log('=== FIM DEBUG ===');
+        } else {
+          console.log('Nenhuma data de término encontrada para:', contaData.tipoPlano);
+        }
       }
     });
 
     // Cleanup function
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearInterval(intervalId);
+    };
   }, [uid]);
 
   // Função para ativar o teste grátis
@@ -119,19 +249,31 @@ export default function DashboardUser() {
     if (!auth.currentUser?.uid) return
     const docRef = doc(firestore, 'contas', auth.currentUser.uid)
     const hoje = new Date()
+    const dataTermino = new Date(hoje)
+    dataTermino.setDate(hoje.getDate() + 7) // 7 dias de teste grátis
+    
+    console.log('=== ATIVANDO TESTE GRÁTIS ===');
+    console.log('Data atual:', hoje.toISOString());
+    console.log('Data de término calculada:', dataTermino.toISOString());
+    console.log('Dias restantes: 7');
+    
     await updateDoc(docRef, {
       premium: true,
       tipoPlano: 'gratis', // DEFINIR COMO GRATIS
       data_inicio_teste_gratis: hoje.toISOString(),
       dias_restantes_teste_gratis: 7,
-      ja_pegou_premium_gratis: true
+      ja_pegou_premium_gratis: true,
+      data_termino_plano_premium: dataTermino.toISOString() // ✅ Data de término correta
     })
-    setIsPremium(true)
-    setTipoPlano('gratis') // ATUALIZAR ESTADO LOCAL
-    setShowPromotion(false)
+    
+    console.log('Teste grátis ativado com sucesso!');
+    console.log('Data de término salva:', dataTermino.toISOString());
+    
     setTesteGratisAtivo(true)
-    setDiasRestantesTeste(7)
     setJaPegouPremiumGratis(true)
+    setDataTerminoPlano(dataTermino.toISOString());
+    // Redirecionar para o dashboard para liberar as rotas
+    navigate(`/dashboard/${auth.currentUser.uid}`)
   }
 
   // Lógica para calcular dias restantes e atualizar Firestore
@@ -147,6 +289,7 @@ export default function DashboardUser() {
         if (data.tipoPlano === 'gratis' && data.data_inicio_teste_gratis) {
           setTesteGratisAtivo(true)
           setDiasRestantesTeste(data.dias_restantes_teste_gratis ?? null)
+          setDataTerminoPlano(data.data_termino_plano_premium || null);
           
           // Se acabou o teste grátis (verificação do backend)
           if (data.dias_restantes_teste_gratis <= 0) {
@@ -155,11 +298,13 @@ export default function DashboardUser() {
             setShowPromotion(false)
             setTesteGratisAtivo(false)
             setDiasRestantesTeste(null)
+            setDataTerminoPlano(null);
           }
         } else {
           // Se não está em teste grátis
           setTesteGratisAtivo(false)
           setDiasRestantesTeste(null)
+          setDataTerminoPlano(null);
           setShowPromotion(true)
         }
       }
@@ -209,6 +354,11 @@ export default function DashboardUser() {
   function isPlanoExpirado(tipo: string | null, dataInicio: string | null) {
     if (!tipo) return false;
     
+    // Plano vitalício nunca expira
+    if (tipo === 'vitalicio') {
+      return false;
+    }
+    
     // Para planos pagos, usar dias_plano_pago_restante
     if (tipo === 'individual' || tipo === 'empresa') {
       return diasPlanoPagoRestante !== null && diasPlanoPagoRestante <= 0;
@@ -233,7 +383,13 @@ export default function DashboardUser() {
   // SEMPRE permitir acesso às páginas de plano e configurações
   const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`];
   
-  if ((tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
+  if (tipoPlano === 'vitalicio') {
+    // Plano vitalício: libera todas as rotas
+    filteredMenuItems = menuItems.map(item => ({
+      ...item,
+      disabled: false
+    }));
+  } else if ((tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
     // Teste grátis ativo: libera as rotas do allowedPathsGratis
     filteredMenuItems = menuItems.map(item => ({
       ...item,
@@ -327,7 +483,12 @@ export default function DashboardUser() {
 
     let allowedPaths: string[] = [];
     
-    if (tipoPlano === 'gratis' || tipoPlano === '') {
+    if (tipoPlano === 'vitalicio') {
+      // Para plano vitalício, permitir tudo
+      allowedPaths = [
+        ...menuItems.map(item => item.path)
+      ];
+    } else if (tipoPlano === 'gratis' || tipoPlano === '') {
       // Para plano grátis, sempre permitir cliente, serviços, agenda e configurações
       allowedPaths = [
         `/dashboard/${uid}/plano`,
@@ -447,16 +608,6 @@ export default function DashboardUser() {
           </button>
         </div>
       )}
-      {tipoPlano === 'gratis' && showPromotion && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
-        <div className="promotion-banner">
-          <div className="promotion-content">
-            <Package className="promotion-icon" />
-            <span>
-              🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Main Layout */}
       <div className="main-layout">
@@ -565,14 +716,41 @@ export default function DashboardUser() {
               <Stack spacing={2} align="center">
                 <Text fontSize="xl" fontWeight="bold">
                   Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{
+                    tipoPlano === 'vitalicio' ? 'Vitalício' :
                     tipoPlano === 'gratis' ? 'Avaliação' : 
                     (tipoPlano === '' ? 'Grátis' : 
                     (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'))
                   }</Text>
                 </Text>
                 <Text fontSize="xl" fontWeight="bold">
-                  Dias Restantes: <Text as="span" color="green.500" fontWeight="extrabold">{
-                    getDiasRestantes() !== null ? getDiasRestantes() : '-'
+                  {tipoPlano === 'vitalicio' ? 'Dias Restantes: ' : 'Data de Término: '}
+                  <Text as="span" color="green.500" fontWeight="extrabold">{
+                    (() => {
+                      let resultado;
+                      
+                      if (tipoPlano === 'vitalicio') {
+                        resultado = '∞';
+                      } else if (dataTerminoPlano) {
+                        // Usar a data formatada do campo data_termino_plano_premium
+                        const dataFormatada = formatarDataTermino(dataTerminoPlano);
+                        resultado = `Termina em: ${dataFormatada}`;
+                      } else if (tipoPlano === 'gratis' && diasRestantesTeste) {
+                        resultado = diasRestantesTeste;
+                      } else if ((tipoPlano === 'individual' || tipoPlano === 'empresa') && diasPlanoPagoRestante) {
+                        resultado = diasPlanoPagoRestante;
+                      } else {
+                        resultado = '-';
+                      }
+                      
+                      console.log('=== EXIBIÇÃO DA INTERFACE ===');
+                      console.log('tipoPlano:', tipoPlano);
+                      console.log('dataTerminoPlano:', dataTerminoPlano);
+                      console.log('dataFormatada:', dataTerminoPlano ? formatarDataTermino(dataTerminoPlano) : 'N/A');
+                      console.log('Resultado final:', resultado);
+                      console.log('=== FIM EXIBIÇÃO ===');
+                      
+                      return resultado;
+                    })()
                   }</Text>
                 </Text>
               </Stack>
@@ -586,11 +764,7 @@ export default function DashboardUser() {
                   </button>
                 </>
               )}
-              {tipoPlano === 'gratis' && testeGratisAtivo && diasRestantesTeste !== null && diasRestantesTeste > 0 && (
-                <div style={{ fontSize: 20, color: '#2563eb', fontWeight: 600, marginTop: 16 }}>
-                  🕒 Seu teste grátis está ativo! <strong>{diasRestantesTeste} {diasRestantesTeste === 1 ? 'dia restante' : 'dias restantes'}</strong> de Premium.
-                </div>
-              )}
+              
             </Box>
           ) : (
             <Outlet />

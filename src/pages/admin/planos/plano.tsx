@@ -16,8 +16,28 @@ export default function Plano() {
   const [testeGratisAtivo, setTesteGratisAtivo] = useState(false)
   const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
   const [loadingConta, setLoadingConta] = useState(true);
+  const [dataTerminoPlano, setDataTerminoPlano] = useState<string | null>(null);
 
   const navigate = useNavigate();
+
+  // Função para calcular a data de término do plano
+  const calcularDataTermino = (diasRestantes: number) => {
+    const hoje = new Date();
+    const dataTermino = new Date(hoje);
+    dataTermino.setDate(hoje.getDate() + diasRestantes);
+    
+    return dataTermino.toISOString();
+  };
+
+  // Função para formatar a data de término
+  const formatarDataTermino = (dataISO: string) => {
+    const data = new Date(dataISO);
+    return data.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
 
   useEffect(() => {
     if (!auth.currentUser?.uid) return;
@@ -37,13 +57,28 @@ export default function Plano() {
     if (!auth.currentUser?.uid) return
     const docRef = doc(firestore, 'contas', auth.currentUser.uid)
     const hoje = new Date()
+    
+    // Calcular data de término: dia atual + 7 dias
+    const dataTermino = new Date(hoje)
+    dataTermino.setDate(hoje.getDate() + 7) // 7 dias de teste grátis
+    
+    console.log('=== ATIVANDO TESTE GRÁTIS (PLANO.TSX) ===');
+    console.log('Data atual:', hoje.toISOString());
+    console.log('Data de término calculada:', dataTermino.toISOString());
+    console.log('Dias restantes: 7');
+    
     await updateDoc(docRef, {
       premium: true,
       tipoPlano: 'gratis', // DEFINIR COMO GRATIS
       data_inicio_teste_gratis: hoje.toISOString(),
       dias_restantes_teste_gratis: 7,
-      ja_pegou_premium_gratis: true
+      ja_pegou_premium_gratis: true,
+      data_termino_plano_premium: dataTermino.toISOString() // ✅ Data de término correta
     })
+    
+    console.log('Teste grátis ativado com sucesso!');
+    console.log('Data de término salva:', dataTermino.toISOString());
+    
     setTesteGratisAtivo(true)
     setJaPegouPremiumGratis(true)
     // Redirecionar para o dashboard para liberar as rotas
@@ -126,6 +161,11 @@ export default function Plano() {
         setLoadingPayment(false);
         return;
       }
+
+      // Calcular data de término do plano (30 dias)
+      const dataTermino = calcularDataTermino(30);
+      setDataTerminoPlano(dataTermino);
+
       setPaymentMessage("Redirecionando para o Mercado Pago. Aguarde...");
       const response = await fetch(`${BACKEND_URL}/api/create-preference`, {
         method: "POST",
@@ -135,6 +175,7 @@ export default function Plano() {
           planName: plan.name,
           price: getPrice(plan),
           email: userEmail,
+          dataTermino: dataTermino // Enviar data de término para o backend
         }),
       });
       const data = await response.json();
@@ -301,6 +342,11 @@ export default function Plano() {
                       R$ {getPrice(plan).toFixed(2).replace(".", ",")}
                       <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>/mês</Text>
                     </Text>
+                    {dataTerminoPlano && selectedPlan === plan.id && (
+                      <Text fontSize="sm" color="gray.600" mt={1}>
+                        Data que termina o plano: {formatarDataTermino(dataTerminoPlano)}
+                      </Text>
+                    )}
                   </Box>
                   <VStack align="start" spacing={1} mt={2} mb={2}>
                     {plan.features.map((feature, index) => (
