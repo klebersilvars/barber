@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste PWA - Trezu</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+</head>
+<body>
+    <h1>Teste PWA - Trezu</h1>
+    <p>Esta página testa se o PWA está funcionando corretamente.</p>
+    
+    <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h3>🚀 Teste de Instalação</h3>
+      <button id="installBtn" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0;">
+        Instalar PWA
+      </button>
+      <p id="installStatus" style="margin: 10px 0; font-weight: bold;"></p>
+    </div>
+    
+    <h2>Verificações:</h2>
+    <ul id="checks">
+        <li>Carregando verificações...</li>
+    </ul>
+    
+    <h2>Logs:</h2>
+    <div id="logs" style="background: #f0f0f0; padding: 10px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+    
+    <script>
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+        
+        function addCheck(text, status) {
+            const checksList = document.getElementById('checks');
+            const li = document.createElement('li');
+            li.textContent = text;
+            li.style.color = status ? 'green' : 'red';
+            checksList.appendChild(li);
+        }
+        
+        // Verificações
+        log('🔍 Iniciando verificações PWA...');
+        
+        // 1. HTTPS
+        const isHTTPS = window.location.protocol === 'https:';
+        log(`🔒 HTTPS: ${isHTTPS}`);
+        addCheck(`HTTPS: ${isHTTPS}`, isHTTPS);
+        
+        // 2. Service Worker
+        if ('serviceWorker' in navigator) {
+            log('✅ Service Worker suportado');
+            addCheck('Service Worker suportado', true);
+            
+            navigator.serviceWorker.getRegistration().then(reg => {
+                if (reg) {
+                    log('✅ Service Worker registrado');
+                    addCheck('Service Worker registrado', true);
+                } else {
+                    log('❌ Service Worker não registrado');
+                    addCheck('Service Worker registrado', false);
+                }
+            });
+        } else {
+            log('❌ Service Worker não suportado');
+            addCheck('Service Worker suportado', false);
+        }
+        
+        // 3. Manifest
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink) {
+            log('✅ Manifest encontrado');
+            addCheck('Manifest encontrado', true);
+            
+            fetch('/manifest.json')
+                .then(response => response.json())
+                .then(manifest => {
+                    log('📄 Manifest carregado:', manifest);
+                    addCheck('Manifest válido', true);
+                    
+                    if (manifest.icons && manifest.icons.length > 0) {
+                        log('✅ Ícones encontrados no manifest');
+                        addCheck('Ícones no manifest', true);
+                        
+                        manifest.icons.forEach(icon => {
+                            log(`📱 Ícone: ${icon.src} (${icon.sizes})`);
+                        });
+                    } else {
+                        log('❌ Nenhum ícone no manifest');
+                        addCheck('Ícones no manifest', false);
+                    }
+                })
+                .catch(error => {
+                    log('❌ Erro ao carregar manifest:', error);
+                    addCheck('Manifest válido', false);
+                });
+        } else {
+            log('❌ Manifest não encontrado');
+            addCheck('Manifest encontrado', false);
+        }
+        
+        // 4. Ícones
+        const icon192 = document.querySelector('link[href="/android-chrome-192x192.png"]');
+        const icon512 = document.querySelector('link[href="/android-chrome-512x512.png"]');
+        
+        if (icon192) {
+            log('✅ Ícone 192x192 encontrado');
+            addCheck('Ícone 192x192', true);
+        } else {
+            log('❌ Ícone 192x192 não encontrado');
+            addCheck('Ícone 192x192', false);
+        }
+        
+        if (icon512) {
+            log('✅ Ícone 512x512 encontrado');
+            addCheck('Ícone 512x512', true);
+        } else {
+            log('❌ Ícone 512x512 não encontrado');
+            addCheck('Ícone 512x512', false);
+        }
+        
+        // 5. beforeinstallprompt
+        let deferredPrompt = null;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            log('🎯 Evento beforeinstallprompt capturado!');
+            e.preventDefault();
+            deferredPrompt = e;
+            addCheck('beforeinstallprompt disponível', true);
+        });
+        
+        // 6. Display mode
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        log(`📱 Display mode standalone: ${isStandalone}`);
+        addCheck(`Display mode standalone: ${isStandalone}`, !isStandalone); // Não deve estar standalone para instalação
+        
+        // 7. User Agent
+        const userAgent = navigator.userAgent;
+        log(`🌐 User Agent: ${userAgent}`);
+        
+        const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+        log(`📱 Dispositivo móvel: ${isMobile}`);
+        addCheck(`Dispositivo móvel: ${isMobile}`, true);
+        
+        // 8. Testar carregamento dos ícones
+        function testIcon(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+        
+        Promise.all([
+            testIcon('/android-chrome-192x192.png'),
+            testIcon('/android-chrome-512x512.png')
+        ]).then(([icon192Loaded, icon512Loaded]) => {
+            log(`📱 Ícone 192x192 carregado: ${icon192Loaded}`);
+            log(`📱 Ícone 512x512 carregado: ${icon512Loaded}`);
+            addCheck('Ícones carregam corretamente', icon192Loaded && icon512Loaded);
+        });
+        
+        // Verificar após 3 segundos se beforeinstallprompt não foi disparado
+        setTimeout(() => {
+            if (!deferredPrompt) {
+                log('⚠️ beforeinstallprompt não foi disparado após 3 segundos');
+                addCheck('beforeinstallprompt disparado', false);
+            }
+        }, 3000);
+        
+        // Botão de instalação
+        const installBtn = document.getElementById('installBtn');
+        const installStatus = document.getElementById('installStatus');
+        
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                log('🎯 Tentando instalar PWA...');
+                installStatus.textContent = 'Instalando...';
+                installStatus.style.color = 'blue';
+                
+                try {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    
+                    if (outcome === 'accepted') {
+                        log('✅ PWA instalado com sucesso!');
+                        installStatus.textContent = '✅ PWA instalado com sucesso!';
+                        installStatus.style.color = 'green';
+                    } else {
+                        log('❌ PWA não foi instalado (usuário recusou)');
+                        installStatus.textContent = '❌ Instalação cancelada pelo usuário';
+                        installStatus.style.color = 'orange';
+                    }
+                } catch (error) {
+                    log('❌ Erro durante instalação:', error);
+                    installStatus.textContent = '❌ Erro durante instalação';
+                    installStatus.style.color = 'red';
+                }
+            } else {
+                log('❌ Nenhum prompt de instalação disponível');
+                installStatus.textContent = '❌ Instalação automática não disponível';
+                installStatus.style.color = 'red';
+            }
+        });
+        
+        // Atualizar status do botão
+        if (deferredPrompt) {
+            installBtn.textContent = 'Instalar PWA (Disponível)';
+            installBtn.style.background = '#4CAF50';
+        } else {
+            installBtn.textContent = 'Instalação Manual';
+            installBtn.style.background = '#ff9800';
+        }
+    </script>
+</body>
+</html> 

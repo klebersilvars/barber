@@ -125,19 +125,29 @@ const AgendaAdmin = () => {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())
       setIsMobile(isMobileDevice)
+      console.log('📱 Dispositivo móvel detectado:', isMobileDevice)
     }
     
     checkMobile()
     
     // Detectar evento de instalação PWA
     const handleBeforeInstallPrompt = (e: any) => {
+      console.log('🎯 Evento beforeinstallprompt capturado!')
       e.preventDefault()
       setDeferredPrompt(e)
-      console.log('PWA install prompt disponível')
+      console.log('✅ PWA install prompt disponível e armazenado')
+      
+      // Mostrar modal automaticamente quando o prompt estiver disponível
+      if (isMobile && !localStorage.getItem('pwa-install-dismissed')) {
+        setTimeout(() => {
+          onPWAModalOpen()
+        }, 1000)
+      }
     }
     
     // Detectar se já foi instalado
     const handleAppInstalled = () => {
+      console.log('✅ PWA instalado com sucesso!')
       setDeferredPrompt(null)
       toast({
         title: "Aplicativo instalado!",
@@ -148,20 +158,101 @@ const AgendaAdmin = () => {
       })
     }
     
+    // Verificar se já está instalado
+    const checkIfInstalled = () => {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('✅ PWA já está instalado (standalone mode)')
+        return true
+      }
+      console.log('ℹ️ PWA não está instalado (não está em standalone mode)')
+      return false
+    }
+    
+    // Verificar se o service worker está registrado
+    const checkServiceWorker = async () => {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration()
+          if (registration) {
+            console.log('✅ Service Worker registrado:', registration)
+            console.log('Service Worker ativo:', registration.active)
+            console.log('Service Worker instalando:', registration.installing)
+            console.log('Service Worker esperando:', registration.waiting)
+          } else {
+            console.log('⚠️ Service Worker não encontrado')
+          }
+        } catch (error) {
+          console.error('❌ Erro ao verificar Service Worker:', error)
+        }
+      } else {
+        console.log('❌ Service Worker não suportado neste navegador')
+      }
+    }
+    
+    // Verificar se o manifest está carregado
+    const checkManifest = async () => {
+      const manifestLink = document.querySelector('link[rel="manifest"]')
+      if (manifestLink) {
+        const manifestUrl = manifestLink.getAttribute('href')
+        console.log('✅ Manifest encontrado:', manifestUrl)
+        
+        try {
+          const response = await fetch(manifestUrl!)
+          const manifest = await response.json()
+          console.log('📄 Manifest carregado:', manifest)
+          console.log('📄 Ícones no manifest:', manifest.icons)
+        } catch (error) {
+          console.error('❌ Erro ao carregar manifest:', error)
+        }
+      } else {
+        console.log('❌ Manifest não encontrado')
+      }
+    }
+    
+    // Verificar se o site está sendo servido via HTTPS
+    const checkHTTPS = () => {
+      const isHTTPS = window.location.protocol === 'https:'
+      console.log('🔒 HTTPS:', isHTTPS)
+      return isHTTPS
+    }
+    
+    // Executar verificações
+    console.log('🔍 Iniciando verificações PWA...')
+    checkIfInstalled()
+    checkServiceWorker()
+    checkManifest()
+    checkHTTPS()
+    
+    // Adicionar listeners
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
+    
+    // Log para debug
+    console.log('👂 Listeners PWA adicionados')
+    console.log('📱 isMobile:', isMobile)
+    console.log('🎯 deferredPrompt inicial:', deferredPrompt)
     
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [toast])
+  }, [toast, isMobile, onPWAModalOpen])
   
   // Função para instalar PWA
   const handleInstallPWA = async () => {
     try {
+      console.log('🔄 Iniciando processo de instalação PWA...')
+      console.log('Deferred prompt disponível:', !!deferredPrompt)
+      console.log('É dispositivo móvel:', isMobile)
+      console.log('Display mode:', window.matchMedia('(display-mode: standalone)').matches)
+      
       if (!deferredPrompt) {
-        console.log('Nenhum prompt de instalação disponível')
+        console.log('❌ Nenhum prompt de instalação disponível')
+        console.log('Possíveis razões:')
+        console.log('- PWA já instalado')
+        console.log('- Navegador não suporta')
+        console.log('- Manifest inválido')
+        console.log('- Service Worker não registrado')
         
         // Para dispositivos móveis sem prompt, mostrar instruções manuais
         if (isMobile) {
@@ -172,16 +263,31 @@ const AgendaAdmin = () => {
             duration: 5000,
             isClosable: true,
           })
+        } else {
+          toast({
+            title: "Instalação não disponível",
+            description: "Use o menu do navegador (⋮) e selecione 'Instalar aplicativo'",
+            status: "warning",
+            duration: 5000,
+            isClosable: true,
+          })
         }
         return
       }
       
-      console.log('Iniciando instalação PWA...')
+      console.log('✅ Prompt de instalação encontrado, iniciando...')
+      console.log('Prompt object:', deferredPrompt)
+      
+      // Mostrar o prompt de instalação
       deferredPrompt.prompt()
+      
+      // Aguardar a resposta do usuário
       const { outcome } = await deferredPrompt.userChoice
       
+      console.log('Resultado da instalação:', outcome)
+      
       if (outcome === 'accepted') {
-        console.log('PWA instalado com sucesso')
+        console.log('✅ PWA instalado com sucesso')
         toast({
           title: "Instalação iniciada!",
           description: "O aplicativo está sendo adicionado à sua tela inicial.",
@@ -189,27 +295,26 @@ const AgendaAdmin = () => {
           duration: 3000,
           isClosable: true,
         })
+        
+        // Limpar o prompt usado
+        setDeferredPrompt(null)
       } else {
-        console.log('PWA não foi instalado')
+        console.log('❌ PWA não foi instalado (usuário recusou)')
         toast({
           title: "Instalação cancelada",
           description: "Você pode instalar manualmente usando o menu do navegador.",
-          status: "warning",
-          duration: 3000,
+          status: "info",
+          duration: 5000,
           isClosable: true,
         })
       }
-      
-      setDeferredPrompt(null)
-      onPWAModalClose()
-      
     } catch (error) {
-      console.error('Erro ao instalar PWA:', error)
+      console.error('❌ Erro durante instalação PWA:', error)
       toast({
         title: "Erro na instalação",
-        description: "Tente instalar manualmente usando o menu do navegador.",
+        description: "Ocorreu um erro durante a instalação. Tente novamente.",
         status: "error",
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       })
     }
@@ -1256,7 +1361,7 @@ const AgendaAdmin = () => {
                 
                 <Box p={{ base: 3, md: 4 }} bg="green.50" borderRadius="md">
                   <Text fontSize="sm" fontWeight="semibold" mb={3} color="green.700">
-                    💡 Como instalar manualmente:
+                    💡 Instruções detalhadas:
                   </Text>
                   <VStack spacing={2} align="start">
                     <Text fontSize={{ base: "xs", md: "sm" }} color="green.700">
@@ -1300,6 +1405,41 @@ const AgendaAdmin = () => {
                   >
                     Talvez depois
                   </Button>
+                  
+                  {/* Botão de Debug */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      console.log('🔍 DEBUG PWA:')
+                      console.log('- deferredPrompt:', deferredPrompt)
+                      console.log('- isMobile:', isMobile)
+                      console.log('- display-mode standalone:', window.matchMedia('(display-mode: standalone)').matches)
+                      console.log('- userAgent:', navigator.userAgent)
+                      console.log('- protocol:', window.location.protocol)
+                      console.log('- manifest:', document.querySelector('link[rel="manifest"]'))
+                      
+                      // Verificar service worker
+                      if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistration().then(reg => {
+                          console.log('- serviceWorker:', reg)
+                        })
+                      }
+                      
+                      toast({
+                        title: "Debug PWA",
+                        description: "Verifique o console para mais informações",
+                        status: "info",
+                        duration: 3000,
+                        isClosable: true,
+                      })
+                    }}
+                    w="full"
+                    fontSize="xs"
+                    color="gray.500"
+                  >
+                    🔍 Debug PWA (Ver Console)
+                  </Button>
                 </VStack>
                 
                 {!deferredPrompt && (
@@ -1309,6 +1449,12 @@ const AgendaAdmin = () => {
                     </Text>
                   </Box>
                 )}
+                
+                <Box p={{ base: 3, md: 4 }} bg="gray.50" borderRadius="md">
+                  <Text fontSize="xs" color="gray.600" textAlign="center">
+                    <strong>Dica:</strong> Após a instalação, o Trezu aparecerá como um aplicativo nativo no seu dispositivo!
+                  </Text>
+                </Box>
               </VStack>
             </VStack>
           </ModalBody>

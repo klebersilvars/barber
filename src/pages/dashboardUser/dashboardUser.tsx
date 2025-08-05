@@ -146,16 +146,16 @@ export default function DashboardUser() {
           const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
           const terminoData = new Date(dataTerminoObj.getFullYear(), dataTerminoObj.getMonth(), dataTerminoObj.getDate());
           
-          console.log('Verificando expiração do plano:', {
-            dataTermino: dataTermino,
-            hojeData: hojeData.toISOString(),
-            terminoData: terminoData.toISOString(),
-            expirou: hojeData >= terminoData
-          });
+          console.log('=== VERIFICAÇÃO AUTOMÁTICA DE EXPIRAÇÃO ===');
+          console.log('Data de término do plano:', dataTermino);
+          console.log('Data de término processada:', terminoData.toISOString());
+          console.log('Data atual:', hojeData.toISOString());
+          console.log('Plano expirou?', hojeData >= terminoData);
+          console.log('Premium atual:', data.premium);
           
           // Se a data de término já passou, desativar premium
           if (hojeData >= terminoData) {
-            console.log('Plano expirado - Desativando premium para:', auth.currentUser.uid);
+            console.log('🚨 PLANO EXPIRADO - Desativando premium para:', auth.currentUser.uid);
             
             await updateDoc(docRef, {
               premium: false,
@@ -165,12 +165,19 @@ export default function DashboardUser() {
               tipoPlano: ''
             });
             
-            console.log('Premium desativado com sucesso');
+            console.log('✅ Premium desativado com sucesso!');
+            console.log('✅ Campos resetados: premium=false, data_termino=null, dias=0, tipoPlano=""');
+          } else {
+            console.log('✅ Plano ainda ativo - Premium mantido');
           }
+          
+          console.log('=== FIM VERIFICAÇÃO ===');
+        } else {
+          console.log('ℹ️ Nenhuma data de término encontrada para verificação');
         }
       }
     } catch (error) {
-      console.error('Erro ao verificar expiração do plano:', error);
+      console.error('❌ Erro ao verificar expiração do plano:', error);
     }
   };
 
@@ -178,11 +185,15 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid) return;
 
+    console.log('=== INICIANDO CARREGAMENTO DO DASHBOARD ===');
+    console.log('UID do usuário:', uid);
+
     // Verificar expiração do plano ao carregar
     verificarExpiracaoPlano();
 
     // Verificar a cada 5 minutos se o plano expirou
     const intervalId = setInterval(() => {
+      console.log('🔄 Verificação periódica de expiração (5 min)');
       verificarExpiracaoPlano();
     }, 5 * 60 * 1000); // 5 minutos
 
@@ -193,6 +204,15 @@ export default function DashboardUser() {
     const unsubscribe = onSnapshot(qConta, (snapshot) => {
       if (!snapshot.empty) {
         const contaData = snapshot.docs[0].data();
+        
+        console.log('=== DADOS DA CONTA CARREGADOS ===');
+        console.log('Nome do estabelecimento:', contaData.nomeEstabelecimento);
+        console.log('Premium:', contaData.premium);
+        console.log('Tipo de plano:', contaData.tipoPlano);
+        console.log('Data de término:', contaData.data_termino_plano_premium);
+        console.log('Dias restantes teste:', contaData.dias_restantes_teste_gratis);
+        console.log('Dias plano pago restante:', contaData.dias_plano_pago_restante);
+        
         setEstabelecimentoNome(contaData.nomeEstabelecimento || '');
         setIsPremium(contaData.premium === true);
         setTipoPlano(contaData.tipoPlano || null);
@@ -201,17 +221,6 @@ export default function DashboardUser() {
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
         setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
         setDataTerminoPlano(contaData.data_termino_plano_premium || null);
-        
-        // Debug logs
-        console.log('Dados da conta carregados:', {
-          tipoPlano: contaData.tipoPlano,
-          premium: contaData.premium,
-          diasRestantesTeste: contaData.dias_restantes_teste_gratis,
-          diasPlanoPagoRestante: contaData.dias_plano_pago_restante,
-          jaPegouPremiumGratis: contaData.ja_pegou_premium_gratis,
-          dataTermino: contaData.data_termino_plano_premium,
-          dataTerminoPlano: contaData.data_termino_plano_premium || null
-        });
         
         // Debug específico para data de término
         if (contaData.data_termino_plano_premium) {
@@ -225,6 +234,16 @@ export default function DashboardUser() {
             console.log('Data convertida:', dataObj);
             console.log('Data formatada:', dataObj.toLocaleDateString('pt-BR'));
             console.log('Data ISO:', dataObj.toISOString());
+            
+            // Verificar se a data de término já passou
+            const hoje = new Date();
+            const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            const terminoData = new Date(dataObj.getFullYear(), dataObj.getMonth(), dataObj.getDate());
+            
+            console.log('Data atual (sem hora):', hojeData.toISOString());
+            console.log('Data término (sem hora):', terminoData.toISOString());
+            console.log('Plano expirou?', hojeData >= terminoData);
+            
           } catch (error) {
             console.error('Erro ao processar data:', error);
           }
@@ -232,13 +251,16 @@ export default function DashboardUser() {
           console.log('Estado dataTerminoPlano será:', contaData.data_termino_plano_premium || null);
           console.log('=== FIM DEBUG ===');
         } else {
-          console.log('Nenhuma data de término encontrada para:', contaData.tipoPlano);
+          console.log('ℹ️ Nenhuma data de término encontrada para:', contaData.tipoPlano);
         }
+        
+        console.log('=== FIM DADOS CARREGADOS ===');
       }
     });
 
     // Cleanup function
     return () => {
+      console.log('🧹 Cleanup: Desconectando listeners');
       unsubscribe();
       clearInterval(intervalId);
     };
