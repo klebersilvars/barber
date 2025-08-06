@@ -27,36 +27,13 @@ import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
-import {
-  Button,
-  useToast,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  VStack,
-  HStack,
-  Text,
-  Box,
-  Badge,
-  useDisclosure
-} from "@chakra-ui/react"
-import { checkIfAppInstalled, requestNotificationPermission, sendNotification } from '../../../registerSW'
+
 
 const AgendaAdmin = () => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
-
-  // PWA States
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [isMobile, setIsMobile] = useState(false)
-  const [isPWAInstalled, setIsPWAInstalled] = useState(false)
-  const toast = useToast()
-  const { isOpen: isPWAModalOpen, onOpen: onPWAModalOpen, onClose: onPWAModalClose } = useDisclosure()
 
   // Modal states
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -117,158 +94,6 @@ const AgendaAdmin = () => {
 
   // Buscar nome do estabelecimento do admin logado
   const [estabelecimento, setEstabelecimento] = useState("")
-  
-  // PWA Logic - Permitir teste em desenvolvimento
-  useEffect(() => {
-    // Detectar se é dispositivo móvel primeiro
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
-      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())
-      setIsMobile(isMobileDevice)
-      console.log('📱 Dispositivo móvel detectado:', isMobileDevice)
-      return isMobileDevice
-    }
-    
-    const isMobileDevice = checkMobile()
-    
-    // Se não for dispositivo móvel, não fazer nada
-    if (!isMobileDevice) {
-      console.log('❌ PWA desabilitado - Apenas dispositivos móveis')
-      console.log('📱 User Agent:', navigator.userAgent)
-      console.log('🖥️ Para testar, use o DevTools do navegador e simule um dispositivo móvel')
-      return
-    }
-    
-    // Verificar se já está instalado usando a função do service worker
-    const isInstalled = checkIfAppInstalled()
-    setIsPWAInstalled(isInstalled)
-    
-    // Em desenvolvimento, simular condições PWA para teste
-    const isDevelopment = window.location.protocol === 'http:'
-    const isProduction = window.location.protocol === 'https:'
-    
-    if (isDevelopment) {
-      console.log('🔧 Modo desenvolvimento - PWA simulado para teste (MOBILE)')
-      // Simular condições PWA em desenvolvimento
-      setDeferredPrompt({ prompt: () => Promise.resolve({ outcome: 'accepted' }) }) // Simular prompt
-      
-      // Mostrar modal após 2 segundos em desenvolvimento (apenas mobile)
-      setTimeout(() => {
-        console.log('🔧 Mostrando modal PWA em desenvolvimento (MOBILE)')
-        onPWAModalOpen()
-      }, 2000)
-      
-      return
-    }
-    
-    // Detectar evento de instalação PWA
-    const handleBeforeInstallPrompt = (e: any) => {
-      console.log('🎯 Evento beforeinstallprompt capturado!')
-      e.preventDefault()
-      setDeferredPrompt(e)
-      console.log('✅ PWA install prompt disponível e armazenado')
-      
-      // Mostrar modal PWA automaticamente após 3 segundos apenas se:
-      // - Não estiver instalado
-      // - For dispositivo móvel
-      // - Estiver em HTTPS
-      setTimeout(() => {
-        if (!isPWAInstalled && isMobile && isProduction) {
-          onPWAModalOpen()
-        }
-      }, 3000)
-    }
-    
-    // Detectar se já foi instalado
-    const handleAppInstalled = () => {
-      console.log('✅ PWA instalado com sucesso!')
-      setDeferredPrompt(null)
-      setIsPWAInstalled(true)
-      onPWAModalClose()
-      
-      // Enviar notificação de sucesso
-      sendNotification('Trezu instalado!', {
-        body: 'O aplicativo foi adicionado à sua tela inicial com sucesso.',
-        icon: '/icon-192x192.png'
-      })
-      
-      toast({
-        title: "Aplicativo instalado!",
-        description: "O Trezu foi adicionado à sua tela inicial.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-    }
-    
-    // Verificar se o service worker está registrado
-    const checkServiceWorker = async () => {
-      if ('serviceWorker' in navigator) {
-        try {
-          const registration = await navigator.serviceWorker.getRegistration()
-          if (registration) {
-            console.log('✅ Service Worker registrado:', registration)
-            console.log('Service Worker ativo:', registration.active)
-            console.log('Service Worker instalando:', registration.installing)
-            console.log('Service Worker esperando:', registration.waiting)
-          } else {
-            console.log('⚠️ Service Worker não encontrado')
-          }
-        } catch (error) {
-          console.error('❌ Erro ao verificar Service Worker:', error)
-        }
-      } else {
-        console.log('❌ Service Worker não suportado neste navegador')
-      }
-    }
-    
-    // Verificar se o manifest está carregado
-    const checkManifest = async () => {
-      const manifestLink = document.querySelector('link[rel="manifest"]')
-      if (manifestLink) {
-        const manifestUrl = manifestLink.getAttribute('href')
-        console.log('✅ Manifest encontrado:', manifestUrl)
-        
-        try {
-          const response = await fetch(manifestUrl!)
-          const manifest = await response.json()
-          console.log('📄 Manifest carregado:', manifest)
-          console.log('📄 Ícones no manifest:', manifest.icons)
-        } catch (error) {
-          console.error('❌ Erro ao carregar manifest:', error)
-        }
-      } else {
-        console.log('❌ Manifest não encontrado')
-      }
-    }
-    
-    // Verificar se o site está sendo servido via HTTPS
-    const checkHTTPS = () => {
-      const isHTTPS = window.location.protocol === 'https:'
-      console.log('🔒 HTTPS:', isHTTPS)
-      return isHTTPS
-    }
-    
-    // Executar verificações
-    console.log('🔍 Iniciando verificações PWA...')
-    checkServiceWorker()
-    checkManifest()
-    checkHTTPS()
-    
-    // Adicionar listeners
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
-    
-    // Log para debug
-    console.log('👂 Listeners PWA adicionados')
-    console.log('📱 isMobile:', isMobile)
-    console.log('🎯 deferredPrompt inicial:', deferredPrompt)
-    
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-    }
-  }, [toast, isPWAInstalled, isMobile, onPWAModalOpen, onPWAModalClose])
   
   useEffect(() => {
     if (!auth.currentUser?.uid) return
@@ -558,32 +383,8 @@ const AgendaAdmin = () => {
             <Calendar size={16} />
             Novo Agendamento
           </button>
-          
-          {/* Botão para solicitar permissão de notificações */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              const permission = await requestNotificationPermission()
-              if (permission === 'granted') {
-                sendNotification('Notificações ativadas!', {
-                  body: 'Você receberá notificações sobre seus agendamentos.',
-                  icon: '/icon-192x192.png'
-                })
-                toast({
-                  title: "Notificações ativadas!",
-                  description: "Você receberá notificações sobre seus agendamentos.",
-                  status: "success",
-                  duration: 3000,
-                  isClosable: true,
-                })
-              }
-            }}
-            colorScheme="purple"
-          >
-            🔔 Notificações
-          </Button>
         </div>
+
 
         <div className="header-center">
           <div className="date-display">
@@ -1268,122 +1069,7 @@ const AgendaAdmin = () => {
       {/* Removed as per edit hint */}
       
       {/* PWA Install Modal */}
-      <Modal isOpen={isPWAModalOpen} onClose={onPWAModalClose} isCentered size="md">
-        <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
-        <ModalContent 
-          bg="white" 
-          borderRadius="xl" 
-          boxShadow="2xl"
-          mx={4}
-          maxW="400px"
-        >
-          
-          <ModalCloseButton 
-            top={4} 
-            right={4} 
-            borderRadius="full"
-            bg="gray.100"
-            _hover={{ bg: "gray.200" }}
-          />
-          
-          <ModalBody py={6}>
-            <VStack spacing={4} align="stretch">
-              {/* Indicador de modo de teste */}
-              {window.location.protocol === 'http:' && (
-                <Box
-                  bg="yellow.50"
-                  border="1px solid"
-                  borderColor="yellow.200"
-                  borderRadius="lg"
-                  p={3}
-                >
-                  <Text fontSize="sm" color="yellow.800" textAlign="center" fontWeight="500">
-                    🔧 Modo de Teste - PWA simulado para desenvolvimento
-                  </Text>
-                </Box>
-              )}
-              
-              <Text fontSize="md" color="gray.600" textAlign="center" lineHeight="1.6">
-                Instale o <strong>Trezu</strong> na sua tela inicial para ter acesso rápido e uma experiência melhor!
-              </Text>
-              
-              <Box
-                bg="blue.50"
-                border="1px solid"
-                borderColor="blue.200"
-                borderRadius="lg"
-                p={4}
-              >
-                <VStack spacing={2} align="start">
-                  <HStack spacing={2}>
-                    <Badge colorScheme="blue" variant="subtle" fontSize="xs">
-                      📱 Android
-                    </Badge>
-                    <Badge colorScheme="purple" variant="subtle" fontSize="xs">
-                      🍎 iOS
-                    </Badge>
-                  </HStack>
-                  <Text fontSize="sm" color="blue.800" fontWeight="500">
-                    Funciona em ambos os sistemas!
-                  </Text>
-                </VStack>
-              </Box>
-              
-              <Box
-                bg="gray.50"
-                border="1px solid"
-                borderColor="gray.200"
-                borderRadius="lg"
-                p={3}
-              >
-                <VStack spacing={2} align="start">
-                  <Text fontSize="sm" fontWeight="600" color="gray.700">
-                    ✨ Benefícios:
-                  </Text>
-                  <VStack spacing={1} align="start" w="full">
-                    <HStack spacing={2}>
-                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
-                      <Text fontSize="xs" color="gray.600">Acesso rápido à agenda</Text>
-                    </HStack>
-                    <HStack spacing={2}>
-                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
-                      <Text fontSize="xs" color="gray.600">Funciona offline</Text>
-                    </HStack>
-                    <HStack spacing={2}>
-                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
-                      <Text fontSize="xs" color="gray.600">Notificações push</Text>
-                    </HStack>
-                    <HStack spacing={2}>
-                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
-                      <Text fontSize="xs" color="gray.600">Experiência nativa</Text>
-                    </HStack>
-                  </VStack>
-                </VStack>
-              </Box>
-              
-            </VStack>
-          </ModalBody>
-          
-          <ModalFooter 
-            pt={0} 
-            pb={6} 
-            px={6}
-            flexDirection="column"
-            gap={3}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              w="full"
-              onClick={onPWAModalClose}
-              color="gray.500"
-              _hover={{ bg: "gray.100" }}
-            >
-              Talvez depois
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* Removed as per edit hint */}
     </div>
   )
 }

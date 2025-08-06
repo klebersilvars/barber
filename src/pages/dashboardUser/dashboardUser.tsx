@@ -73,56 +73,15 @@ export default function DashboardUser() {
 
   // Função para formatar a data de término
   const formatarDataTermino = (dataISO: string) => {
-    console.log('=== formatarDataTermino CHAMADO ===');
-    console.log('Data recebida:', dataISO);
-    console.log('Tipo da data:', typeof dataISO);
-    
+    if (!dataISO) return '-';
     try {
-      let data: Date;
-      
-      // Verificar se é formato brasileiro (DD/MM/YYYY)
-      if (dataISO.includes('/')) {
-        console.log('Detectado formato brasileiro');
-        const partes = dataISO.split('/');
-        console.log('Partes da data:', partes);
-        if (partes.length === 3) {
-          // Converter DD/MM/YYYY para YYYY-MM-DD
-          const dia = partes[0];
-          const mes = partes[1];
-          const ano = partes[2];
-          const dataISOFormatada = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}T00:00:00.000Z`;
-          console.log('Data convertida para ISO:', dataISOFormatada);
-          data = new Date(dataISOFormatada);
-        } else {
-          throw new Error('Formato de data brasileiro inválido');
-        }
-      } else {
-        console.log('Tentando como ISO string');
-        // Tentar como ISO string
-        data = new Date(dataISO);
-      }
-      
-      console.log('Data objeto criado:', data);
-      console.log('Data é válida?', !isNaN(data.getTime()));
-      
-      // Verificar se a data é válida
-      if (isNaN(data.getTime())) {
-        console.error('Data inválida recebida:', dataISO);
-        return 'Data inválida';
-      }
-      
-      const resultado = data.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      
-      console.log('Resultado formatado:', resultado);
-      console.log('=== FIM formatarDataTermino ===');
-      return resultado;
-    } catch (error) {
-      console.error('Erro ao formatar data:', error, 'Data recebida:', dataISO);
-      return 'Erro na data';
+      // Se vier só a data, adiciona T00:00:00 para evitar problemas de fuso
+      const dataFormatada = dataISO.length === 10 ? `${dataISO}T00:00:00` : dataISO;
+      const data = new Date(dataFormatada);
+      if (isNaN(data.getTime())) return 'Data inválida';
+      return data.toLocaleDateString('pt-BR');
+    } catch {
+      return 'Data inválida';
     }
   };
 
