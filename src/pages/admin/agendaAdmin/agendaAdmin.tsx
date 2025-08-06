@@ -44,6 +44,7 @@ import {
   useDisclosure
 } from "@chakra-ui/react"
 import { Download as DownloadIcon } from "lucide-react"
+import { checkIfAppInstalled, requestNotificationPermission, sendNotification } from '../../../registerSW'
 
 const AgendaAdmin = () => {
   const [currentView, setCurrentView] = useState("dashboard")
@@ -140,6 +141,10 @@ const AgendaAdmin = () => {
       return
     }
     
+    // Verificar se já está instalado usando a função do service worker
+    const isInstalled = checkIfAppInstalled()
+    setIsPWAInstalled(isInstalled)
+    
     // Em desenvolvimento, simular condições PWA para teste
     const isDevelopment = window.location.protocol === 'http:'
     const isProduction = window.location.protocol === 'https:'
@@ -182,6 +187,13 @@ const AgendaAdmin = () => {
       setDeferredPrompt(null)
       setIsPWAInstalled(true)
       onPWAModalClose()
+      
+      // Enviar notificação de sucesso
+      sendNotification('Trezu instalado!', {
+        body: 'O aplicativo foi adicionado à sua tela inicial com sucesso.',
+        icon: '/icon-192x192.png'
+      })
+      
       toast({
         title: "Aplicativo instalado!",
         description: "O Trezu foi adicionado à sua tela inicial.",
@@ -189,18 +201,6 @@ const AgendaAdmin = () => {
         duration: 3000,
         isClosable: true,
       })
-    }
-    
-    // Verificar se já está instalado
-    const checkIfInstalled = () => {
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-        console.log('✅ PWA já está instalado (standalone mode)')
-        setIsPWAInstalled(true)
-        return true
-      }
-      console.log('ℹ️ PWA não está instalado (não está em standalone mode)')
-      setIsPWAInstalled(false)
-      return false
     }
     
     // Verificar se o service worker está registrado
@@ -253,7 +253,6 @@ const AgendaAdmin = () => {
     
     // Executar verificações
     console.log('🔍 Iniciando verificações PWA...')
-    checkIfInstalled()
     checkServiceWorker()
     checkManifest()
     checkHTTPS()
@@ -298,15 +297,6 @@ const AgendaAdmin = () => {
       if (!deferredPrompt) {
         console.log('❌ Nenhum prompt de instalação disponível')
         setPwaInstallError('Nenhum prompt de instalação disponível')
-        
-        toast({
-          title: "Instalação Manual",
-          description: "Use o menu do navegador para adicionar à tela inicial",
-          status: "info",
-          duration: 5000,
-          isClosable: true,
-        })
-        return
       }
       
       console.log('✅ Prompt de instalação encontrado, iniciando...')
@@ -640,7 +630,63 @@ const AgendaAdmin = () => {
     <div className="agenda-container">
       {/* Header */}
       <header className="agenda-header">
-        
+        <div className="header-actions">
+          <button className="btn-primary" onClick={() => setShowAppointmentModal(true)}>
+            <Calendar size={16} />
+            Novo Agendamento
+          </button>
+          
+          {/* Botão PWA - apenas em HTTPS e se não estiver instalado */}
+          {window.location.protocol === 'https:' && !isPWAInstalled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPWAModalOpen}
+              leftIcon={<DownloadIcon size={16} />}
+              colorScheme="blue"
+            >
+              Instalar App
+            </Button>
+          )}
+          
+          {/* Botão de teste para desenvolvimento */}
+          {window.location.protocol === 'http:' && isMobile && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPWAModalOpen}
+              leftIcon={<DownloadIcon size={16} />}
+              colorScheme="green"
+            >
+              Testar Modal PWA
+            </Button>
+          )}
+          
+          {/* Botão para solicitar permissão de notificações */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              const permission = await requestNotificationPermission()
+              if (permission === 'granted') {
+                sendNotification('Notificações ativadas!', {
+                  body: 'Você receberá notificações sobre seus agendamentos.',
+                  icon: '/icon-192x192.png'
+                })
+                toast({
+                  title: "Notificações ativadas!",
+                  description: "Você receberá notificações sobre seus agendamentos.",
+                  status: "success",
+                  duration: 3000,
+                  isClosable: true,
+                })
+              }
+            }}
+            colorScheme="purple"
+          >
+            🔔 Notificações
+          </Button>
+        </div>
 
         <div className="header-center">
           <div className="date-display">

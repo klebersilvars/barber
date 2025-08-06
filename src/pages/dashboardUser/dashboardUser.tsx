@@ -745,35 +745,10 @@ export default function DashboardUser() {
                   }</Text>
                 </Text>
                 <Text fontSize="xl" fontWeight="bold">
-                  {tipoPlano === 'vitalicio' ? 'Dias Restantes: ' : 'Data de Término: '}
-                  <Text as="span" color="green.500" fontWeight="extrabold">{
-                    (() => {
-                      let resultado;
-                      
-                      if (tipoPlano === 'vitalicio') {
-                        resultado = '∞';
-                      } else if (dataTerminoPlano) {
-                        // Usar a data formatada do campo data_termino_plano_premium
-                        const dataFormatada = formatarDataTermino(dataTerminoPlano);
-                        resultado = `Termina em: ${dataFormatada}`;
-                      } else if (tipoPlano === 'gratis' && diasRestantesTeste) {
-                        resultado = diasRestantesTeste;
-                      } else if ((tipoPlano === 'individual' || tipoPlano === 'empresa') && diasPlanoPagoRestante) {
-                        resultado = diasPlanoPagoRestante;
-                      } else {
-                        resultado = '-';
-                      }
-                      
-                      console.log('=== EXIBIÇÃO DA INTERFACE ===');
-                      console.log('tipoPlano:', tipoPlano);
-                      console.log('dataTerminoPlano:', dataTerminoPlano);
-                      console.log('dataFormatada:', dataTerminoPlano ? formatarDataTermino(dataTerminoPlano) : 'N/A');
-                      console.log('Resultado final:', resultado);
-                      console.log('=== FIM EXIBIÇÃO ===');
-                      
-                      return resultado;
-                    })()
-                  }</Text>
+                  Data de Término:
+                  <Text as="span" color="green.500" fontWeight="extrabold">
+                    {dataTerminoPlano ? formatarDataTermino(dataTerminoPlano) : '-'}
+                  </Text>
                 </Text>
               </Stack>
               {!isPremium && (
