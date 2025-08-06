@@ -43,7 +43,6 @@ import {
   Badge,
   useDisclosure
 } from "@chakra-ui/react"
-import { Download as DownloadIcon } from "lucide-react"
 import { checkIfAppInstalled, requestNotificationPermission, sendNotification } from '../../../registerSW'
 
 const AgendaAdmin = () => {
@@ -56,7 +55,6 @@ const AgendaAdmin = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [isPWAInstalled, setIsPWAInstalled] = useState(false)
-  const [pwaInstallError, setPwaInstallError] = useState<string | null>(null)
   const toast = useToast()
   const { isOpen: isPWAModalOpen, onOpen: onPWAModalOpen, onClose: onPWAModalClose } = useDisclosure()
 
@@ -271,81 +269,6 @@ const AgendaAdmin = () => {
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [toast, isPWAInstalled, isMobile, onPWAModalOpen, onPWAModalClose])
-  
-  // Função para instalar PWA
-  const handleInstallPWA = async () => {
-    try {
-      console.log('🔄 Iniciando processo de instalação PWA...')
-      
-      // Em desenvolvimento, mostrar mensagem de teste
-      if (window.location.protocol === 'http:') {
-        toast({
-          title: "Modo de Teste",
-          description: "Em produção (HTTPS), o app seria instalado automaticamente.",
-          status: "info",
-          duration: 3000,
-          isClosable: true,
-        })
-        onPWAModalClose()
-        return
-      }
-      
-      console.log('Deferred prompt disponível:', !!deferredPrompt)
-      console.log('É dispositivo móvel:', isMobile)
-      console.log('Display mode:', window.matchMedia('(display-mode: standalone)').matches)
-      
-      if (!deferredPrompt) {
-        console.log('❌ Nenhum prompt de instalação disponível')
-        setPwaInstallError('Nenhum prompt de instalação disponível')
-      }
-      
-      console.log('✅ Prompt de instalação encontrado, iniciando...')
-      console.log('Prompt object:', deferredPrompt)
-      
-      // Mostrar o prompt de instalação
-      deferredPrompt.prompt()
-      
-      // Aguardar a resposta do usuário
-      const { outcome } = await deferredPrompt.userChoice
-      
-      console.log('Resultado da instalação:', outcome)
-      
-      if (outcome === 'accepted') {
-        console.log('✅ PWA instalado com sucesso')
-        setPwaInstallError(null)
-        toast({
-          title: "Instalação iniciada!",
-          description: "O aplicativo está sendo adicionado à sua tela inicial.",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        })
-        
-        // Limpar o prompt usado
-        setDeferredPrompt(null)
-      } else {
-        console.log('❌ PWA não foi instalado (usuário recusou)')
-        setPwaInstallError('Instalação cancelada pelo usuário')
-        toast({
-          title: "Instalação cancelada",
-          description: "Você pode instalar manualmente usando o menu do navegador.",
-          status: "info",
-          duration: 5000,
-          isClosable: true,
-        })
-      }
-    } catch (error) {
-      console.error('❌ Erro durante instalação PWA:', error)
-      setPwaInstallError('Erro durante a instalação')
-      toast({
-        title: "Erro na instalação",
-        description: "Ocorreu um erro durante a instalação. Tente novamente.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      })
-    }
-  }
   
   useEffect(() => {
     if (!auth.currentUser?.uid) return
@@ -635,32 +558,6 @@ const AgendaAdmin = () => {
             <Calendar size={16} />
             Novo Agendamento
           </button>
-          
-          {/* Botão PWA - apenas em HTTPS e se não estiver instalado */}
-          {window.location.protocol === 'https:' && !isPWAInstalled && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPWAModalOpen}
-              leftIcon={<DownloadIcon size={16} />}
-              colorScheme="blue"
-            >
-              Instalar App
-            </Button>
-          )}
-          
-          {/* Botão de teste para desenvolvimento */}
-          {window.location.protocol === 'http:' && isMobile && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPWAModalOpen}
-              leftIcon={<DownloadIcon size={16} />}
-              colorScheme="green"
-            >
-              Testar Modal PWA
-            </Button>
-          )}
           
           {/* Botão para solicitar permissão de notificações */}
           <Button
@@ -1464,19 +1361,6 @@ const AgendaAdmin = () => {
                 </VStack>
               </Box>
               
-              {pwaInstallError && (
-                <Box
-                  bg="red.50"
-                  border="1px solid"
-                  borderColor="red.200"
-                  borderRadius="lg"
-                  p={3}
-                >
-                  <Text fontSize="sm" color="red.700" textAlign="center">
-                    ⚠️ {pwaInstallError}
-                  </Text>
-                </Box>
-              )}
             </VStack>
           </ModalBody>
           
@@ -1487,27 +1371,6 @@ const AgendaAdmin = () => {
             flexDirection="column"
             gap={3}
           >
-            <Button
-              colorScheme="blue"
-              size="lg"
-              w="full"
-              h="50px"
-              borderRadius="lg"
-              fontWeight="600"
-              onClick={handleInstallPWA}
-              leftIcon={<DownloadIcon size={20} />}
-              bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-              _hover={{
-                transform: "translateY(-2px)",
-                boxShadow: "lg",
-              }}
-              _active={{
-                transform: "scale(0.98)",
-              }}
-            >
-              Instalar Agora
-            </Button>
-            
             <Button
               variant="ghost"
               size="sm"

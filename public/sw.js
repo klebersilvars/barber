@@ -50,6 +50,10 @@ self.addEventListener('activate', (event) => {
 // Interceptação de requisições
 self.addEventListener('fetch', (event) => {
   // Estratégia: Network First, fallback para cache
+  if (event.request.method !== 'GET') {
+    // Não tenta cachear POST, PUT, DELETE, etc.
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then((response) => {
