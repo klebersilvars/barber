@@ -445,7 +445,7 @@ export default function PageHome() {
               <span>Depoimentos Reais</span>
             </div>
             <h2>O que nossos clientes dizem</h2>
-            <p>Experiências reais de quem já transformou seu negócio com o CliqAgenda</p>
+            <p>Experiências reais de quem já transformou seu negócio com o Trezu</p>
           </div>
           <div className="depoimentos-grid">
             {depoimentos.map((depoimento, index) => (

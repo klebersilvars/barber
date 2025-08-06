@@ -6,7 +6,6 @@ import {
   Clock,
   Users,
   DollarSign,
-  Plus,
   Filter,
   Download,
   ChevronLeft,
@@ -28,9 +27,21 @@ import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
-import { 
-  Button, 
-  useToast
+import {
+  Button,
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  VStack,
+  HStack,
+  Text,
+  Box,
+  Badge,
+  useDisclosure
 } from "@chakra-ui/react"
 import { Download as DownloadIcon } from "lucide-react"
 
@@ -43,7 +54,10 @@ const AgendaAdmin = () => {
   // PWA States
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [isPWAInstalled, setIsPWAInstalled] = useState(false)
+  const [pwaInstallError, setPwaInstallError] = useState<string | null>(null)
   const toast = useToast()
+  const { isOpen: isPWAModalOpen, onOpen: onPWAModalOpen, onClose: onPWAModalClose } = useDisclosure()
 
   // Modal states
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -105,23 +119,44 @@ const AgendaAdmin = () => {
   // Buscar nome do estabelecimento do admin logado
   const [estabelecimento, setEstabelecimento] = useState("")
   
-  // PWA Logic - APENAS HTTPS
+  // PWA Logic - Permitir teste em desenvolvimento
   useEffect(() => {
-    // Só ativar PWA em HTTPS (produção)
-    if (window.location.protocol !== 'https:') {
-      console.log('❌ PWA desabilitado - HTTP detectado (apenas HTTPS)');
-      return;
-    }
-    
-    // Detectar se é dispositivo móvel
+    // Detectar se é dispositivo móvel primeiro
     const checkMobile = () => {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())
       setIsMobile(isMobileDevice)
       console.log('📱 Dispositivo móvel detectado:', isMobileDevice)
+      return isMobileDevice
     }
     
-    checkMobile()
+    const isMobileDevice = checkMobile()
+    
+    // Se não for dispositivo móvel, não fazer nada
+    if (!isMobileDevice) {
+      console.log('❌ PWA desabilitado - Apenas dispositivos móveis')
+      console.log('📱 User Agent:', navigator.userAgent)
+      console.log('🖥️ Para testar, use o DevTools do navegador e simule um dispositivo móvel')
+      return
+    }
+    
+    // Em desenvolvimento, simular condições PWA para teste
+    const isDevelopment = window.location.protocol === 'http:'
+    const isProduction = window.location.protocol === 'https:'
+    
+    if (isDevelopment) {
+      console.log('🔧 Modo desenvolvimento - PWA simulado para teste (MOBILE)')
+      // Simular condições PWA em desenvolvimento
+      setDeferredPrompt({ prompt: () => Promise.resolve({ outcome: 'accepted' }) }) // Simular prompt
+      
+      // Mostrar modal após 2 segundos em desenvolvimento (apenas mobile)
+      setTimeout(() => {
+        console.log('🔧 Mostrando modal PWA em desenvolvimento (MOBILE)')
+        onPWAModalOpen()
+      }, 2000)
+      
+      return
+    }
     
     // Detectar evento de instalação PWA
     const handleBeforeInstallPrompt = (e: any) => {
@@ -129,12 +164,24 @@ const AgendaAdmin = () => {
       e.preventDefault()
       setDeferredPrompt(e)
       console.log('✅ PWA install prompt disponível e armazenado')
+      
+      // Mostrar modal PWA automaticamente após 3 segundos apenas se:
+      // - Não estiver instalado
+      // - For dispositivo móvel
+      // - Estiver em HTTPS
+      setTimeout(() => {
+        if (!isPWAInstalled && isMobile && isProduction) {
+          onPWAModalOpen()
+        }
+      }, 3000)
     }
     
     // Detectar se já foi instalado
     const handleAppInstalled = () => {
       console.log('✅ PWA instalado com sucesso!')
       setDeferredPrompt(null)
+      setIsPWAInstalled(true)
+      onPWAModalClose()
       toast({
         title: "Aplicativo instalado!",
         description: "O Trezu foi adicionado à sua tela inicial.",
@@ -148,9 +195,11 @@ const AgendaAdmin = () => {
     const checkIfInstalled = () => {
       if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
         console.log('✅ PWA já está instalado (standalone mode)')
+        setIsPWAInstalled(true)
         return true
       }
       console.log('ℹ️ PWA não está instalado (não está em standalone mode)')
+      setIsPWAInstalled(false)
       return false
     }
     
@@ -222,23 +271,33 @@ const AgendaAdmin = () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [toast]) // Removed onPWAModalOpen from dependency array
+  }, [toast, isPWAInstalled, isMobile, onPWAModalOpen, onPWAModalClose])
   
   // Função para instalar PWA
   const handleInstallPWA = async () => {
     try {
       console.log('🔄 Iniciando processo de instalação PWA...')
+      
+      // Em desenvolvimento, mostrar mensagem de teste
+      if (window.location.protocol === 'http:') {
+        toast({
+          title: "Modo de Teste",
+          description: "Em produção (HTTPS), o app seria instalado automaticamente.",
+          status: "info",
+          duration: 3000,
+          isClosable: true,
+        })
+        onPWAModalClose()
+        return
+      }
+      
       console.log('Deferred prompt disponível:', !!deferredPrompt)
       console.log('É dispositivo móvel:', isMobile)
       console.log('Display mode:', window.matchMedia('(display-mode: standalone)').matches)
       
       if (!deferredPrompt) {
         console.log('❌ Nenhum prompt de instalação disponível')
-        console.log('Possíveis razões:')
-        console.log('- PWA já instalado')
-        console.log('- Navegador não suporta')
-        console.log('- Manifest inválido')
-        console.log('- Service Worker não registrado')
+        setPwaInstallError('Nenhum prompt de instalação disponível')
         
         toast({
           title: "Instalação Manual",
@@ -263,6 +322,7 @@ const AgendaAdmin = () => {
       
       if (outcome === 'accepted') {
         console.log('✅ PWA instalado com sucesso')
+        setPwaInstallError(null)
         toast({
           title: "Instalação iniciada!",
           description: "O aplicativo está sendo adicionado à sua tela inicial.",
@@ -275,6 +335,7 @@ const AgendaAdmin = () => {
         setDeferredPrompt(null)
       } else {
         console.log('❌ PWA não foi instalado (usuário recusou)')
+        setPwaInstallError('Instalação cancelada pelo usuário')
         toast({
           title: "Instalação cancelada",
           description: "Você pode instalar manualmente usando o menu do navegador.",
@@ -285,6 +346,7 @@ const AgendaAdmin = () => {
       }
     } catch (error) {
       console.error('❌ Erro durante instalação PWA:', error)
+      setPwaInstallError('Erro durante a instalação')
       toast({
         title: "Erro na instalação",
         description: "Ocorreu um erro durante a instalação. Tente novamente.",
@@ -578,15 +640,7 @@ const AgendaAdmin = () => {
     <div className="agenda-container">
       {/* Header */}
       <header className="agenda-header">
-        <div className="header-left">
-          <div className="logo-section">
-            <Scissors className="logo-icon" />
-            <div className="logo-text">
-              <h1>Trezu</h1>
-              <p>Gestão Completa</p>
-            </div>
-          </div>
-        </div>
+        
 
         <div className="header-center">
           <div className="date-display">
@@ -596,33 +650,6 @@ const AgendaAdmin = () => {
               <p>Hoje • {agendaHoje.length + historicoHoje.length} agendamentos</p>
             </div>
           </div>
-        </div>
-
-        <div className="header-right">
-          <div className="header-actions">
-            <button className="btn-primary" onClick={() => setShowAppointmentModal(true)}>
-              <Plus size={18} />
-              <span>Novo Agendamento</span>
-            </button>
-            <button className="btn-secondary" style={{marginLeft: 8}} onClick={() => {/* Removed as per edit hint */}}>
-              <Clock size={18} />
-              Histórico
-            </button>
-            {window.location.protocol === 'https:' && (
-              <Button
-                leftIcon={<DownloadIcon />}
-                onClick={handleInstallPWA}
-                colorScheme="blue"
-                size="sm"
-                style={{ marginLeft: 8 }}
-              >
-                {deferredPrompt ? "Instalar App" : "Instalação Manual"}
-              </Button>
-            )}
-          </div>
-
-          {/* Notifications Dropdown */}
-          {/* Removed as per edit hint */}
         </div>
       </header>
 
@@ -1298,7 +1325,156 @@ const AgendaAdmin = () => {
       {/* Removed as per edit hint */}
       
       {/* PWA Install Modal */}
-      {/* Removed as per edit hint */}
+      <Modal isOpen={isPWAModalOpen} onClose={onPWAModalClose} isCentered size="md">
+        <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
+        <ModalContent 
+          bg="white" 
+          borderRadius="xl" 
+          boxShadow="2xl"
+          mx={4}
+          maxW="400px"
+        >
+          
+          <ModalCloseButton 
+            top={4} 
+            right={4} 
+            borderRadius="full"
+            bg="gray.100"
+            _hover={{ bg: "gray.200" }}
+          />
+          
+          <ModalBody py={6}>
+            <VStack spacing={4} align="stretch">
+              {/* Indicador de modo de teste */}
+              {window.location.protocol === 'http:' && (
+                <Box
+                  bg="yellow.50"
+                  border="1px solid"
+                  borderColor="yellow.200"
+                  borderRadius="lg"
+                  p={3}
+                >
+                  <Text fontSize="sm" color="yellow.800" textAlign="center" fontWeight="500">
+                    🔧 Modo de Teste - PWA simulado para desenvolvimento
+                  </Text>
+                </Box>
+              )}
+              
+              <Text fontSize="md" color="gray.600" textAlign="center" lineHeight="1.6">
+                Instale o <strong>Trezu</strong> na sua tela inicial para ter acesso rápido e uma experiência melhor!
+              </Text>
+              
+              <Box
+                bg="blue.50"
+                border="1px solid"
+                borderColor="blue.200"
+                borderRadius="lg"
+                p={4}
+              >
+                <VStack spacing={2} align="start">
+                  <HStack spacing={2}>
+                    <Badge colorScheme="blue" variant="subtle" fontSize="xs">
+                      📱 Android
+                    </Badge>
+                    <Badge colorScheme="purple" variant="subtle" fontSize="xs">
+                      🍎 iOS
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="blue.800" fontWeight="500">
+                    Funciona em ambos os sistemas!
+                  </Text>
+                </VStack>
+              </Box>
+              
+              <Box
+                bg="gray.50"
+                border="1px solid"
+                borderColor="gray.200"
+                borderRadius="lg"
+                p={3}
+              >
+                <VStack spacing={2} align="start">
+                  <Text fontSize="sm" fontWeight="600" color="gray.700">
+                    ✨ Benefícios:
+                  </Text>
+                  <VStack spacing={1} align="start" w="full">
+                    <HStack spacing={2}>
+                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
+                      <Text fontSize="xs" color="gray.600">Acesso rápido à agenda</Text>
+                    </HStack>
+                    <HStack spacing={2}>
+                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
+                      <Text fontSize="xs" color="gray.600">Funciona offline</Text>
+                    </HStack>
+                    <HStack spacing={2}>
+                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
+                      <Text fontSize="xs" color="gray.600">Notificações push</Text>
+                    </HStack>
+                    <HStack spacing={2}>
+                      <Box w="2" h="2" borderRadius="full" bg="green.500" />
+                      <Text fontSize="xs" color="gray.600">Experiência nativa</Text>
+                    </HStack>
+                  </VStack>
+                </VStack>
+              </Box>
+              
+              {pwaInstallError && (
+                <Box
+                  bg="red.50"
+                  border="1px solid"
+                  borderColor="red.200"
+                  borderRadius="lg"
+                  p={3}
+                >
+                  <Text fontSize="sm" color="red.700" textAlign="center">
+                    ⚠️ {pwaInstallError}
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+          
+          <ModalFooter 
+            pt={0} 
+            pb={6} 
+            px={6}
+            flexDirection="column"
+            gap={3}
+          >
+            <Button
+              colorScheme="blue"
+              size="lg"
+              w="full"
+              h="50px"
+              borderRadius="lg"
+              fontWeight="600"
+              onClick={handleInstallPWA}
+              leftIcon={<DownloadIcon size={20} />}
+              bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              _hover={{
+                transform: "translateY(-2px)",
+                boxShadow: "lg",
+              }}
+              _active={{
+                transform: "scale(0.98)",
+              }}
+            >
+              Instalar Agora
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              w="full"
+              onClick={onPWAModalClose}
+              color="gray.500"
+              _hover={{ bg: "gray.100" }}
+            >
+              Talvez depois
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }
