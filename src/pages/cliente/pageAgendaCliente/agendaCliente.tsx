@@ -208,6 +208,11 @@ const AgendaCliente = () => {
   }
 
   const handleNextStep = () => {
+    // Validação extra para garantir que não avance sem dados obrigatórios
+    if (!canProceed()) {
+      return
+    }
+    
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
     }
@@ -292,18 +297,102 @@ const AgendaCliente = () => {
     }
   }
 
+  // Função para obter mensagem de erro específica do step atual
+  const getStepErrorMessage = () => {
+    switch (currentStep) {
+      case 1:
+        if (!selectedService) {
+          return "Selecione um serviço para continuar"
+        }
+        break
+      case 2:
+        if (!selectedService) {
+          return "Selecione um serviço primeiro"
+        }
+        if (!selectedProfessional) {
+          return "Selecione um profissional para continuar"
+        }
+        break
+      case 3:
+        if (!selectedProfessional) {
+          return "Selecione um profissional primeiro"
+        }
+        if (!selectedDate) {
+          return "Selecione uma data para continuar"
+        }
+        if (!selectedTime) {
+          return "Selecione um horário para continuar"
+        }
+        break
+      case 4:
+        if (!selectedDate || !selectedTime) {
+          return "Selecione data e horário primeiro"
+        }
+        if (!clientData.name.trim()) {
+          return "Digite seu nome para continuar"
+        }
+        const phoneNumbers = clientData.phone.replace(/\D/g, '')
+        if (phoneNumbers.length < 10) {
+          return "Digite um telefone válido (mínimo 10 dígitos)"
+        }
+        if (!clientData.paymentMethod) {
+          return "Selecione uma forma de pagamento"
+        }
+        break
+      case 5:
+        const phoneNumbersFinal = clientData.phone.replace(/\D/g, '')
+        if (!selectedService) return "Serviço não selecionado"
+        if (!selectedProfessional) return "Profissional não selecionado"
+        if (!selectedDate) return "Data não selecionada"
+        if (!selectedTime) return "Horário não selecionado"
+        if (!clientData.name.trim()) return "Nome não preenchido"
+        if (phoneNumbersFinal.length < 10) return "Telefone inválido"
+        if (!clientData.paymentMethod) return "Forma de pagamento não selecionada"
+        break
+    }
+    return ""
+  }
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return selectedService !== null
+        // Step 1: Deve ter um serviço selecionado
+        return selectedService !== null && selectedService.id !== undefined
+      
       case 2:
-        return selectedProfessional !== null
+        // Step 2: Deve ter um profissional selecionado E um serviço válido
+        return selectedProfessional !== null && 
+               selectedProfessional.id !== undefined && 
+               selectedService !== null
+      
       case 3:
-        return selectedDate !== "" && selectedTime !== ""
+        // Step 3: Deve ter data e horário selecionados E profissional válido
+        return selectedDate !== "" && 
+               selectedTime !== "" && 
+               selectedProfessional !== null
+      
       case 4:
-        return clientData.name !== "" && clientData.phone !== ""
+        // Step 4: Deve ter nome, telefone e forma de pagamento válidos
+        const phoneNumbers = clientData.phone.replace(/\D/g, '')
+        return clientData.name.trim() !== "" && 
+               phoneNumbers.length >= 10 && 
+               clientData.paymentMethod !== "" &&
+               selectedDate !== "" && 
+               selectedTime !== ""
+      
+      case 5:
+        // Step 5: Todos os dados obrigatórios devem estar preenchidos
+        const phoneNumbersFinal = clientData.phone.replace(/\D/g, '')
+        return selectedService !== null &&
+               selectedProfessional !== null &&
+               selectedDate !== "" &&
+               selectedTime !== "" &&
+               clientData.name.trim() !== "" &&
+               phoneNumbersFinal.length >= 10 &&
+               clientData.paymentMethod !== ""
+      
       default:
-        return true
+        return false
     }
   }
 
@@ -546,10 +635,13 @@ const AgendaCliente = () => {
       </div>
 
       {/* Main Content */}
-      <main className="cliente-main-content">
+      <main className="cliente-main-content" style={{ 
+        paddingBottom: "200px",
+        minHeight: "100vh"
+      }}>
         {/* Step 1: Informações do Estabelecimento */}
         {currentStep === 1 && (
-          <div className="cliente-step cliente-step-establishment">
+          <div className="cliente-step cliente-step-establishment" style={{ paddingBottom: "250px" }}>
             {/* Hero Section com informações principais */}
             <div className="cliente-establishment-hero">
               <div className="cliente-hero-background">
@@ -789,6 +881,24 @@ const AgendaCliente = () => {
                 </div>
               )}
 
+              {services.length > 0 && !selectedService && (
+                <div className="cliente-no-selection">
+                  <Box
+                    bg="orange.50"
+                    border="1px solid"
+                    borderColor="orange.200"
+                    borderRadius="lg"
+                    p={4}
+                    textAlign="center"
+                    mt={4}
+                  >
+                    <Text fontSize="sm" color="orange.700" fontWeight="500">
+                      ⚠️ Selecione um serviço para continuar
+                    </Text>
+                  </Box>
+                </div>
+              )}
+
               {services.length > 6 && (
                 <div className="cliente-services-footer">
                   <button className="cliente-btn-see-more">Ver todos os serviços ({services.length})</button>
@@ -800,7 +910,7 @@ const AgendaCliente = () => {
 
         {/* Step 2: Escolha do Profissional */}
         {currentStep === 2 && (
-          <div className="cliente-step cliente-step-professional">
+          <div className="cliente-step cliente-step-professional" style={{ paddingBottom: "200px" }}>
             <div className="cliente-step-header">
               <h2>Escolha seu Profissional</h2>
               <p>Selecione quem irá realizar seu {selectedService?.nomeServico}</p>
@@ -856,12 +966,30 @@ const AgendaCliente = () => {
                 <p>Nenhum profissional disponível no momento.</p>
               </div>
             )}
+
+            {availableProfessionals.length > 0 && !selectedProfessional && (
+              <div className="cliente-no-selection">
+                <Box
+                  bg="orange.50"
+                  border="1px solid"
+                  borderColor="orange.200"
+                  borderRadius="lg"
+                  p={4}
+                  textAlign="center"
+                  mt={4}
+                >
+                  <Text fontSize="sm" color="orange.700" fontWeight="500">
+                    ⚠️ Selecione um profissional para continuar
+                  </Text>
+                </Box>
+              </div>
+            )}
           </div>
         )}
 
         {/* Step 3: Data e Horário */}
         {currentStep === 3 && (
-          <Box className="cliente-step cliente-step-datetime">
+          <Box className="cliente-step cliente-step-datetime" style={{ paddingBottom: "200px" }}>
             <VStack spacing={8} align="stretch">
               <Box textAlign="center">
                 <Heading as="h2" size="xl" mb={2} color="gray.800">
@@ -886,15 +1014,20 @@ const AgendaCliente = () => {
                   min={new Date().toISOString().split("T")[0]}
                       size="lg"
                       borderRadius="lg"
-                      borderColor="gray.300"
+                      borderColor={selectedDate === "" ? "red.300" : "gray.300"}
                       _focus={{
-                        borderColor: primaryColor,
-                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                        borderColor: selectedDate === "" ? "red.500" : primaryColor,
+                        boxShadow: selectedDate === "" ? "0 0 0 1px #E53E3E" : `0 0 0 1px ${primaryColor}`,
                       }}
                       _hover={{
-                        borderColor: "gray.400",
+                        borderColor: selectedDate === "" ? "red.400" : "gray.400",
                       }}
                     />
+                    {selectedDate === "" && (
+                      <Text fontSize="sm" color="red.500" mt={1}>
+                        Selecione uma data para continuar
+                      </Text>
+                    )}
                   </Box>
 
                   {/* Seleção de Horário */}
@@ -956,6 +1089,39 @@ const AgendaCliente = () => {
                           )
                         })}
                       </SimpleGrid>
+                      
+                      {selectedTime === "" && (
+                        <Box
+                          bg="orange.50"
+                          border="1px solid"
+                          borderColor="orange.200"
+                          borderRadius="lg"
+                          p={4}
+                          textAlign="center"
+                          mt={4}
+                        >
+                          <Text fontSize="sm" color="orange.700" fontWeight="500">
+                            ⚠️ Selecione um horário para continuar
+                          </Text>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Mensagem quando nenhuma data está selecionada */}
+                  {!selectedDate && (
+                    <Box
+                      bg="orange.50"
+                      border="1px solid"
+                      borderColor="orange.200"
+                      borderRadius="lg"
+                      p={4}
+                      textAlign="center"
+                      mt={4}
+                    >
+                      <Text fontSize="sm" color="orange.700" fontWeight="500">
+                        ⚠️ Selecione uma data para ver os horários disponíveis
+                      </Text>
                     </Box>
                   )}
                 </VStack>
@@ -1012,7 +1178,7 @@ const AgendaCliente = () => {
 
         {/* Step 4: Dados do Cliente */}
         {currentStep === 4 && (
-          <Box className="cliente-step cliente-step-client-data">
+          <Box className="cliente-step cliente-step-client-data" style={{ paddingBottom: "200px" }}>
             <VStack spacing={8} align="stretch">
               <Box textAlign="center">
                 <Heading as="h2" size="xl" mb={2} color="gray.800">
@@ -1037,16 +1203,21 @@ const AgendaCliente = () => {
                     placeholder="Digite seu nome completo"
                       size="lg"
                       borderRadius="lg"
-                      borderColor="gray.300"
+                      borderColor={clientData.name.trim() === "" ? "red.300" : "gray.300"}
                       _focus={{
-                        borderColor: primaryColor,
-                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                        borderColor: clientData.name.trim() === "" ? "red.500" : primaryColor,
+                        boxShadow: clientData.name.trim() === "" ? "0 0 0 1px #E53E3E" : `0 0 0 1px ${primaryColor}`,
                       }}
                       _hover={{
-                        borderColor: "gray.400",
+                        borderColor: clientData.name.trim() === "" ? "red.400" : "gray.400",
                       }}
                     required
                   />
+                  {clientData.name.trim() === "" && (
+                    <Text fontSize="sm" color="red.500" mt={1}>
+                      Nome é obrigatório
+                    </Text>
+                  )}
                   </Box>
 
                   {/* WhatsApp */}
@@ -1061,16 +1232,39 @@ const AgendaCliente = () => {
                     placeholder="(11) 99999-9999"
                       size="lg"
                       borderRadius="lg"
-                      borderColor="gray.300"
+                      borderColor={(() => {
+                        const phoneNumbers = clientData.phone.replace(/\D/g, '')
+                        return phoneNumbers.length < 10 ? "red.300" : "gray.300"
+                      })()}
                       _focus={{
-                        borderColor: primaryColor,
-                        boxShadow: `0 0 0 1px ${primaryColor}`,
+                        borderColor: (() => {
+                          const phoneNumbers = clientData.phone.replace(/\D/g, '')
+                          return phoneNumbers.length < 10 ? "red.500" : primaryColor
+                        })(),
+                        boxShadow: (() => {
+                          const phoneNumbers = clientData.phone.replace(/\D/g, '')
+                          return phoneNumbers.length < 10 ? "0 0 0 1px #E53E3E" : `0 0 0 1px ${primaryColor}`
+                        })(),
                       }}
                       _hover={{
-                        borderColor: "gray.400",
+                        borderColor: (() => {
+                          const phoneNumbers = clientData.phone.replace(/\D/g, '')
+                          return phoneNumbers.length < 10 ? "red.400" : "gray.400"
+                        })(),
                       }}
                     required
                   />
+                  {(() => {
+                    const phoneNumbers = clientData.phone.replace(/\D/g, '')
+                    if (phoneNumbers.length > 0 && phoneNumbers.length < 10) {
+                      return (
+                        <Text fontSize="sm" color="red.500" mt={1}>
+                          Telefone deve ter pelo menos 10 dígitos
+                        </Text>
+                      )
+                    }
+                    return null
+                  })()}
                   </Box>
 
                   {/* E-mail */}
@@ -1099,7 +1293,7 @@ const AgendaCliente = () => {
                   {/* Forma de Pagamento */}
                   <Box>
                     <Text as="label" fontSize="md" fontWeight="600" color="gray.700" mb={3} display="block">
-                      Forma de Pagamento
+                      Forma de Pagamento *
                     </Text>
                     <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
                     {paymentMethods.map((method) => (
@@ -1112,6 +1306,7 @@ const AgendaCliente = () => {
                           borderRadius="lg"
                           fontSize="sm"
                           fontWeight="500"
+                          borderColor={!clientData.paymentMethod ? "red.300" : "gray.300"}
                           _hover={{
                             transform: "translateY(-2px)",
                             boxShadow: "lg",
@@ -1127,6 +1322,11 @@ const AgendaCliente = () => {
                         </Button>
                       ))}
                     </SimpleGrid>
+                    {!clientData.paymentMethod && (
+                      <Text fontSize="sm" color="red.500" mt={2}>
+                        Selecione uma forma de pagamento
+                      </Text>
+                    )}
                   </Box>
 
                   {/* Observações */}
@@ -1177,7 +1377,7 @@ const AgendaCliente = () => {
 
         {/* Step 5: Confirmação Final */}
         {currentStep === 5 && (
-          <Box className="cliente-step cliente-step-confirmation" minH="100vh" pb="120px">
+          <Box className="cliente-step cliente-step-confirmation" minH="100vh" pb="250px">
             <VStack spacing={8} align="stretch" py={8}>
               <Box textAlign="center">
                 <Heading as="h2" size="xl" mb={2} color="gray.800">
@@ -1605,7 +1805,6 @@ const AgendaCliente = () => {
       {currentStep < 6 && (
         <Box
           as="footer"
-          className="cliente-navigation-footer"
           position="fixed"
           bottom={0}
           left={0}
@@ -1615,44 +1814,125 @@ const AgendaCliente = () => {
           borderColor="gray.200"
           boxShadow="lg"
           zIndex={10}
-          px={4}
-          py={4}
+          px={{ base: 3, md: 4 }}
+          py={{ base: 3, md: 4 }}
         >
-          <Flex justify="space-between" align="center" maxW="container.md" mx="auto">
-            {currentStep > 1 && (
+          <VStack spacing={3} maxW="container.md" mx="auto">
+            {/* Mensagem de erro */}
+            {!canProceed() && getStepErrorMessage() && (
+              <Text 
+                fontSize={{ base: "xs", md: "sm" }}
+                color="red.500" 
+                fontWeight="500"
+                textAlign="center"
+                bg="red.50"
+                px={3}
+                py={2}
+                borderRadius="md"
+                border="1px solid"
+                borderColor="red.200"
+                w="full"
+              >
+                {getStepErrorMessage()}
+              </Text>
+            )}
+            
+            {/* Layout responsivo para os botões */}
+            <VStack spacing={3} w="full">
+              {/* Botão Principal - Sempre visível */}
               <Button
-                variant="outline"
-                colorScheme="gray"
+                colorScheme={canProceed() ? "purple" : "orange"}
                 size="lg"
-                onClick={handlePrevStep}
-                leftIcon={<Icon as={ArrowLeft} boxSize={4} />}
+                onClick={currentStep === 5 ? handleSubmit : handleNextStep}
+                disabled={!canProceed()}
+                rightIcon={!submitting ? <Icon as={ArrowRight} boxSize={4} /> : undefined}
                 borderRadius="lg"
                 fontWeight="600"
+                isLoading={submitting}
+                loadingText="Salvando..."
+                animation={!canProceed() ? "pulse 2s infinite" : "none"}
+                w="full"
+                h="56px"
+                _disabled={{
+                  opacity: 0.5,
+                  cursor: "not-allowed",
+                  bg: "gray.300",
+                  color: "gray.500",
+                  _hover: {
+                    bg: "gray.300",
+                    transform: "none",
+                    boxShadow: "none"
+                  }
+                }}
+                _hover={{
+                  transform: canProceed() ? "translateY(-2px)" : "none",
+                  boxShadow: canProceed() ? "lg" : "none"
+                }}
+                _active={{
+                  transform: canProceed() ? "scale(0.98)" : "none"
+                }}
+                sx={{
+                  "@keyframes pulse": {
+                    "0%": {
+                      boxShadow: "0 0 0 0 rgba(237, 137, 54, 0.7)"
+                    },
+                    "70%": {
+                      boxShadow: "0 0 0 10px rgba(237, 137, 54, 0)"
+                    },
+                    "100%": {
+                      boxShadow: "0 0 0 0 rgba(237, 137, 54, 0)"
+                    }
+                  }
+                }}
               >
-                Voltar
+                <Text fontSize={{ base: "sm", md: "md" }}>
+                  {currentStep === 5 
+                    ? "Confirmar Agendamento" 
+                    : canProceed() 
+                      ? "Continuar" 
+                      : "Preencher Campos Obrigatórios"
+                  }
+                </Text>
               </Button>
-            )}
 
-            <Text fontSize="sm" color="gray.600" fontWeight="500">
-              Passo {currentStep} de 5
-            </Text>
+              {/* Linha inferior com botão voltar e progresso */}
+              <Flex 
+                justify="space-between" 
+                align="center" 
+                w="full"
+                direction={{ base: "column", sm: "row" }}
+                gap={3}
+              >
+                {/* Botão Voltar */}
+                {currentStep > 1 && (
+                  <Button
+                    variant="outline"
+                    colorScheme="gray"
+                    size="md"
+                    onClick={handlePrevStep}
+                    leftIcon={<Icon as={ArrowLeft} boxSize={4} />}
+                    borderRadius="lg"
+                    fontWeight="600"
+                    w={{ base: "full", sm: "auto" }}
+                    minW={{ base: "full", sm: "120px" }}
+                  >
+                    Voltar
+                  </Button>
+                )}
 
-            <Button
-              colorScheme="purple"
-              size="lg"
-              onClick={currentStep === 5 ? handleSubmit : handleNextStep}
-              disabled={!canProceed()}
-              rightIcon={!submitting ? <Icon as={ArrowRight} boxSize={4} /> : undefined}
-              borderRadius="lg"
-              fontWeight="600"
-              isLoading={submitting}
-              loadingText="Salvando..."
-              opacity={canProceed() ? 1 : 0.5}
-              cursor={canProceed() ? "pointer" : "not-allowed"}
-            >
-              {currentStep === 5 ? "Confirmar Agendamento" : "Continuar"}
-            </Button>
-          </Flex>
+                {/* Indicador de Progresso */}
+                <Text 
+                  fontSize={{ base: "xs", md: "sm" }} 
+                  color="gray.600" 
+                  fontWeight="500"
+                  textAlign="center"
+                  order={{ base: 2, sm: 1 }}
+                >
+                  Passo {currentStep} de 5
+                </Text>
+              </Flex>
+            </VStack>
+          </VStack>
         </Box>
       )}
     </div>
