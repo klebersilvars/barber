@@ -111,6 +111,7 @@ export default function DashboardUser() {
           console.log('Data atual:', hojeData.toISOString());
           console.log('Plano expirou?', hojeData >= terminoData);
           console.log('Premium atual:', data.premium);
+          console.log('Tipo de plano atual:', data.tipoPlano);
           
           // Se a data de término já passou, desativar premium
           if (hojeData >= terminoData) {
@@ -118,14 +119,15 @@ export default function DashboardUser() {
             
             await updateDoc(docRef, {
               premium: false,
+              tipoPlano: '', // String vazia sinalizando que não tem mais planos
               data_termino_plano_premium: null,
               dias_plano_pago_restante: 0,
               dias_restantes_teste_gratis: 0,
-              tipoPlano: ''
+              avaliacao_gratis: false
             });
             
             console.log('✅ Premium desativado com sucesso!');
-            console.log('✅ Campos resetados: premium=false, data_termino=null, dias=0, tipoPlano=""');
+            console.log('✅ Campos resetados: premium=false, tipoPlano="", data_termino=null, dias=0');
           } else {
             console.log('✅ Plano ainda ativo - Premium mantido');
           }
@@ -242,9 +244,10 @@ export default function DashboardUser() {
       premium: true,
       tipoPlano: 'gratis', // DEFINIR COMO GRATIS
       data_inicio_teste_gratis: hoje.toISOString(),
+      data_termino_plano_premium: dataTermino.toISOString(), // ✅ Data de término correta
       dias_restantes_teste_gratis: 7,
       ja_pegou_premium_gratis: true,
-      data_termino_plano_premium: dataTermino.toISOString() // ✅ Data de término correta
+      avaliacao_gratis: true
     })
     
     console.log('Teste grátis ativado com sucesso!');

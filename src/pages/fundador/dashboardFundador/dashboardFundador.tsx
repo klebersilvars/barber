@@ -38,7 +38,6 @@ import {
   SimpleGrid,
   Input,
   Textarea,
-  Checkbox,
   DrawerBody,
   DrawerHeader,
   DrawerCloseButton,
@@ -268,39 +267,15 @@ const EstablishmentsContent = () => {
 
   // Função para formatar a data de término
   const formatarDataTermino = (dataISO: string) => {
+    if (!dataISO) return '-';
     try {
-      let data: Date;
-      
-      // Verificar se é formato brasileiro (DD/MM/YYYY)
-      if (dataISO.includes('/')) {
-        const partes = dataISO.split('/');
-        if (partes.length === 3) {
-          // Converter DD/MM/YYYY para YYYY-MM-DD
-          const dia = partes[0];
-          const mes = partes[1];
-          const ano = partes[2];
-          const dataISOFormatada = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}T00:00:00.000Z`;
-          data = new Date(dataISOFormatada);
-        } else {
-          throw new Error('Formato de data brasileiro inválido');
-        }
-      } else {
-        // Tentar como ISO string
-        data = new Date(dataISO);
-      }
-      
-      // Verificar se a data é válida
-      if (isNaN(data.getTime())) {
-        return 'Data inválida';
-      }
-      
-      return data.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (error) {
-      return 'Erro na data';
+      // Se vier só a data, adiciona T00:00:00 para evitar problemas de fuso
+      const dataFormatada = dataISO.length === 10 ? `${dataISO}T00:00:00` : dataISO;
+      const data = new Date(dataFormatada);
+      if (isNaN(data.getTime())) return 'Data inválida';
+      return data.toLocaleDateString('pt-BR');
+    } catch {
+      return 'Data inválida';
     }
   };
 
@@ -309,15 +284,30 @@ const EstablishmentsContent = () => {
     if (estabelecimento.tipoPlano === 'vitalicio') {
       return '∞'; // Símbolo de infinito para plano vitalício
     } else if (estabelecimento.data_termino_plano_premium) {
-      // Usar a data formatada do campo data_termino_plano_premium
-      const dataFormatada = formatarDataTermino(estabelecimento.data_termino_plano_premium);
-      return `${dataFormatada}`;
-    } else if (estabelecimento.tipoPlano === 'gratis') {
-      return estabelecimento.dias_restantes_teste_gratis ?? null;
-    } else if (estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') {
-      return estabelecimento.dias_plano_pago_restante ?? null;
+      // Calcular dias restantes baseado na data de término
+      const hoje = new Date();
+      const dataTermino = new Date(estabelecimento.data_termino_plano_premium);
+      
+      // Comparar apenas a data (sem hora) para ser mais preciso
+      const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      const terminoData = new Date(dataTermino.getFullYear(), dataTermino.getMonth(), dataTermino.getDate());
+      
+      const diffTime = terminoData.getTime() - hojeData.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= 0) {
+        return 'Expirado';
+      } else if (diffDays === 1) {
+        return '1 dia';
+      } else {
+        return `${diffDays} dias`;
+      }
+    } else if (estabelecimento.tipoPlano === 'gratis' && estabelecimento.dias_restantes_teste_gratis) {
+      return `${estabelecimento.dias_restantes_teste_gratis} dias (teste)`;
+    } else if ((estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') && estabelecimento.dias_plano_pago_restante) {
+      return `${estabelecimento.dias_plano_pago_restante} dias`;
     }
-    return null;
+    return 'Sem plano';
   };
 
   useEffect(() => {
@@ -353,14 +343,19 @@ const EstablishmentsContent = () => {
   }
 
   const handleEditChange = (field: string, value: any) => {
+    console.log(`🔄 Alterando campo: ${field} = ${value}`);
     setEditData((prev: any) => ({ ...prev, [field]: value }))
   }
 
   const handleEditSave = async () => {
     if (!editData || !editData.id) return
+    console.log('💾 Salvando alterações...', editData);
+    console.log('📋 tipoPlano selecionado:', editData.tipoPlano);
+    console.log('📋 premium:', editData.premium);
     setEditLoading(true)
     try {
       const docRef = firestoreDoc(firestore, 'contas', editData.id)
+      const agora = new Date();
       const updateObj: any = {
         nomeEstabelecimento: editData.nomeEstabelecimento || '',
         nome: editData.nome || '',
@@ -374,10 +369,7 @@ const EstablishmentsContent = () => {
         cep: editData.cep || '',
         complemento: editData.complemento || '',
         descricaoEstabelecimento: editData.descricaoEstabelecimento || '',
-        premium: editData.premium,
-        tipoPlano: editData.tipoPlano,
         slug: editData.slug,
-        avaliacao_gratis: editData.avaliacao_gratis,
         aparenciaAgendamento: {
           corPrincipal: editData.aparenciaAgendamento?.corPrincipal || '',
           nomeExibicao: editData.aparenciaAgendamento?.nomeExibicao || '',
@@ -397,54 +389,104 @@ const EstablishmentsContent = () => {
         },
         horariosFunc: editData.horariosFunc || [],
       }
-      const agora = new Date();
-      // Lógica de atualização de premium/plano
-      if (editData.tipoPlano === 'vitalicio' && editData.premium) {
-        // Plano vitalício - apenas marca premium como true, sem dias restantes
+
+      // LÓGICA COMPLETA DE CONTROLE DE PLANOS
+      // Sempre marcar a data de início quando o tipoPlano for alterado
+      if (editData.tipoPlano !== editData.tipoPlano_anterior) {
+        updateObj.data_inicio_plano_premium = agora.toISOString();
+        console.log('📅 Data de início do plano marcada:', agora.toISOString());
+      }
+
+      // Lógica de atualização de premium/plano com controle de datas
+      if (editData.tipoPlano === 'vitalicio') {
+        // Plano vitalício - nunca expira
         updateObj.premium = true;
         updateObj.tipoPlano = 'vitalicio';
         updateObj.avaliacao_gratis = false;
-        // Não define dias restantes para plano vitalício (infinito)
+        updateObj.data_termino_plano_premium = null; // Nunca expira
         updateObj.dias_plano_pago = null;
         updateObj.dias_plano_pago_restante = null;
         updateObj.dias_restantes_teste_gratis = null;
         updateObj.data_inicio_teste_gratis = null;
         updateObj.data_fim_teste_gratis = null;
-      } else if ((editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') && editData.premium) {
-        // Ativar premium por 30 dias
+        console.log('✅ Plano vitalício configurado - nunca expira');
+        
+      } else if (editData.tipoPlano === 'gratis') {
+        // Avaliação grátis - 7 dias a partir de hoje
+        const dataTermino = new Date(agora);
+        dataTermino.setDate(agora.getDate() + 7);
+        
+        updateObj.premium = true;
+        updateObj.tipoPlano = 'gratis';
+        updateObj.avaliacao_gratis = true;
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        updateObj.data_termino_plano_premium = dataTermino.toISOString();
+        updateObj.dias_restantes_teste_gratis = 7;
+        updateObj.dias_plano_pago = null;
+        updateObj.dias_plano_pago_restante = null;
+        console.log('✅ Avaliação grátis configurada - expira em 7 dias:', dataTermino.toISOString());
+        
+      } else if (editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') {
+        // Planos pagos - 30 dias a partir de hoje
+        const dataTermino = new Date(agora);
+        dataTermino.setDate(agora.getDate() + 30);
+        
         updateObj.premium = true;
         updateObj.tipoPlano = editData.tipoPlano;
-        updateObj.data_inicio_teste_gratis = agora.toISOString();
-        const fim = new Date(agora);
-        fim.setDate(fim.getDate() + 30);
-        updateObj.data_fim_teste_gratis = fim.toISOString();
         updateObj.avaliacao_gratis = false;
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        updateObj.data_termino_plano_premium = dataTermino.toISOString();
         updateObj.dias_plano_pago = 30;
         updateObj.dias_plano_pago_restante = 30;
-      } else if (editData.avaliacao_gratis && (!editData.tipoPlano || editData.tipoPlano === '')) {
-        // Se marcar avaliação grátis e não tiver plano, dar 7 dias de premium grátis
-        updateObj.premium = true;
-        updateObj.tipoPlano = '';
-        updateObj.data_inicio_teste_gratis = agora.toISOString();
-        const fim = new Date(agora);
-        fim.setDate(fim.getDate() + 7);
-        updateObj.data_fim_teste_gratis = fim.toISOString();
-        // Não preenche dias_plano_pago
-      } else if ((!editData.tipoPlano || editData.tipoPlano === '') && !editData.premium) {
+        updateObj.dias_restantes_teste_gratis = null;
+        console.log('✅ Plano pago configurado - expira em 30 dias:', dataTermino.toISOString());
+        
+      } else if (!editData.tipoPlano || editData.tipoPlano === '') {
         // Remover premium imediatamente
         updateObj.premium = false;
         updateObj.tipoPlano = '';
+        updateObj.avaliacao_gratis = false;
         updateObj.data_inicio_teste_gratis = null;
         updateObj.data_fim_teste_gratis = null;
-        updateObj.avaliacao_gratis = false;
+        updateObj.data_termino_plano_premium = null;
         updateObj.dias_plano_pago = 0;
         updateObj.dias_plano_pago_restante = 0;
+        updateObj.dias_restantes_teste_gratis = null;
+        console.log('❌ Premium removido - usuário sem plano');
       }
+
+      console.log('📤 Enviando para Firestore:', updateObj);
+
+      // Salvar todas as alterações
       await updateDoc(docRef, updateObj)
+      
+      // Atualizar estado local
       setEstabelecimentos(estabelecimentos.map(e => e.id === editData.id ? { ...e, ...updateObj } : e))
       setShowEditModal(false)
       setSelected(null)
-      toast({ title: 'Estabelecimento atualizado!', status: 'success', duration: 2500, isClosable: true })
+      
+      // Toast de sucesso com informações do plano
+      let mensagemPlano = '';
+      if (updateObj.tipoPlano === 'vitalicio') {
+        mensagemPlano = 'Plano vitalício ativado - nunca expira';
+      } else if (updateObj.tipoPlano === 'gratis') {
+        const dataTermino = updateObj.data_termino_plano_premium ? new Date(updateObj.data_termino_plano_premium).toLocaleDateString('pt-BR') : '7 dias';
+        mensagemPlano = `Avaliação grátis ativada - expira em ${dataTermino}`;
+      } else if (updateObj.tipoPlano === 'individual' || updateObj.tipoPlano === 'empresa') {
+        const dataTermino = updateObj.data_termino_plano_premium ? new Date(updateObj.data_termino_plano_premium).toLocaleDateString('pt-BR') : '30 dias';
+        mensagemPlano = `Plano ${updateObj.tipoPlano} ativado - expira em ${dataTermino}`;
+      } else {
+        mensagemPlano = 'Premium removido - acesso limitado';
+      }
+      
+      toast({ 
+        title: 'Estabelecimento atualizado!', 
+        description: mensagemPlano,
+        status: 'success', 
+        duration: 4000, 
+        isClosable: true 
+      })
+      
     } catch (err) {
       console.log('Erro ao atualizar estabelecimento:', err)
       toast({ title: 'Erro ao atualizar', status: 'error', duration: 3000, isClosable: true })
@@ -467,32 +509,41 @@ const EstablishmentsContent = () => {
                 <Th>Nome</Th>
                   <Th>Plano</Th>
                 <Th>Status</Th>
-                  <Th>Término do plano</Th>
+                  <Th>Dias Restantes</Th>
+                  <Th>Data de Término</Th>
                   <Th>Email</Th>
                 <Th>Ações</Th>
               </Tr>
             </Thead>
             <Tbody>
                 {loading ? (
-                  <Tr><Td colSpan={6}>Carregando...</Td></Tr>
+                  <Tr><Td colSpan={7}>Carregando...</Td></Tr>
                 ) : estabelecimentos.length === 0 ? (
-                  <Tr><Td colSpan={6}>Nenhum estabelecimento encontrado</Td></Tr>
+                  <Tr><Td colSpan={7}>Nenhum estabelecimento encontrado</Td></Tr>
                 ) : (
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
                       <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'vitalicio' ? 'Vitalício' : estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}</Td>
                       <Td>
-                        {estab.premium ? (
-                          <Badge colorScheme="green">Premium</Badge>
-                        ) : estab.data_inicio_teste_gratis ? (
-                          <Badge colorScheme="yellow">Teste Grátis</Badge>
+                        {estab.tipoPlano && estab.tipoPlano !== '' ? (
+                          estab.tipoPlano === 'gratis' && estab.data_inicio_teste_gratis ? (
+                            <Badge colorScheme="yellow">Teste Grátis</Badge>
+                          ) : (
+                            <Badge colorScheme="green">Premium</Badge>
+                          )
                         ) : (
                           <Badge colorScheme="red">Inativo</Badge>
                         )}
                   </Td>
                   <Td>
-                        {getDiasRestantes(estab) !== null ? getDiasRestantes(estab) : '-'}
+                        {getDiasRestantes(estab)}
+                  </Td>
+                  <Td>
+                        {estab.data_termino_plano_premium ? 
+                          formatarDataTermino(estab.data_termino_plano_premium) : 
+                          estab.tipoPlano === 'vitalicio' ? 'Nunca' : '-'
+                        }
                   </Td>
                       <Td>{estab.email}</Td>
                   <Td>
@@ -591,6 +642,7 @@ const EstablishmentsContent = () => {
                         <option value="individual">Individual</option>
                         <option value="empresa">Empresa</option>
                         <option value="vitalicio">Vitalício</option>
+                        <option value="gratis">Avaliação Grátis</option>
                       </Select>
                       <Box>
                         <Text fontSize="sm" mb={1} fontWeight="semibold">Status Premium</Text>
@@ -603,7 +655,6 @@ const EstablishmentsContent = () => {
                         </Select>
                       </Box>
                     </SimpleGrid>
-                    <Checkbox isChecked={editData.avaliacao_gratis} onChange={e => handleEditChange('avaliacao_gratis', e.target.checked)}>Avaliação Grátis</Checkbox>
 
                     <Button colorScheme="blue" isLoading={editLoading} onClick={handleEditSave}>Salvar Alterações</Button>
                   </>

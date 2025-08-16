@@ -118,8 +118,8 @@ const ConfiguracoesAdmin = () => {
           slug: data.slug || ""
         }))
         
-        // Verificar se tem qualquer plano ativo (premium = true OU qualquer tipoPlano)
-        const hasAnyPlan = data.premium === true || data.tipoPlano;
+        // Verificar se tem qualquer plano ativo (premium = true OU qualquer tipoPlano, incluindo grátis)
+        const hasAnyPlan = data.premium === true || (data.tipoPlano && data.tipoPlano !== '');
         setIsPremium(hasAnyPlan)
         setTipoPlano(data.tipoPlano || null)
         
@@ -153,6 +153,11 @@ const ConfiguracoesAdmin = () => {
           isPremium: hasAnyPlan,
           corPrincipal: data.aparenciaAgendamento?.corPrincipal
         });
+        
+        // Log específico para plano grátis
+        if (data.tipoPlano === 'gratis') {
+          console.log('✅ Usuário com plano grátis detectado - acesso liberado para link personalizado e aparência');
+        }
       }
     }
     fetchConta()
@@ -646,7 +651,7 @@ const ConfiguracoesAdmin = () => {
         <Container maxW="container.xl">
           <HStack spacing={0} overflowX="auto" py={4}>
             {tabs.map((tab) => {
-              const hasAnyPlan = isPremium || tipoPlano;
+              const hasAnyPlan = isPremium || (tipoPlano && tipoPlano !== '');
               const isDisabled = tab.premiumRequired && !hasAnyPlan;
               return (
                 <Button
@@ -1119,31 +1124,7 @@ const ConfiguracoesAdmin = () => {
           {/* Aparência e Identidade */}
           {activeTab === "appearance" && (
             <VStack spacing={8} align="stretch">
-              {!isPremium && !tipoPlano ? (
-                <Card>
-                  <CardBody>
-                    <Center py={12}>
-                      <VStack spacing={6} textAlign="center">
-                        <Box fontSize="4xl">🎨</Box>
-                        <Heading size="lg">Funcionalidade Premium</Heading>
-                        <Text color="gray.600" maxW="md">
-                          A personalização de aparência e identidade está disponível apenas para usuários Premium.
-                          Ative o Premium para personalizar cores, mensagens e identidade visual do seu agendamento.
-                        </Text>
-                        <Button
-                          colorScheme="purple"
-                          size="lg"
-                          onClick={() => {
-                            window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`;
-                          }}
-                        >
-                          Ativar Premium
-                        </Button>
-                      </VStack>
-                    </Center>
-                  </CardBody>
-                </Card>
-              ) : (
+              {(isPremium || (tipoPlano && tipoPlano !== '')) ? (
                 <Card>
                   <CardHeader>
                     <HStack spacing={3}>
@@ -1321,6 +1302,30 @@ const ConfiguracoesAdmin = () => {
                         </Flex>
                       </CardBody>
                     </Card>
+                  </CardBody>
+                </Card>
+              ) : (
+                <Card>
+                  <CardBody>
+                    <Center py={12}>
+                      <VStack spacing={6} textAlign="center">
+                        <Box fontSize="4xl">🎨</Box>
+                        <Heading size="lg">Funcionalidade Premium</Heading>
+                        <Text color="gray.600" maxW="md">
+                          A personalização de aparência e identidade está disponível apenas para usuários Premium.
+                          Ative o Premium para personalizar cores, mensagens e identidade visual do seu agendamento.
+                        </Text>
+                        <Button
+                          colorScheme="purple"
+                          size="lg"
+                          onClick={() => {
+                            window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`;
+                          }}
+                        >
+                          Ativar Premium
+                        </Button>
+                      </VStack>
+                    </Center>
                   </CardBody>
                 </Card>
               )}
