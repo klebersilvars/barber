@@ -20,6 +20,7 @@ import {
   Clock
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
+import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
 
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth";
@@ -515,15 +516,27 @@ export default function DashboardUser() {
   return (
     <div className="dashboard-container">
       {/* Drawer lateral do menu mobile */}
-      <Drawer isOpen={isOpen} onClose={onClose} placement="left">
+      <Drawer isOpen={isOpen} onClose={onClose} placement="left" size="md">
         <DrawerOverlay />
         <DrawerContent bg={bgColor} color={textColor}>
           <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px" pb={4}>
-            <VStack align="center">
+          <DrawerHeader borderBottomWidth="1px" pb={4} minHeight="140px" display="flex" alignItems="center" justifyContent="center">
+            <VStack align="center" spacing={4}>
               <HStack spacing={3}>
-              <Scissors className="logo-icon" />
-                <Heading size="md">Trezu</Heading>
+                <img 
+                  src={trezuLogo} 
+                  alt="Trezu Logo" 
+                  className="logo-icon-no-bg"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallback = target.parentNode?.querySelector('.logo-fallback');
+                    if (fallback) {
+                      (fallback as HTMLElement).style.display = 'block';
+                    }
+                  }}
+                />
+                <Scissors className="logo-icon logo-fallback" style={{ display: 'none' }} />
               </HStack>
             </VStack>
           </DrawerHeader>
@@ -599,8 +612,20 @@ export default function DashboardUser() {
         <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
           <div className="sidebar-header">
             <div className="logo">
-              <Scissors className="logo-icon" />
-              {!sidebarCollapsed && <span>Trezu</span>}
+              <img 
+                src={trezuLogo} 
+                alt="Trezu Logo" 
+                className="logo-icon-no-bg"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const fallback = target.parentNode?.querySelector('.logo-fallback');
+                  if (fallback) {
+                    (fallback as HTMLElement).style.display = 'block';
+                  }
+                }}
+              />
+              <Scissors className="logo-icon logo-fallback" style={{ display: 'none' }} />
             </div>
             <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
               <ChevronRight className={sidebarCollapsed ? "" : "rotated"} />
@@ -664,9 +689,10 @@ export default function DashboardUser() {
             borderBottom="1px"
             borderColor={borderColor}
             px={4}
-            py={3}
+            py={4}
             alignItems="center"
             justifyContent="space-between"
+            minHeight="100px"
           >
             <HStack spacing={3}>
               <IconButton
@@ -677,10 +703,22 @@ export default function DashboardUser() {
                 color={textColor}
                 _hover={{ bg: borderColor }}
               />
-              <HStack spacing={2}>
-                <Scissors size={24} />
-                <Text fontWeight="bold" fontSize="lg">Trezu</Text>
-              </HStack>
+              <div className="header-mobile-logo">
+                <img 
+                  src={trezuLogo} 
+                  alt="Trezu Logo" 
+                  className="header-logo-no-bg"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallback = target.parentNode?.querySelector('.header-fallback');
+                    if (fallback) {
+                      (fallback as HTMLElement).style.display = 'block';
+                    }
+                  }}
+                />
+                <Scissors className="header-logo header-fallback" style={{ display: 'none' }} />
+              </div>
             </HStack>
             <VStack spacing={0} align="end">
               <Text fontSize="sm" fontWeight="medium" color={textColor}>

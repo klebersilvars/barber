@@ -57,23 +57,62 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 140px;
 }
 
+/* Ajustar o container da logo para acomodar o tamanho maior */
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   font-weight: 700;
   font-size: 20px;
   color: #5d3fd3;
+  width: 100%;
+  min-height: 120px;
+  position: relative;
 }
 
 .logo-icon {
-  width: 24px;
-  height: 24px;
-  color: #5d3fd3;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(246deg) brightness(104%) contrast(97%);
 }
 
+/* Logo específico para o header mobile */
+.header-logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(246deg) brightness(104%) contrast(97%);
+}
+
+/* Logo sem fundo - apenas o texto */
+.logo-icon-no-bg {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(246deg) brightness(104%) contrast(97%);
+}
+
+.header-logo-no-bg {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(246deg) brightness(104%) contrast(97%);
+}
+
+/* Fallbacks para os logos */
+.logo-fallback {
+  display: none;
+}
+
+.header-fallback {
+  display: none;
+}
+
+/* Ajustar o botão de toggle para ficar dentro do container */
 .sidebar-toggle {
   background: none;
   border: none;
@@ -81,6 +120,11 @@
   padding: 8px;
   border-radius: 6px;
   transition: background-color 0.2s;
+  position: absolute;
+  right: 10px;
+  top: 5%;
+  transform: translateY(-50%);
+  z-index: 10;
 }
 
 .sidebar-toggle:hover {
@@ -822,7 +866,7 @@
 
 /* Menu mobile */
 .dashboard-mobile-menu {
-  width: 260px;
+  width: 280px;
   height: 100%;
   background: #fff;
   box-shadow: 2px 0 12px rgba(0,0,0,0.10);
@@ -838,6 +882,16 @@
 
 .dashboard-mobile-menu.open {
   transform: translateX(0);
+}
+
+/* Ajustar o header do drawer mobile */
+.dashboard-mobile-menu .drawer-header {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 /* Itens do menu mobile */
@@ -880,5 +934,14 @@
     margin-left: 0;
     width: 100%;
   }
+}
+  
+/* Header mobile específico */
+.header-mobile-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  padding: 10px 0;
 }
   
