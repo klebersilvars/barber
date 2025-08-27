@@ -40,6 +40,7 @@ import "./agendaCliente.css"
 import { firestore } from "../../../firebase/firebase"
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore"
 import PageErro from '../../pageErro/pageErro'
+import { useNavigate } from "react-router-dom"
 
 const AgendaCliente = () => {
   const { slug } = useParams()
@@ -217,6 +218,8 @@ const AgendaCliente = () => {
       setCurrentStep(currentStep + 1)
     }
   }
+
+  const navigate = useNavigate()
 
   const handlePrevStep = () => {
     if (currentStep > 1) {
@@ -617,6 +620,9 @@ const AgendaCliente = () => {
           <span className="cliente-logo-text">
             {establishment?.nomeEstabelecimento || 'Trezu'}
           </span>
+          <button onClick={()=>navigate('/verAgendamento')} className="cliente-logo-text">
+            Ver meus agendamentos
+          </button>
         </div>
       </header>
 
