@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import {
   Box,
   Button,
@@ -35,7 +35,16 @@ import {
   Stat,
   StatLabel,
   StatNumber,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from "@chakra-ui/react"
+
+
+import { firestore } from '../../../firebase/firebase'
+import {query, where, collection, onSnapshot, doc, updateDoc} from 'firebase/firestore'
+
 import {
   HamburgerIcon,
   PhoneIcon,
@@ -55,17 +64,43 @@ interface Agendamento {
   servico: string
   status: "confirmado" | "concluido" | "cancelado"
   avaliacao?: number
+  categoriaServico?: string
+  clientName?: string
+  clientPhone?: string
+  professional?: string
+  price?: number
+  paymentMethod?: string
+  notes?: string
+  createdAt?: any
 }
 
 export default function VerAgendamento() {
   const [telefone, setTelefone] = useState("")
+  const unsubscribeRef = useRef<null | (() => void)>(null)
   const [mostrarAgendamentos, setMostrarAgendamentos] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [secaoAtiva, setSecaoAtiva] = useState("agendamentos")
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState("")
   const [avaliacaoSelecionada, setAvaliacaoSelecionada] = useState<{ [key: string]: number }>({})
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
+  const [agendamentosAntigos, setAgendamentosAntigos] = useState<Agendamento[]>([])
+  const [notificacao, setNotificacao] = useState<{ tipo: 'success' | 'error', mensagem: string, visivel: boolean }>({
+    tipo: 'success',
+    mensagem: '',
+    visivel: false
+  })
   const toast = useToast()
+
+  // Função para mostrar notificação elegante
+  const mostrarNotificacao = (tipo: 'success' | 'error', mensagem: string) => {
+    setNotificacao({ tipo, mensagem, visivel: true })
+    
+    // Esconde a notificação após 4 segundos
+    setTimeout(() => {
+      setNotificacao(prev => ({ ...prev, visivel: false }))
+    }, 4000)
+  }
 
   const bgGradient = useColorModeValue(
     "linear(to-br, blue.50, purple.50, pink.50)",
@@ -75,48 +110,45 @@ export default function VerAgendamento() {
   const headerBg = useColorModeValue("linear(to-r, blue.500, purple.500)", "linear(to-r, blue.600, purple.600)")
   const accentColor = useColorModeValue("purple.500", "purple.300")
 
-  const [agendamentos] = useState<Agendamento[]>([
-    {
-      id: "1",
-      data: "2024-01-15",
-      hora: "14:30",
-      servico: "Corte de Cabelo",
-      status: "confirmado",
-    },
-    {
-      id: "2",
-      data: "2024-01-20",
-      hora: "16:00",
-      servico: "Manicure",
-      status: "confirmado",
-    },
-  ])
+  // Função para verificar se um agendamento já passou
+  const isAgendamentoPassado = (data: string, hora: string): boolean => {
+    if (!data || !hora) return false
+    
+    const hoje = new Date()
+    const dataAgendamento = new Date(`${data}T${hora}`)
+    
+    return dataAgendamento < hoje
+  }
 
-  const [agendamentosAntigos] = useState<Agendamento[]>([
-    {
-      id: "3",
-      data: "2023-12-10",
-      hora: "15:00",
-      servico: "Corte de Cabelo",
-      status: "concluido",
-      avaliacao: 5,
-    },
-    {
-      id: "4",
-      data: "2023-11-25",
-      hora: "10:30",
-      servico: "Pedicure",
-      status: "concluido",
-      avaliacao: 4,
-    },
-    {
-      id: "5",
-      data: "2023-11-15",
-      hora: "14:00",
-      servico: "Massagem",
-      status: "cancelado",
-    },
-  ])
+  // Função para mapear dados do Firestore para o formato do componente
+  const mapearDadosFirestore = (doc: any): Agendamento => {
+    const data = doc.data()
+    const dataAgendamento = data.date || ""
+    const horaAgendamento = data.time || ""
+    
+    // Determina o status baseado na data
+    let status: "confirmado" | "concluido" | "cancelado" = "confirmado"
+    if (isAgendamentoPassado(dataAgendamento, horaAgendamento)) {
+      status = "concluido" // Agendamentos passados são considerados concluídos
+    }
+    
+    return {
+      id: doc.id,
+      data: dataAgendamento,
+      hora: horaAgendamento,
+      servico: data.service || "",
+      status: status,
+      avaliacao: data.avaliacao || undefined, // Carrega a avaliação do banco
+      categoriaServico: data.categoriaServico || "",
+      clientName: data.clientName || "",
+      clientPhone: data.clientPhone || "",
+      professional: data.professional || "",
+      price: data.price || 0,
+      paymentMethod: data.paymentMethod || "",
+      notes: data.notes || "",
+      createdAt: data.createdAt || null,
+    }
+  }
 
   const buscarAgendamentos = async () => {
     if (!telefone.trim()) {
@@ -132,17 +164,65 @@ export default function VerAgendamento() {
     setCarregando(true)
     setErro("")
 
-    // Simular chamada de API
-    setTimeout(() => {
+    const telefoneLimpo = telefone.replace(/\D/g, "")
+    
+    // Cancela inscrição anterior para não acumular listeners
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current()
+      unsubscribeRef.current = null
+    }
+
+    try {
+      // Busca agendamentos atuais na coleção 'agendaAdmin'
+      const qAtuais = query(collection(firestore, 'agendaAdmin'), where('clientPhone', '==', telefoneLimpo))
+      const qHistorico = query(collection(firestore, 'historicoAgendamentoFinalizadoAdmin'), where('clientPhone', '==', telefoneLimpo))
+      
+      // Listener para agendamentos atuais
+      const unsubscribeAtuais = onSnapshot(qAtuais, (querySnapshot) => {
+        console.log('Query atuais - docs encontrados:', querySnapshot.docs.length)
+        console.log('Query atuais - telefone buscado:', telefoneLimpo)
+        const todosAgendamentos = querySnapshot.docs.map(mapearDadosFirestore)
+        
+        // Filtra apenas agendamentos futuros (status confirmado)
+        const agendamentosFuturos = todosAgendamentos.filter(ag => ag.status === "confirmado")
+        console.log('agendamentos futuros:', agendamentosFuturos)
+        setAgendamentos(agendamentosFuturos)
+        
+        // Log de agendamentos passados para debug
+        const agendamentosPassados = todosAgendamentos.filter(ag => ag.status === "concluido")
+        if (agendamentosPassados.length > 0) {
+          console.log('Agendamentos passados encontrados:', agendamentosPassados)
+        }
+      }, (error) => {
+        console.error('Erro ao buscar agendamentos atuais:', error)
+      })
+      
+      // Listener para histórico
+      const unsubscribeHistorico = onSnapshot(qHistorico, (querySnapshot) => {
+        console.log('Query histórico - docs encontrados:', querySnapshot.docs.length)
+        console.log('Query histórico - telefone buscado:', telefoneLimpo)
+        const agendamentosHistorico = querySnapshot.docs.map(mapearDadosFirestore)
+        console.log('agendamentos histórico:', agendamentosHistorico)
+        setAgendamentosAntigos(agendamentosHistorico)
+      }, (error) => {
+        console.error('Erro ao buscar histórico:', error)
+      })
+      
+      // Combina os dois listeners
+      unsubscribeRef.current = () => {
+        unsubscribeAtuais()
+        unsubscribeHistorico()
+      }
+      
       setMostrarAgendamentos(true)
       setCarregando(false)
-      toast({
-        title: "Agendamentos encontrados!",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      })
-    }, 1500)
+      
+      mostrarNotificacao('success', "Agendamentos encontrados!")
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos:', error)
+      setCarregando(false)
+      mostrarNotificacao('error', "Erro ao buscar agendamentos")
+    }
   }
 
   const formatarTelefone = (valor: string) => {
@@ -159,17 +239,60 @@ export default function VerAgendamento() {
     if (erro) setErro("")
   }
 
-  const avaliarAtendimento = (agendamentoId: string, nota: number) => {
-    setAvaliacaoSelecionada((prev) => ({
-      ...prev,
-      [agendamentoId]: nota,
-    }))
-    toast({
-      title: `Avaliação de ${nota} estrelas registrada!`,
-      status: "success",
-      duration: 2000,
-      isClosable: true,
-    })
+  const avaliarAtendimento = async (agendamentoId: string, nota: number) => {
+    try {
+      // Atualiza o estado local imediatamente para feedback visual
+      setAvaliacaoSelecionada((prev) => ({
+        ...prev,
+        [agendamentoId]: nota,
+      }))
+
+      // Atualiza o estado dos agendamentos antigos imediatamente
+      setAgendamentosAntigos(prev => 
+        prev.map(ag => 
+          ag.id === agendamentoId 
+            ? { ...ag, avaliacao: nota }
+            : ag
+        )
+      )
+
+      // Busca o documento no Firestore para atualizar
+      const docRef = doc(firestore, 'historicoAgendamentoFinalizadoAdmin', agendamentoId)
+      await updateDoc(docRef, {
+        avaliacao: nota,
+        dataAvaliacao: new Date().toISOString()
+      })
+
+      // Remove do estado de avaliação selecionada após salvar com sucesso
+      setTimeout(() => {
+        setAvaliacaoSelecionada((prev) => {
+          const newState = { ...prev }
+          delete newState[agendamentoId]
+          return newState
+        })
+      }, 2000)
+
+      mostrarNotificacao('success', `Avaliação de ${nota} estrelas registrada com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao salvar avaliação:', error)
+      
+      // Reverte as mudanças em caso de erro
+      setAvaliacaoSelecionada((prev) => {
+        const newState = { ...prev }
+        delete newState[agendamentoId]
+        return newState
+      })
+      
+      setAgendamentosAntigos(prev => 
+        prev.map(ag => 
+          ag.id === agendamentoId 
+            ? { ...ag, avaliacao: undefined }
+            : ag
+        )
+      )
+      
+      mostrarNotificacao('error', "Erro ao salvar avaliação. Tente novamente em alguns instantes.")
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -212,7 +335,7 @@ export default function VerAgendamento() {
             variant="ghost"
             color={star <= avaliacao ? "yellow.400" : "gray.300"}
             onClick={() => avaliarAtendimento(agendamentoId, star)}
-            isDisabled={!!avaliacaoAtual}
+            isDisabled={!!avaliacaoAtual} // Desabilita se já foi avaliado
             _hover={{ transform: "scale(1.1)" }}
             transition="all 0.2s"
           />
@@ -233,6 +356,39 @@ export default function VerAgendamento() {
         position="relative"
         overflow="hidden"
       >
+        {/* Notificação elegante do Chakra UI */}
+        {notificacao.visivel && (
+          <Box
+            position="fixed"
+            top="20px"
+            right="20px"
+            zIndex={9999}
+            maxW="400px"
+            w="full"
+            animation="slideInRight 0.4s ease-out"
+          >
+            <Alert
+              status={notificacao.tipo}
+              variant="solid"
+              borderRadius="xl"
+              boxShadow="2xl"
+              border="1px solid"
+              borderColor={notificacao.tipo === 'success' ? 'green.200' : 'red.200'}
+              transform="translateY(0)"
+              transition="all 0.3s ease"
+            >
+              <AlertIcon boxSize="20px" />
+              <Box>
+                <AlertTitle fontSize="md" fontWeight="bold">
+                  {notificacao.tipo === 'success' ? 'Sucesso!' : 'Atenção!'}
+                </AlertTitle>
+                <AlertDescription fontSize="sm" mt={1}>
+                  {notificacao.mensagem}
+                </AlertDescription>
+              </Box>
+            </Alert>
+          </Box>
+        )}
         <Box
           position="absolute"
           top="-50px"
@@ -306,32 +462,32 @@ export default function VerAgendamento() {
                 <FormErrorMessage fontSize="sm">{erro}</FormErrorMessage>
               </FormControl>
 
-              <Button
-                onClick={buscarAgendamentos}
-                isLoading={carregando}
-                loadingText="Buscando agendamentos..."
-                bgGradient="linear(to-r, blue.500, purple.500)"
-                color="white"
-                size="lg"
-                w="full"
-                borderRadius="xl"
-                leftIcon={<SearchIcon />}
-                _hover={{
-                  bgGradient: "linear(to-r, blue.600, purple.600)",
-                  transform: "translateY(-2px)",
-                  shadow: "lg",
-                }}
-                _active={{ transform: "translateY(0)" }}
-                transition="all 0.2s"
-                fontWeight="semibold"
-              >
-                Buscar Agendamentos
-              </Button>
+                             <Button
+                 onClick={buscarAgendamentos}
+                 isLoading={carregando}
+                 loadingText="Buscando agendamentos..."
+                 bgGradient="linear(to-r, blue.500, purple.500)"
+                 color="white"
+                 size="lg"
+                 w="full"
+                 borderRadius="xl"
+                 leftIcon={<SearchIcon />}
+                 _hover={{
+                   bgGradient: "linear(to-r, blue.600, purple.600)",
+                   transform: "translateY(-2px)",
+                   shadow: "lg",
+                 }}
+                 _active={{ transform: "translateY(0)" }}
+                 transition="all 0.2s"
+                 fontWeight="semibold"
+               >
+                 Buscar Agendamentos
+               </Button>
             </VStack>
           </CardBody>
         </Card>
 
-        <style jsx>{`
+        <style>{`
           @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-20px); }
@@ -342,7 +498,40 @@ export default function VerAgendamento() {
   }
 
   return (
-    <Box minH="100vh" bgGradient={bgGradient}>
+    <Box minH="100vh" bgGradient={bgGradient} position="relative">
+      {/* Notificação elegante do Chakra UI */}
+      {notificacao.visivel && (
+        <Box
+          position="fixed"
+          top="20px"
+          right="20px"
+          zIndex={9999}
+          maxW="400px"
+          w="full"
+          animation="slideInRight 0.4s ease-out"
+        >
+          <Alert
+            status={notificacao.tipo}
+            variant="solid"
+            borderRadius="xl"
+            boxShadow="2xl"
+            border="1px solid"
+            borderColor={notificacao.tipo === 'success' ? 'green.200' : 'red.200'}
+            transform="translateY(0)"
+            transition="all 0.3s ease"
+          >
+            <AlertIcon boxSize="20px" />
+            <Box>
+              <AlertTitle fontSize="md" fontWeight="bold">
+                {notificacao.tipo === 'success' ? 'Sucesso!' : 'Atenção!'}
+              </AlertTitle>
+              <AlertDescription fontSize="sm" mt={1}>
+                {notificacao.mensagem}
+              </AlertDescription>
+            </Box>
+          </Alert>
+        </Box>
+      )}
       <Box bgGradient={headerBg} p={4} position="sticky" top={0} zIndex={50} shadow="lg" backdropFilter="blur(10px)">
         <Flex alignItems="center">
           <IconButton
@@ -509,6 +698,16 @@ export default function VerAgendamento() {
                   <Heading size="lg" mb={4} color={accentColor}>
                     {agendamento.servico}
                   </Heading>
+                  {agendamento.professional && (
+                    <Text fontSize="sm" color="gray.600" mb={2}>
+                      Profissional: {agendamento.professional}
+                    </Text>
+                  )}
+                  {agendamento.price && (
+                    <Text fontSize="sm" color="gray.600" mb={2}>
+                      Valor: R$ {agendamento.price.toFixed(2)}
+                    </Text>
+                  )}
 
                   <SimpleGrid columns={2} spacing={4}>
                     <HStack spacing={3} p={3} bg="blue.50" borderRadius="xl">
@@ -573,9 +772,9 @@ export default function VerAgendamento() {
                       <Text textTransform="capitalize">{agendamento.status}</Text>
                     </Badge>
                     {agendamento.avaliacao && (
-                      <HStack bg="yellow.50" px={3} py={1} borderRadius="full">
-                        <StarIcon color="yellow.400" />
-                        <Text fontSize="sm" fontWeight="semibold">
+                      <HStack bg="green.50" px={3} py={1} borderRadius="full">
+                        <StarIcon color="green.400" />
+                        <Text fontSize="sm" fontWeight="semibold" color="green.600">
                           {agendamento.avaliacao}/5
                         </Text>
                       </HStack>
@@ -585,6 +784,16 @@ export default function VerAgendamento() {
                   <Heading size="md" mb={4} color={accentColor}>
                     {agendamento.servico}
                   </Heading>
+                  {agendamento.professional && (
+                    <Text fontSize="sm" color="gray.600" mb={2}>
+                      Profissional: {agendamento.professional}
+                    </Text>
+                  )}
+                  {agendamento.price && (
+                    <Text fontSize="sm" color="gray.600" mb={2}>
+                      Valor: R$ {agendamento.price.toFixed(2)}
+                    </Text>
+                  )}
 
                   <SimpleGrid columns={2} spacing={4}>
                     <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
@@ -602,88 +811,196 @@ export default function VerAgendamento() {
           </VStack>
         )}
 
-        {/* Avaliações */}
-        {secaoAtiva === "avaliacoes" && (
-          <VStack spacing={6} align="stretch">
-            <VStack align="start" spacing={2}>
-              <Heading size="xl" bgGradient="linear(to-r, blue.500, purple.500)" bgClip="text">
-                Avaliar Atendimentos
-              </Heading>
-              <Text color="gray.500" fontSize="lg">
-                Sua opinião é muito importante para nós
-              </Text>
-            </VStack>
+                 {/* Avaliações */}
+         {secaoAtiva === "avaliacoes" && (
+           <VStack spacing={6} align="stretch">
+             <VStack align="start" spacing={2}>
+               <Heading size="xl" bgGradient="linear(to-r, blue.500, purple.500)" bgClip="text">
+                 Avaliar Atendimentos
+               </Heading>
+               <Text color="gray.500" fontSize="lg">
+                 Avalie seus atendimentos concluídos
+               </Text>
+             </VStack>
 
-            {agendamentosAntigos
-              .filter((a) => a.status === "concluido")
-              .map((agendamento, index) => (
-                <Card
-                  key={agendamento.id}
-                  bg={cardBg}
-                  shadow="lg"
-                  borderRadius="2xl"
-                  style={{
-                    animation: `slideInUp 0.5s ease ${index * 0.1}s both`,
-                  }}
-                >
-                  <CardBody p={6}>
-                    <Heading size="md" mb={2} color={accentColor}>
-                      {agendamento.servico}
+             {/* Agendamentos para avaliar */}
+             {agendamentosAntigos.filter((a) => a.status === "concluido" && !a.avaliacao).length > 0 ? (
+               agendamentosAntigos
+                 .filter((a) => a.status === "concluido" && !a.avaliacao) // Mostra apenas agendamentos concluídos sem avaliação
+                 .map((agendamento, index) => (
+                  <Card
+                    key={agendamento.id}
+                    bg={cardBg}
+                    shadow="lg"
+                    borderRadius="2xl"
+                    style={{
+                      animation: `slideInUp 0.5s ease ${index * 0.1}s both`,
+                    }}
+                  >
+                    <CardBody p={6}>
+                      <Heading size="md" mb={2} color={accentColor}>
+                        {agendamento.servico}
+                      </Heading>
+
+                      <SimpleGrid columns={2} spacing={4} mb={6}>
+                        <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
+                          <CalendarIcon color="gray.500" />
+                          <Text fontWeight="semibold">{new Date(agendamento.data).toLocaleDateString("pt-BR")}</Text>
+                        </HStack>
+                        <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
+                          <TimeIcon color="gray.500" />
+                          <Text fontWeight="semibold">{agendamento.hora}</Text>
+                        </HStack>
+                      </SimpleGrid>
+
+                      <VStack align="start" spacing={4}>
+                        <Text fontSize="md" fontWeight="semibold" color={accentColor}>
+                          Como foi seu atendimento?
+                        </Text>
+                        <Box p={4} bg="yellow.50" borderRadius="xl" w="full">
+                          {renderStars(agendamento.id, agendamento.avaliacao)}
+                        </Box>
+                        <Text fontSize="sm" color="gray.500">
+                          Clique nas estrelas para avaliar. Sua avaliação será salva automaticamente.
+                        </Text>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                ))
+             ) : (
+               <Card bg={cardBg} shadow="lg" borderRadius="2xl">
+                 <CardBody p={8} textAlign="center">
+                   <VStack spacing={4}>
+                     <StarIcon fontSize="4xl" color="gray.400" />
+                     <Heading size="md" color="gray.600">
+                       Nenhum agendamento para avaliar
+                     </Heading>
+                     <Text color="gray.500">
+                       Todos os seus atendimentos concluídos já foram avaliados ou ainda não há agendamentos finalizados.
+                     </Text>
+                   </VStack>
+                 </CardBody>
+               </Card>
+             )}
+
+                           {/* Agendamentos já avaliados */}
+              {agendamentosAntigos.filter((a) => a.status === "concluido" && a.avaliacao).length > 0 ? (
+                <>
+                  <VStack align="start" spacing={2} mt={8}>
+                    <Heading size="lg" bgGradient="linear(to-r, green.500, blue.500)" bgClip="text">
+                      Avaliações Realizadas ({agendamentosAntigos.filter((a) => a.status === "concluido" && a.avaliacao).length})
                     </Heading>
+                    <Text color="gray.500" fontSize="md">
+                      Seus atendimentos já avaliados
+                    </Text>
+                  </VStack>
 
-                    <SimpleGrid columns={2} spacing={4} mb={6}>
-                      <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
-                        <CalendarIcon color="gray.500" />
-                        <Text fontWeight="semibold">{new Date(agendamento.data).toLocaleDateString("pt-BR")}</Text>
-                      </HStack>
-                      <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
-                        <TimeIcon color="gray.500" />
-                        <Text fontWeight="semibold">{agendamento.hora}</Text>
-                      </HStack>
-                    </SimpleGrid>
+                 {agendamentosAntigos
+                   .filter((a) => a.status === "concluido" && a.avaliacao) // Mostra apenas agendamentos concluídos com avaliação
+                   .map((agendamento, index) => (
+                     <Card
+                       key={agendamento.id}
+                       bg={cardBg}
+                       shadow="lg"
+                       borderRadius="2xl"
+                       style={{
+                         animation: `slideInUp 0.5s ease ${index * 0.1}s both`,
+                       }}
+                     >
+                                               <CardBody p={6}>
+                          <Flex justify="space-between" align="center" mb={4}>
+                            <Heading size="md" color={accentColor}>
+                              {agendamento.servico}
+                            </Heading>
+                            <HStack 
+                              bg="green.50" 
+                              px={3} 
+                              py={1} 
+                              borderRadius="full"
+                              animation={avaliacaoSelecionada[agendamento.id] ? "pulse 0.6s ease-in-out" : "none"}
+                            >
+                              <StarIcon color="green.400" />
+                              <Text fontSize="sm" fontWeight="semibold" color="green.600">
+                                {agendamento.avaliacao}/5
+                              </Text>
+                            </HStack>
+                          </Flex>
 
-                    <VStack align="start" spacing={4}>
-                      <Text fontSize="md" fontWeight="semibold" color={accentColor}>
-                        {agendamento.avaliacao ? "Sua avaliação:" : "Como foi seu atendimento?"}
-                      </Text>
-                      <Box p={4} bg="yellow.50" borderRadius="xl" w="full">
-                        {renderStars(agendamento.id, agendamento.avaliacao)}
-                      </Box>
-                      {avaliacaoSelecionada[agendamento.id] && !agendamento.avaliacao && (
-                        <Button
-                          size="md"
-                          bgGradient="linear(to-r, blue.500, purple.500)"
-                          color="white"
-                          borderRadius="xl"
-                          _hover={{
-                            bgGradient: "linear(to-r, blue.600, purple.600)",
-                            transform: "translateY(-2px)",
-                          }}
-                          transition="all 0.2s"
-                        >
-                          Enviar Avaliação
-                        </Button>
-                      )}
-                    </VStack>
-                  </CardBody>
-                </Card>
-              ))}
-          </VStack>
-        )}
+                         <SimpleGrid columns={2} spacing={4} mb={4}>
+                           <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
+                             <CalendarIcon color="gray.500" />
+                             <Text fontWeight="semibold">{new Date(agendamento.data).toLocaleDateString("pt-BR")}</Text>
+                           </HStack>
+                           <HStack spacing={3} p={3} bg="gray.50" borderRadius="xl">
+                             <TimeIcon color="gray.500" />
+                             <Text fontWeight="semibold">{agendamento.hora}</Text>
+                           </HStack>
+                         </SimpleGrid>
+
+                         <Box p={4} bg="green.50" borderRadius="xl" w="full">
+                           <HStack spacing={1} justify="center">
+                             {[1, 2, 3, 4, 5].map((star) => (
+                               <StarIcon
+                                 key={star}
+                                 color={star <= (agendamento.avaliacao || 0) ? "green.400" : "gray.300"}
+                                 fontSize="lg"
+                               />
+                             ))}
+                           </HStack>
+                         </Box>
+                       </CardBody>
+                     </Card>
+                   ))}
+               </>
+             ) : (
+               <VStack align="start" spacing={2} mt={8}>
+                 <Heading size="lg" bgGradient="linear(to-r, green.500, blue.500)" bgClip="text">
+                   Avaliações Realizadas (0)
+                 </Heading>
+                 <Text color="gray.500" fontSize="md">
+                   Você ainda não avaliou nenhum atendimento
+                 </Text>
+               </VStack>
+             )}
+           </VStack>
+         )}
       </Container>
 
-      <style jsx>{`
-        @keyframes slideInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
+                           <style>{`
+          @keyframes slideInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+          
+          @keyframes slideInRight {
+            from {
+              opacity: 0;
+              transform: translateX(100%);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
           }
-        }
-      `}</style>
+          
+          @keyframes pulse {
+            0% {
+              transform: scale(1);
+            }
+            50% {
+              transform: scale(1.05);
+            }
+            100% {
+              transform: scale(1);
+            }
+          }
+        `}</style>
     </Box>
   )
 }
