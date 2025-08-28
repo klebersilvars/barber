@@ -27,7 +27,6 @@ import {
   FormControl,
   FormLabel,
   FormErrorMessage,
-  useToast,
   useColorModeValue,
   Avatar,
   Divider,
@@ -90,7 +89,6 @@ export default function VerAgendamento() {
     mensagem: '',
     visivel: false
   })
-  const toast = useToast()
 
   // Função para mostrar notificação elegante
   const mostrarNotificacao = (tipo: 'success' | 'error', mensagem: string) => {
