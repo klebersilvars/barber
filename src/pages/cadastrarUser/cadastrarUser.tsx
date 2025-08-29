@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth, firestore } from "../../firebase/firebase"
 import { doc, setDoc } from "firebase/firestore"
 import { useNavigate } from "react-router-dom"
+import { Alert, Stack, AlertIcon, AlertTitle } from '@chakra-ui/react'
 
 export default function CadastrarUser() {
   const [email, setEmail] = useState<string>("");
@@ -15,6 +16,7 @@ export default function CadastrarUser() {
   const [nomeEstabelecimento, setNomeEstabelecimento] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showAlertCreateAccount, setShowAlertCreateAccount] = useState<boolean>(false)
   const [formData, setFormData] = useState({
     nome: "",
     email: "",
@@ -69,7 +71,7 @@ export default function CadastrarUser() {
       })
 
       setLoading(false)
-      alert("Cadastro realizado com sucesso!")
+      setShowAlertCreateAccount(true)
     } catch (error) {
       setLoading(false)
       alert("Erro ao criar conta: " + error)
@@ -84,14 +86,21 @@ export default function CadastrarUser() {
   return (
     <main className="main-signup">
       <div className="container-signup">
+      {showAlertCreateAccount && (
+          <Stack className='stack-container-chakra'>
+            <Alert status="success">
+              <AlertIcon />
+              <AlertTitle>Conta criada com sucesso!</AlertTitle>
+            </Alert>
+          </Stack>
+        )}
+        
         {/* Formulário à esquerda */}
         <div className="signup-left">
           <div className="signup-form-container">
+          
             <div className="form-header">
-              <div className="logo-small">
-                <Scissors className="scissors-icon-small" />
-                <span>CliqAgenda</span>
-              </div>
+            
               <h3>Crie sua conta</h3>
               <p className="signup-subtitle">Comece a gerenciar seu estabelecimento hoje mesmo</p>
             </div>
@@ -138,7 +147,7 @@ export default function CadastrarUser() {
                     type="email"
                     id="email"
                     name="email"
-                    onChange={(e)=> {setEmail(e.target.value)}}
+                    onChange={(e) => { setEmail(e.target.value) }}
                     placeholder="seu@email.com"
                     required
                     disabled={loading}
@@ -153,7 +162,7 @@ export default function CadastrarUser() {
                     type="text"
                     id="nomeEstabelecimento"
                     name="nomeEstabelecimento"
-                    onChange={(e)=> {setNomeEstabelecimento(e.target.value)}}
+                    onChange={(e) => { setNomeEstabelecimento(e.target.value) }}
                     placeholder="Nome do seu salão/clínica"
                     required
                     disabled={loading}
@@ -169,7 +178,7 @@ export default function CadastrarUser() {
                       type={showPassword ? "text" : "password"}
                       id="senha"
                       name="senha"
-                      onChange={(e)=> {setPassword(e.target.value)}}
+                      onChange={(e) => { setPassword(e.target.value) }}
                       placeholder="Sua senha"
                       required
                       disabled={loading}
@@ -287,15 +296,15 @@ export default function CadastrarUser() {
             <div className="stats">
               <div className="stat">
                 <span className="stat-number">10k+</span>
-                <span style={{color: 'white'}} className="stat-label">Profissionais</span>
+                <span style={{ color: 'white' }} className="stat-label">Profissionais</span>
               </div>
               <div className="stat">
                 <span className="stat-number">50k+</span>
-                <span style={{color: 'white'}} className="stat-label">Agendamentos</span>
+                <span style={{ color: 'white' }} className="stat-label">Agendamentos</span>
               </div>
               <div className="stat">
                 <span className="stat-number">98%</span>
-                <span style={{color: 'white'}} className="stat-label">Satisfação</span>
+                <span style={{ color: 'white' }} className="stat-label">Satisfação</span>
               </div>
             </div>
           </div>

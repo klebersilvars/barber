@@ -91,7 +91,7 @@ export default function Plano() {
       name: "Individual",
       description: "Para profissionais autônomos ou pequenos negócios",
       monthlyPrice: 28.90,
-      yearlyPrice: 100.0,
+      yearlyPrice: 289.00,
       popular: false,
       features: [
         "1 colaborador (você)",
@@ -114,7 +114,7 @@ export default function Plano() {
       name: "Empresa",
       description: "Para estabelecimentos em crescimento",
       monthlyPrice: 58.00,
-      yearlyPrice: 200.0,
+      yearlyPrice: 580.00,
       popular: true,
       features: [
         "Colaboradores ilimitados",

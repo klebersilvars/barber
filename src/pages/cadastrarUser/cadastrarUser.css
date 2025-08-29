@@ -88,6 +88,56 @@ body {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px
     rgba(255, 255, 255, 0.6);
 }
+/* Alerta de sucesso responsivo */
+.stack-container-chakra {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 90vw;
+  width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.stack-container-chakra .chakra-alert {
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+}
+
+.stack-container-chakra .chakra-alert__title {
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+  .stack-container-chakra {
+    top: 10px;
+    width: calc(100vw - 20px);
+    max-width: none;
+    margin: 0 10px;
+  }
+  
+  .stack-container-chakra .chakra-alert {
+    padding: 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stack-container-chakra {
+    top: 5px;
+    margin: 0 5px;
+  }
+  
+  .stack-container-chakra .chakra-alert {
+    padding: 10px;
+    font-size: 12px;
+  }
+}
 
 /* Cabeçalho do formulário */
 .form-header {
