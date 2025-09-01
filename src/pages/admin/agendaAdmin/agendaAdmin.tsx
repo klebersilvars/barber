@@ -58,7 +58,6 @@ const AgendaAdmin = () => {
   const [showFilters, setShowFilters] = useState(false)
 
   // Modal states
-  const { onOpen: onAppointmentModalOpen } = useDisclosure()
   const { onOpen: onDayModalOpen } = useDisclosure()
 
   const auth = getAuth()
@@ -76,7 +75,6 @@ const AgendaAdmin = () => {
   const [estabelecimento, setEstabelecimento] = useState("")
   
   // Responsive values
-  const isMobile = useBreakpointValue({ base: true, md: false })
   const headerDirection = useBreakpointValue({ base: 'column', md: 'row' }) as ResponsiveValue<'row' | 'column'>
   const statsColumns = useBreakpointValue({ base: 1, md: 3 }) as ResponsiveValue<number>
   

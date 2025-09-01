@@ -23,8 +23,7 @@ import {
   DollarSign,
   TrendingUp,
   Star,
-  CheckCircle,
-  AlertCircle
+  CheckCircle
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
@@ -38,7 +37,6 @@ import {
   Box, 
   Heading, 
   Text, 
-  Stack,
   Drawer,
   DrawerBody,
   DrawerHeader,
@@ -61,7 +59,6 @@ import {
   Badge,
   Flex,
   Avatar,
-  Progress,
   Divider,
   Icon
 } from "@chakra-ui/react";
@@ -96,9 +93,6 @@ export default function DashboardUser() {
 
   // Estados para dados reais do banco
   const [agendamentos, setAgendamentos] = useState<any[]>([])
-  const [colaboradores, setColaboradores] = useState<any[]>([])
-  const [vendas, setVendas] = useState<any[]>([])
-  const [clientes, setClientes] = useState<any[]>([])
   const [agendaStats, setAgendaStats] = useState({
     hoje: 0,
     amanha: 0,
@@ -325,7 +319,6 @@ export default function DashboardUser() {
         id: doc.id, 
         ...doc.data() 
       }));
-      setColaboradores(colaboradoresData);
       
       // Calcular estatísticas dos colaboradores
       const colaboradoresStatsData = colaboradoresData.map((colab: any) => {
@@ -360,7 +353,6 @@ export default function DashboardUser() {
         id: doc.id, 
         ...doc.data() 
       }));
-      setVendas(vendasData);
       
       // Calcular resumo do mês
       const mesAtual = new Date().getMonth();
@@ -393,7 +385,6 @@ export default function DashboardUser() {
     
     const unsubscribeClientes = onSnapshot(qClientes, (snapshot) => {
       const clientesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setClientes(clientesData);
       
       // Calcular clientes novos do mês atual
       const mesAtual = new Date().getMonth();
