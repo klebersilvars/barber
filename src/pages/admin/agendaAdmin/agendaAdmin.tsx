@@ -272,15 +272,6 @@ const AgendaAdmin = () => {
       {/* Header */}
       <Box bg="white" borderBottom="1px" borderColor="gray.200" p={4} position="sticky" top={0} zIndex={100} boxShadow="sm">
         <Flex direction={headerDirection} align="center" justify="space-between" gap={4}>
-          <Button
-            colorScheme="blue"
-            leftIcon={<Calendar size={16} />}
-            onClick={onAppointmentModalOpen}
-            size={isMobile ? "sm" : "md"}
-          >
-            Novo Agendamento
-          </Button>
-
           <Flex align="center" gap={3}>
             <Icon as={Calendar} boxSize={5} color="blue.500" />
             <Box>

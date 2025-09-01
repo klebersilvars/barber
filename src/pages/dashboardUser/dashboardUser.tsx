@@ -17,7 +17,14 @@ import {
   ChevronRight,
   User,
   X,
-  Clock
+  Clock,
+  Calendar,
+  Users,
+  DollarSign,
+  TrendingUp,
+  Star,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
@@ -43,8 +50,29 @@ import {
   IconButton,
   useDisclosure,
   Button,
-  useColorModeValue
+  useColorModeValue,
+  SimpleGrid,
+  Card,
+  CardBody,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  Badge,
+  Flex,
+  Avatar,
+  Progress,
+  Divider,
+  Icon
 } from "@chakra-ui/react";
+
+// Função para obter saudação baseada na hora do dia
+const getSaudacao = () => {
+  const hora = new Date().getHours();
+  if (hora >= 5 && hora < 12) return "Bom dia";
+  if (hora >= 12 && hora < 18) return "Boa tarde";
+  return "Boa noite";
+};
 
 export default function DashboardUser() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -65,6 +93,25 @@ export default function DashboardUser() {
   const [diasPlanoPagoRestante, setDiasPlanoPagoRestante] = useState<number | null>(null);
   const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
   const [dataTerminoPlano, setDataTerminoPlano] = useState<string | null>(null);
+
+  // Estados para dados reais do banco
+  const [agendamentos, setAgendamentos] = useState<any[]>([])
+  const [colaboradores, setColaboradores] = useState<any[]>([])
+  const [vendas, setVendas] = useState<any[]>([])
+  const [clientes, setClientes] = useState<any[]>([])
+  const [agendaStats, setAgendaStats] = useState({
+    hoje: 0,
+    amanha: 0,
+    semana: 0
+  })
+  const [colaboradoresStats, setColaboradoresStats] = useState<any[]>([])
+  const [resumoMes, setResumoMes] = useState({
+    faturamento: 0,
+    clientesNovos: 0,
+    servicosRealizados: 0,
+    avaliacaoMedia: 0,
+    crescimento: 0
+  })
 
   // Cores responsivas
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -227,6 +274,150 @@ export default function DashboardUser() {
       clearInterval(intervalId);
     };
   }, [uid]);
+
+  // Buscar dados reais do banco de dados
+  useEffect(() => {
+    if (!uid || !estabelecimentoNome) return;
+
+    console.log('=== CARREGANDO DADOS REAIS DO DASHBOARD ===');
+    console.log('UID:', uid);
+    console.log('Estabelecimento:', estabelecimentoNome);
+
+    // Buscar agendamentos
+    const agendamentosRef = collection(firestore, 'agendaAdmin');
+    const qAgendamentos = query(agendamentosRef, where('nomeEstabelecimento', '==', estabelecimentoNome));
+    
+    const unsubscribeAgendamentos = onSnapshot(qAgendamentos, (snapshot) => {
+      const agendamentosData: any[] = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      setAgendamentos(agendamentosData);
+      
+      // Calcular estatísticas de agenda
+      const hoje = new Date().toISOString().split('T')[0];
+      const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const inicioSemana = new Date();
+      inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
+      const fimSemana = new Date(inicioSemana);
+      fimSemana.setDate(fimSemana.getDate() + 6);
+      
+      const agendamentosHoje = agendamentosData.filter((ag: any) => ag.date === hoje && ag.status === 'confirmado').length;
+      const agendamentosAmanha = agendamentosData.filter((ag: any) => ag.date === amanha && ag.status === 'confirmado').length;
+      const agendamentosSemana = agendamentosData.filter((ag: any) => {
+        const dataAgendamento = new Date(ag.date);
+        return dataAgendamento >= inicioSemana && dataAgendamento <= fimSemana && ag.status === 'confirmado';
+      }).length;
+      
+      setAgendaStats({
+        hoje: agendamentosHoje,
+        amanha: agendamentosAmanha,
+        semana: agendamentosSemana
+      });
+    });
+
+    // Buscar colaboradores
+    const colaboradoresRef = collection(firestore, 'colaboradores');
+    const qColaboradores = query(colaboradoresRef, where('createdBy', '==', uid));
+    
+    const unsubscribeColaboradores = onSnapshot(qColaboradores, (snapshot) => {
+      const colaboradoresData: any[] = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      setColaboradores(colaboradoresData);
+      
+      // Calcular estatísticas dos colaboradores
+      const colaboradoresStatsData = colaboradoresData.map((colab: any) => {
+        const agendamentosColab = agendamentos.filter((ag: any) => 
+          ag.professional === colab.nome && 
+          ag.date === new Date().toISOString().split('T')[0] &&
+          ag.status === 'confirmado'
+        ).length;
+        
+        // Mock do valor a receber (pode ser calculado baseado em comissões reais)
+        const valorReceber = agendamentosColab * 50; // R$ 50 por agendamento
+        
+        return {
+          id: colab.id,
+          nome: colab.nome,
+          avatar: colab.avatar,
+          agendamentos: agendamentosColab,
+          valorReceber: valorReceber,
+          status: 'online' // Mock - pode ser baseado em último login
+        };
+      });
+      
+      setColaboradoresStats(colaboradoresStatsData);
+    });
+
+    // Buscar vendas
+    const vendasRef = collection(firestore, 'vendas');
+    const qVendas = query(vendasRef, where('empresaUid', '==', uid));
+    
+    const unsubscribeVendas = onSnapshot(qVendas, (snapshot) => {
+      const vendasData: any[] = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      setVendas(vendasData);
+      
+      // Calcular resumo do mês
+      const mesAtual = new Date().getMonth();
+      const anoAtual = new Date().getFullYear();
+      
+      const vendasMes = vendasData.filter((venda: any) => {
+        const dataVenda = venda.dataVenda?.toDate ? venda.dataVenda.toDate() : new Date(venda.dataVenda);
+        return dataVenda.getMonth() === mesAtual && dataVenda.getFullYear() === anoAtual;
+      });
+      
+      const faturamento = vendasMes.reduce((total: number, venda: any) => total + (venda.precoTotal || 0), 0);
+      const servicosRealizados = vendasMes.length;
+      
+      // Mock para outros dados
+      const avaliacaoMedia = 4.5 + Math.random() * 0.5; // Mock entre 4.5 e 5.0
+      const crescimento = Math.floor(Math.random() * 20) + 5; // Mock entre 5% e 25%
+      
+      setResumoMes(prev => ({
+        ...prev,
+        faturamento,
+        servicosRealizados,
+        avaliacaoMedia: parseFloat(avaliacaoMedia.toFixed(1)),
+        crescimento
+      }));
+    });
+
+    // Buscar clientes
+    const clientesRef = collection(firestore, 'clienteUser');
+    const qClientes = query(clientesRef, where('cadastradoPor', '==', uid));
+    
+    const unsubscribeClientes = onSnapshot(qClientes, (snapshot) => {
+      const clientesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setClientes(clientesData);
+      
+      // Calcular clientes novos do mês atual
+      const mesAtual = new Date().getMonth();
+      const anoAtual = new Date().getFullYear();
+      
+      const clientesNovos = clientesData.filter((cliente: any) => {
+        const dataCadastro = cliente.criadoEm?.toDate ? cliente.criadoEm.toDate() : new Date(cliente.criadoEm);
+        return dataCadastro.getMonth() === mesAtual && dataCadastro.getFullYear() === anoAtual;
+      }).length;
+      
+      // Atualizar resumo do mês com dados reais de clientes
+      setResumoMes(prev => ({
+        ...prev,
+        clientesNovos: clientesNovos
+      }));
+    });
+
+    return () => {
+      unsubscribeAgendamentos();
+      unsubscribeColaboradores();
+      unsubscribeVendas();
+      unsubscribeClientes();
+    };
+  }, [uid, estabelecimentoNome]);
 
   // Função para ativar o teste grátis
   const ativarTesteGratis = async () => {
@@ -731,37 +922,210 @@ export default function DashboardUser() {
           </Box>
 
           {location.pathname === `/dashboard/${uid}` || location.pathname === `/dashboard/${uid}/` ? (
-            <Box maxW="md" mx="auto" mt={12} p={8} borderRadius="lg" boxShadow="lg" bg="white" textAlign="center">
-              <Heading as="h1" size="lg" mb={6} color="purple.700">
-                Bem-vindo à tela de administração do salão!
-              </Heading>
-              <Stack spacing={2} align="center">
-                <Text fontSize="xl" fontWeight="bold">
-                  Tipo de Plano: <Text as="span" color="purple.500" fontWeight="extrabold">{
-                    tipoPlano === 'vitalicio' ? 'Vitalício' :
-                    tipoPlano === 'gratis' ? 'Avaliação' : 
-                    (tipoPlano === '' ? 'Grátis' : 
-                    (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'))
-                  }</Text>
+            <Box p={{ base: 4, md: 8 }} w="100%" overflow="auto" maxH="100vh">
+              {/* Header com Saudação */}
+              <Box mb={8}>
+                <Heading as="h1" size="2xl" color="purple.700" mb={2}>
+                  {getSaudacao()}, {estabelecimentoNome || 'Proprietário'}! 👋
+                </Heading>
+                <Text fontSize="lg" color="gray.600">
+                  Aqui está o resumo do seu salão hoje
                 </Text>
-                <Text fontSize="xl" fontWeight="bold">
-                  Data de Término:
-                  <Text as="span" color="green.500" fontWeight="extrabold">
-                    {dataTerminoPlano ? formatarDataTermino(dataTerminoPlano) : '-'}
-                  </Text>
-                </Text>
-              </Stack>
-              {!isPremium && (
-                <>
-                  <p style={{ fontSize: 18, color: '#6366f1', marginBottom: 32 }}>
-                    Para liberar todos os recursos, ative o <strong>Premium</strong> agora mesmo e tenha acesso completo à plataforma.
-                  </p>
-                  <button className="btn-primary" style={{ fontSize: 18, padding: '12px 32px' }} onClick={() => navigate(`/dashboard/${uid}/plano`)}>
-                    Ativar Premium
-                  </button>
-                </>
-              )}
-              
+              </Box>
+
+              {/* Cards de Agenda */}
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+                <Card bg="blue.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                  <CardBody p={6}>
+                    <Flex justify="space-between" align="center">
+                      <Stat>
+                        <StatLabel color="blue.100" fontSize="sm">Agenda de Hoje</StatLabel>
+                        <StatNumber fontSize="3xl">{agendaStats.hoje}</StatNumber>
+                        <StatHelpText color="blue.200">Agendamentos</StatHelpText>
+                      </Stat>
+                      <Icon as={Calendar} w={8} h={8} color="blue.200" />
+                    </Flex>
+                  </CardBody>
+                </Card>
+
+                <Card bg="green.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                  <CardBody p={6}>
+                    <Flex justify="space-between" align="center">
+                      <Stat>
+                        <StatLabel color="green.100" fontSize="sm">Agenda de Amanhã</StatLabel>
+                        <StatNumber fontSize="3xl">{agendaStats.amanha}</StatNumber>
+                        <StatHelpText color="green.200">Agendamentos</StatHelpText>
+                      </Stat>
+                      <Icon as={Clock} w={8} h={8} color="green.200" />
+                    </Flex>
+                  </CardBody>
+                </Card>
+
+                <Card bg="purple.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                  <CardBody p={6}>
+                    <Flex justify="space-between" align="center">
+                      <Stat>
+                        <StatLabel color="purple.100" fontSize="sm">Total da Semana</StatLabel>
+                        <StatNumber fontSize="3xl">{agendaStats.semana}</StatNumber>
+                        <StatHelpText color="purple.200">Agendamentos</StatHelpText>
+                      </Stat>
+                      <Icon as={TrendingUp} w={8} h={8} color="purple.200" />
+                    </Flex>
+                  </CardBody>
+                </Card>
+              </SimpleGrid>
+
+              {/* Cards de Colaboradores */}
+              <Box mb={8}>
+                <Heading size="lg" color="gray.800" mb={6}>
+                  Colaboradores e Agendamentos
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+                  {colaboradoresStats.map((colaborador: any) => (
+                    <Card key={colaborador.id} shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                      <CardBody p={6}>
+                        <Flex align="center" mb={4}>
+                          <Avatar
+                            size="md"
+                            name={colaborador.nome}
+                            bg="purple.500"
+                            color="white"
+                            mr={3}
+                          />
+                          <Box flex={1}>
+                            <Text fontWeight="semibold" color="gray.800">
+                              {colaborador.nome}
+                            </Text>
+                            <Badge
+                              colorScheme={colaborador.status === "online" ? "green" : "gray"}
+                              size="sm"
+                            >
+                              {colaborador.status === "online" ? "Online" : "Offline"}
+                            </Badge>
+                          </Box>
+                        </Flex>
+                        
+                        <VStack spacing={3} align="stretch">
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" mb={1}>
+                              Agendamentos Hoje
+                            </Text>
+                            <Text fontSize="2xl" fontWeight="bold" color="blue.600">
+                              {colaborador.agendamentos}
+                            </Text>
+                          </Box>
+                          
+                          <Divider />
+                          
+                          <Box>
+                            <Text fontSize="sm" color="gray.600" mb={1}>
+                              Valor a Receber
+                            </Text>
+                            <Text fontSize="xl" fontWeight="bold" color="green.600">
+                              R$ {colaborador.valorReceber.toFixed(2).replace('.', ',')}
+                            </Text>
+                          </Box>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </SimpleGrid>
+              </Box>
+
+                             {/* Resumo do Mês */}
+               <Box mb={8}>
+                 <Heading size="lg" color="gray.800" mb={6}>
+                   Resumo do Mês
+                 </Heading>
+                 <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+                  <Card bg="yellow.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                    <CardBody p={6}>
+                      <Flex justify="space-between" align="center">
+                        <Stat>
+                          <StatLabel color="yellow.100" fontSize="sm">Faturamento</StatLabel>
+                          <StatNumber fontSize="2xl">R$ {resumoMes.faturamento.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</StatNumber>
+                          <StatHelpText color="yellow.200">Este mês</StatHelpText>
+                        </Stat>
+                        <Icon as={DollarSign} w={6} h={6} color="yellow.200" />
+                      </Flex>
+                    </CardBody>
+                  </Card>
+
+                  <Card bg="teal.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                    <CardBody p={6}>
+                      <Flex justify="space-between" align="center">
+                        <Stat>
+                          <StatLabel color="teal.100" fontSize="sm">Novos Clientes</StatLabel>
+                          <StatNumber fontSize="2xl">{resumoMes.clientesNovos}</StatNumber>
+                          <StatHelpText color="teal.200">Este mês</StatHelpText>
+                        </Stat>
+                        <Icon as={Users} w={6} h={6} color="teal.200" />
+                      </Flex>
+                    </CardBody>
+                  </Card>
+
+                  <Card bg="orange.500" color="white" shadow="lg" _hover={{ shadow: "xl", transform: "translateY(-2px)" }} transition="all 0.2s">
+                    <CardBody p={6}>
+                      <Flex justify="space-between" align="center">
+                        <Stat>
+                          <StatLabel color="orange.100" fontSize="sm">Serviços Realizados</StatLabel>
+                          <StatNumber fontSize="2xl">{resumoMes.servicosRealizados}</StatNumber>
+                          <StatHelpText color="orange.200">Este mês</StatHelpText>
+                        </Stat>
+                        <Icon as={CheckCircle} w={6} h={6} color="orange.200" />
+                      </Flex>
+                    </CardBody>
+                  </Card>
+                </SimpleGrid>
+              </Box>
+
+              {/* Informações do Plano */}
+              <Card bg="white" shadow="lg" border="1px" borderColor="gray.200">
+                <CardBody p={6}>
+                  <VStack spacing={4} align="stretch">
+                    <Heading size="md" color="gray.800">
+                      Informações do Plano
+                    </Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <Box>
+                        <Text fontSize="sm" color="gray.600" mb={1}>
+                          Tipo de Plano
+                        </Text>
+                        <Text fontSize="lg" fontWeight="bold" color="purple.600">
+                          {tipoPlano === 'vitalicio' ? 'Vitalício' :
+                           tipoPlano === 'gratis' ? 'Avaliação' : 
+                           (tipoPlano === '' ? 'Grátis' : 
+                           (tipoPlano ? tipoPlano.charAt(0).toUpperCase() + tipoPlano.slice(1) : 'Nenhum'))}
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="sm" color="gray.600" mb={1}>
+                          Data de Término
+                        </Text>
+                        <Text fontSize="lg" fontWeight="bold" color="green.600">
+                          {dataTerminoPlano ? formatarDataTermino(dataTerminoPlano) : '-'}
+                        </Text>
+                      </Box>
+                    </SimpleGrid>
+                    
+                    {!isPremium && (
+                      <Box mt={4} p={4} bg="blue.50" borderRadius="lg" border="1px" borderColor="blue.200">
+                        <Text fontSize="md" color="blue.800" mb={3}>
+                          💎 Para liberar todos os recursos, ative o <strong>Premium</strong> agora mesmo e tenha acesso completo à plataforma.
+                        </Text>
+                        <Button
+                          colorScheme="blue"
+                          size="lg"
+                          onClick={() => navigate(`/dashboard/${uid}/plano`)}
+                          leftIcon={<Star />}
+                        >
+                          Ativar Premium
+                        </Button>
+                      </Box>
+                    )}
+                  </VStack>
+                </CardBody>
+              </Card>
             </Box>
           ) : (
             <Outlet />

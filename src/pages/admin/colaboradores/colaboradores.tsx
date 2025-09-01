@@ -1140,7 +1140,7 @@ export default function Colaboradores() {
   const stats = getStatsData()
 
   return (
-    <Box minH={{ base: "90vh", md: "90vh" }} bg="gray.50" p={{ base: 2, md: 4, lg: 8 }} pb={{ base: 40, md: 24, lg: 32 }} overflow="auto">
+    <Box minH={{ base: "100vh", md: "90vh" }} bg="gray.50" p={{ base: 2, md: 4, lg: 8 }} pb={{ base: 40, md: 24, lg: 32 }} overflow="auto">
       <Container maxW={{ base: "100vw", md: "100vw", lg: "100vw" }} px={{ base: 0, md: 4, lg: 8 }} mx="auto">
         <VStack spacing={{ base: 4, md: 6, lg: 8 }} align="stretch">
           {/* Header Section */}
@@ -1300,32 +1300,115 @@ export default function Colaboradores() {
           <>
               {/* Desktop Table View */}
               {!isMobile && (
-                <Card bg={cardBg} shadow="lg" overflow="hidden" w="100%" maxW="100vw">
+                <Card bg={cardBg} shadow="lg" overflow="hidden" w="100%" maxW="100vw" borderRadius="xl">
                   <TableContainer
                     w="100%"
                     maxW="100vw"
                     maxH={{ base: 'none', md: '600px', lg: '700px' }}
                     overflowY={{ base: 'unset', md: 'auto' }}
+                    sx={{
+                      '&::-webkit-scrollbar': {
+                        width: '8px',
+                        height: '8px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        background: 'transparent',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        background: 'var(--chakra-colors-gray-300)',
+                        borderRadius: '4px',
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        background: 'var(--chakra-colors-gray-400)',
+                      },
+                    }}
                   >
-                    <Table style={{height:'500px'}} variant="simple" size="md">
-                      <Thead bg="gray.50">
+                    <Table variant="simple" size="md">
+                      <Thead bg="gray.50" position="sticky" top={0} zIndex={10}>
                         <Tr>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "200px", md: "250px" }}
+                          >
                             Colaborador
                           </Th>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "180px", md: "220px" }}
+                          >
                             E-mail
                           </Th>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "120px", md: "150px" }}
+                          >
                             Função
                           </Th>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "140px", md: "160px" }}
+                          >
                             Telefone
                           </Th>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "100px", md: "120px" }}
+                          >
                             Status
                           </Th>
-                          <Th fontSize="md" fontWeight="bold" color="gray.700">
+                          <Th 
+                            fontSize={{ base: "sm", md: "md" }} 
+                            fontWeight="bold" 
+                            color="gray.700"
+                            py={{ base: 4, md: 6 }}
+                            px={{ base: 3, md: 4 }}
+                            textTransform="uppercase"
+                            letterSpacing="wider"
+                            borderBottom="2px"
+                            borderColor="gray.200"
+                            minW={{ base: "80px", md: "100px" }}
+                            textAlign="center"
+                          >
                             Ações
                           </Th>
                         </Tr>
@@ -1335,24 +1418,28 @@ export default function Colaboradores() {
                           <Tr
                             key={colaborador.id}
                             bg={index % 2 === 0 ? "white" : "gray.50"}
-                            _hover={{ bg: "blue.50" }}
-                            transition="all 0.2s"
-                            height="72px"
+                            _hover={{ bg: "blue.50", transform: "translateY(-1px)", boxShadow: "sm" }}
+                            transition="all 0.2s ease-in-out"
+                            height={{ base: "64px", md: "72px" }}
+                            borderBottom="1px"
+                            borderColor="gray.100"
                           >
-                            <Td py={{ base: 3, md: 5 }}>
-                              <HStack spacing={4}>
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                              <HStack spacing={3} align="center">
                                 <Avatar
-                                  size="md"
+                                  size={{ base: "sm", md: "md" }}
                                   src={colaborador.avatar || undefined}
                                   name={colaborador.nome}
                                   bg={`${getRoleBadgeColor(colaborador.cargos?.[0] || "")}.500`}
                                   color="white"
                                   flexShrink={0}
+                                  boxShadow="sm"
                                 />
                                 <VStack align="start" spacing={1} flex={1} minW={0}>
                                   <Text 
                                     fontWeight="semibold" 
                                     color="gray.800"
+                                    fontSize={{ base: "sm", md: "md" }}
                                     noOfLines={1}
                                     overflow="hidden"
                                     textOverflow="ellipsis"
@@ -1361,9 +1448,9 @@ export default function Colaboradores() {
                                     {colaborador.nome}
                                   </Text>
                                   <HStack spacing={1} w="full">
-                                    <Icon as={Instagram} size={14} color="gray.400" flexShrink={0} />
+                                    <Icon as={Instagram} size={12} color="gray.400" flexShrink={0} />
                                     <Text 
-                                      fontSize="sm" 
+                                      fontSize={{ base: "xs", md: "sm" }} 
                                       color="gray.500"
                                       noOfLines={1}
                                       overflow="hidden"
@@ -1376,11 +1463,12 @@ export default function Colaboradores() {
                                 </VStack>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 5 }}>
-                              <HStack spacing={2} w="full">
-                                <Icon as={Mail} size={16} color="gray.400" flexShrink={0} />
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                              <HStack spacing={2} w="full" align="center">
+                                <Icon as={Mail} size={14} color="gray.400" flexShrink={0} />
                                 <Text 
                                   color="gray.700"
+                                  fontSize={{ base: "sm", md: "md" }}
                                   noOfLines={1}
                                   overflow="hidden"
                                   textOverflow="ellipsis"
@@ -1390,27 +1478,32 @@ export default function Colaboradores() {
                                 </Text>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 5 }}>
-                              <HStack spacing={2} wrap="wrap" maxW="200px">
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                              <HStack spacing={1} wrap="wrap" maxW="150px">
                                 {colaborador.cargos?.map((cargo, idx) => (
                                   <Badge 
                                     key={idx} 
                                     colorScheme={getRoleBadgeColor(cargo)} 
                                     variant="solid"
-                                    fontSize="xs"
-                                    px={2}
-                                    py={1}
+                                    fontSize={{ base: "xs", md: "sm" }}
+                                    px={{ base: 2, md: 3 }}
+                                    py={{ base: 1, md: 1 }}
+                                    borderRadius="full"
+                                    textTransform="uppercase"
+                                    fontWeight="medium"
+                                    letterSpacing="wider"
                                   >
                                     {cargo}
                                   </Badge>
                                 ))}
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 5 }}>
-                              <HStack spacing={2} w="full">
-                                <Icon as={Phone} size={16} color="gray.400" flexShrink={0} />
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                              <HStack spacing={2} w="full" align="center">
+                                <Icon as={Phone} size={14} color="gray.400" flexShrink={0} />
                                 <Text 
                                   color="gray.700"
+                                  fontSize={{ base: "sm", md: "md" }}
                                   noOfLines={1}
                                   overflow="hidden"
                                   textOverflow="ellipsis"
@@ -1420,12 +1513,22 @@ export default function Colaboradores() {
                                 </Text>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 5 }}>
-                              <Badge colorScheme={colaborador.status === "active" ? "green" : "gray"} variant="solid">
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                              <Badge 
+                                colorScheme={colaborador.status === "active" ? "green" : "gray"} 
+                                variant="solid"
+                                fontSize={{ base: "xs", md: "sm" }}
+                                px={{ base: 2, md: 3 }}
+                                py={{ base: 1, md: 1 }}
+                                borderRadius="full"
+                                textTransform="uppercase"
+                                fontWeight="medium"
+                                letterSpacing="wider"
+                              >
                                 {colaborador.status === "active" ? "Ativo" : "Inativo"}
                               </Badge>
                             </Td>
-                            <Td py={{ base: 3, md: 5 }}>
+                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }} textAlign="center">
                               <Box as="span" position="relative" display="inline-block" w="100%">
                                 <IconButton
                                   aria-label="Opções"
@@ -1434,20 +1537,23 @@ export default function Colaboradores() {
                                   size="sm"
                                   onClick={() => handleMenuToggle(colaborador.id || null)}
                                   zIndex={11}
+                                  color="gray.600"
+                                  _hover={{ bg: "gray.100", color: "gray.800" }}
+                                  transition="all 0.2s"
                                 />
                                 {openMenuId === colaborador.id && (
                                   <VStack
                                     position="absolute"
                                     left="50%"
-                                    top="calc(100% + 4px)"
+                                    top="calc(100% + 8px)"
                                     transform="translateX(-50%)"
                                     bg="white"
                                     borderWidth={1}
                                     borderColor="gray.200"
-                                    borderRadius="md"
+                                    borderRadius="lg"
                                     boxShadow="2xl"
                                     zIndex={20}
-                                    minW="160px"
+                                    minW="180px"
                                     py={2}
                                     align="stretch"
                                     spacing={1}
@@ -1464,6 +1570,8 @@ export default function Colaboradores() {
                                         handleMenuToggle(null)
                                       }}
                                       borderRadius="md"
+                                      _hover={{ bg: "blue.50", color: "blue.600" }}
+                                      transition="all 0.2s"
                                     >
                                       Editar
                                     </Button>
@@ -1478,6 +1586,8 @@ export default function Colaboradores() {
                                         handleMenuToggle(null)
                                       }}
                                       borderRadius="md"
+                                      _hover={{ bg: "orange.50", color: "orange.600" }}
+                                      transition="all 0.2s"
                                     >
                                       {colaborador.status === "active" ? "Desativar" : "Ativar"}
                                     </Button>
@@ -1493,6 +1603,8 @@ export default function Colaboradores() {
                                         handleMenuToggle(null)
                                       }}
                                       borderRadius="md"
+                                      _hover={{ bg: "red.50", color: "red.600" }}
+                                      transition="all 0.2s"
                                     >
                                       Excluir
                                     </Button>
