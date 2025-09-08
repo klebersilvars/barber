@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, Stack } from "@chakra-ui/react"
 import "./plano.css"
-import { ArrowLeft, Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
+import { Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
 import { auth } from '../../../firebase/firebase'
 import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
@@ -194,18 +194,9 @@ export default function Plano() {
 
   return (
     <div className="plano-container">
-      {/* Header */}
-      <header className="plano-header">
-        <button className="back-button">
-          <ArrowLeft size={20} />
-        </button>
-        <h1>Plano e Pagamento</h1>
-      </header>
-
       {/* Plans Section */}
       <section className="plans-section">
         <div className="plans-header">
-          <h2>Conheça nossos planos e preços</h2>
           <p>Escolha o plano ideal para o seu negócio e comece a transformar sua gestão hoje mesmo!</p>
 
           {/* Billing Toggle removido: só mensal */}

@@ -27,6 +27,8 @@ import {
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
+import favRoxo from "../../assets/fav_roxo.png"
+
 
 // Importar as funções de autenticação do Firebase
 import { getAuth, signOut } from "firebase/auth";
@@ -797,7 +799,7 @@ export default function DashboardUser() {
               <img 
                 src={trezuLogo} 
                 alt="Trezu Logo" 
-                className="logo-icon-no-bg"
+                className={`logo-icon-no-bg logo-img-full ${sidebarCollapsed ? 'hidden' : 'visible'}`}
                 onError={(e) => {
                   const target = e.currentTarget;
                   target.style.display = 'none';
@@ -806,6 +808,11 @@ export default function DashboardUser() {
                     (fallback as HTMLElement).style.display = 'block';
                   }
                 }}
+              />
+              <img 
+                src={favRoxo}
+                alt="Trezu Icone"
+                className={`logo-icon-fav logo-img-fav ${sidebarCollapsed ? 'visible' : 'hidden'}`}
               />
               <Scissors className="logo-icon logo-fallback" style={{ display: 'none' }} />
             </div>

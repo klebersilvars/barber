@@ -3,11 +3,52 @@
 import './vendas.css'
 import { useState, useEffect } from "react"
 import {
+  Box,
+  Container,
+  Heading,
+  Text,
+  Flex,
+  HStack,
+  Spacer,
+  Button,
+  SimpleGrid,
+  Card,
+  CardBody,
+  CardHeader,
+  CardFooter,
+  InputGroup,
+  Input,
+  InputLeftElement,
+  InputRightElement,
+  IconButton,
+  useColorModeValue,
+  VStack,
+  Badge,
+  Tag,
+  TagLabel,
+  Avatar,
+  Wrap,
+  WrapItem,
+  ButtonGroup,
+  Divider,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Select,
+  Textarea,
+  GridItem
+} from "@chakra-ui/react"
+import {
   Search,
   Plus,
   ShoppingCart,
   Filter,
-  Download,
   DollarSign,
   Package,
   User,
@@ -17,7 +58,6 @@ import {
   ArrowLeft,
   Trash2,
   Edit,
-  Eye,
   CreditCard,
   Clock,
   Calendar,
@@ -151,12 +191,19 @@ const Vendas: React.FC = () => {
       setSales(snapshot.docs.map(doc => {
         const data = doc.data();
         const clienteUid = data.clienteUid || data.cliente || "";
+        const precoTotalFromData = (typeof data.precoTotal === 'number' ? data.precoTotal : undefined) ?? (typeof data.valor === 'number' ? data.valor : 0);
+        const quantidadeFromData = typeof data.quantidade === 'number' && data.quantidade > 0 ? data.quantidade : 0;
+        const precoUnitarioFromData = typeof data.precoUnitario === 'number'
+          ? data.precoUnitario
+          : (quantidadeFromData > 0 && precoTotalFromData
+            ? Number(precoTotalFromData) / Number(quantidadeFromData)
+            : 0);
         return {
           id: doc.id,
           produto: data.produto || "",
-          quantidade: data.quantidade || 0,
-          precoUnitario: data.precoUnitario || 0,
-          precoTotal: data.precoTotal || data.valor || 0,
+          quantidade: quantidadeFromData || 0,
+          precoUnitario: precoUnitarioFromData,
+          precoTotal: precoTotalFromData || 0,
           cliente: clienteUid,
           clienteUid: clienteUid,
           vendedor: data.vendedorNome || data.vendedor || "",
@@ -293,6 +340,8 @@ const Vendas: React.FC = () => {
       vendedorNome: vendedor,
       vendedorUid: vendedorUid,
       valor: precoTotal,
+      precoTotal: precoTotal,
+      precoUnitario: Number.parseFloat(precoUnitario || '0'),
       formaPagamento,
       produto,
       quantidade,
@@ -319,10 +368,7 @@ const Vendas: React.FC = () => {
     }
   };
 
-  const handleViewSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowViewModal(true);
-  };
+  // Removido: função de visualização não está em uso no layout atual
 
   const handleEditSale = (sale: Sale) => {
     setSelectedSale(sale);
@@ -351,6 +397,7 @@ const Vendas: React.FC = () => {
         vendedorNome: vendedor,
         vendedorUid: vendedorUid,
         valor: precoTotal,
+        precoTotal: precoTotal,
         formaPagamento,
         produto,
         quantidade,
@@ -389,12 +436,95 @@ const Vendas: React.FC = () => {
 
   const totalVendas = filteredSales.reduce((sum, sale) => sum + sale.precoTotal, 0)
 
+  const bgCard = useColorModeValue('white', 'gray.800')
+  const border = useColorModeValue('gray.200', 'gray.700')
+
   return (
-    <div className="cliente-container">
-      {/* Mobile Menu */}
-      <div className="mobile-header">
-        <h1>Vendas</h1>
-      </div>
+    <Container maxW="container.xl" px={{ base: 3, md: 10 }} py={{ base: 4, md: 6 }} minH={{ base: 'calc(80dvh + 200px)', md: 'calc(100vh + 140px)' }} overflowY="auto" pb={{ base: 40, md: 32 }}>
+      <Flex align="center" mb={6} gap={4} wrap="wrap">
+        <Box>
+          <Heading size="lg" color="purple.700">Vendas</Heading>
+          <Text color="gray.600">Gerencie suas vendas e acompanhe o faturamento</Text>
+        </Box>
+        <Spacer />
+        <Wrap spacing={{ base: 2, md: 2 }} align="center">
+          <WrapItem>
+            <HStack spacing={{ base: 1, md: 2 }}>
+              <Calendar size={18} color="#6366f1" />
+              <Input
+                type="month"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                size={{ base: 'sm', md: 'sm' }}
+                width={{ base: '120px', md: 'auto' }}
+              />
+            </HStack>
+          </WrapItem>
+          <WrapItem>
+            <Button size={{ base: 'sm', md: 'md' }} leftIcon={<Filter size={18} />} variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              Filtros
+            </Button>
+          </WrapItem>
+          <WrapItem>
+            <Button size={{ base: 'sm', md: 'md' }} leftIcon={<Clock size={18} />} variant="outline" onClick={() => setShowHistorico(true)}>
+              Histórico
+            </Button>
+          </WrapItem>
+          <WrapItem display={{ base: 'none', md: 'inline-flex' }}>
+            <Button size={{ base: 'sm', md: 'md' }} colorScheme="purple" leftIcon={<Plus size={18} />} onClick={handleOpenModal}>
+              Nova Venda
+            </Button>
+          </WrapItem>
+        </Wrap>
+      </Flex>
+
+      {/* Botão flutuante para criar venda (mobile) */}
+      <IconButton
+        aria-label="Nova venda"
+        colorScheme="purple"
+        icon={<Plus size={20} />}
+        position="fixed"
+        bottom={{ base: 6, md: -9999 }}
+        right={{ base: 6, md: -9999 }}
+        borderRadius="full"
+        size="lg"
+        boxShadow="lg"
+        zIndex={20}
+        onClick={handleOpenModal}
+      />
+
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, md: 4 }} mb={{ base: 4, md: 6 }}>
+        <Card bg={bgCard} border="1px" borderColor={border}><CardBody textAlign="center">
+          <Heading size={{ base: 'sm', md: 'md' }} color="purple.600">{filteredSales.length}</Heading>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">Total de Vendas</Text>
+        </CardBody></Card>
+        <Card bg={bgCard} border="1px" borderColor={border}><CardBody textAlign="center">
+          <Heading size={{ base: 'sm', md: 'md' }} color="green.600">{formatCurrency(totalVendas)}</Heading>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">Faturamento Total</Text>
+        </CardBody></Card>
+        <Card bg={bgCard} border="1px" borderColor={border}><CardBody textAlign="center">
+          <Heading size={{ base: 'sm', md: 'md' }} color="orange.600">{formatCurrency(totalVendas / (filteredSales.length || 1))}</Heading>
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">Ticket Médio</Text>
+        </CardBody></Card>
+      </SimpleGrid>
+
+      <Card bg={bgCard} border="1px" borderColor={border} mb={6}><CardBody>
+        <Flex direction={{ base: 'column', md: 'row' }} align="center" gap={{ base: 3, md: 4 }}>
+          <InputGroup size={{ base: 'sm', md: 'md' }} maxW={{ base: '100%', md: '500px' }}>
+            <InputLeftElement pointerEvents="none">
+              <Search size={18} color="#64748b" />
+            </InputLeftElement>
+            <Input placeholder="Buscar por produto, cliente ou vendedor..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            {searchQuery && (
+              <InputRightElement>
+                <IconButton aria-label="Limpar busca" size={{ base: 'sm', md: 'sm' }} variant="ghost" icon={<X size={16} />} onClick={() => setSearchQuery('')} />
+              </InputRightElement>
+            )}
+          </InputGroup>
+          <Spacer />
+          <Text fontSize={{ base: 'xs', md: 'sm' }} color="gray.600">{filteredSales.length} venda(s) encontrada(s)</Text>
+        </Flex>
+      </CardBody></Card>
       {showMobileMenu && (
         <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
           <div className="mobile-menu" onClick={e => e.stopPropagation()}>
@@ -410,52 +540,8 @@ const Vendas: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="cliente-header vendas-header">
-        <div className="header-title">
-          <h1>Vendas</h1>
-          <p>Gerencie suas vendas e acompanhe o faturamento</p>
-        </div>
-        <div className="header-actions">
-          <div className="vendas-header-mes-select">
-            <Calendar size={18} style={{ color: '#6366f1' }} />
-            <label htmlFor="month-select" style={{ fontWeight: 500, fontSize: 15, marginRight: 4 }}>Mês:</label>
-            <input
-              id="month-select"
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                fontSize: 16,
-                outline: 'none',
-                color: '#222',
-                padding: '2px 0',
-                cursor: 'pointer',
-                minWidth: 110,
-              }}
-              title="Selecionar mês"
-            />
-          </div>
-          <button className="btn-secondary" onClick={() => setShowFilters(!showFilters)}>
-            <Filter size={18} />
-            Filtros
-          </button>
-          <button className="btn-secondary" onClick={() => setShowHistorico(true)}>
-            <Clock size={18} />
-            Histórico
-          </button>
-          <button className="btn-secondary">
-            <Download size={18} />
-            Exportar
-          </button>
-          <button className="btn-primary" onClick={handleOpenModal}>
-            <Plus size={18} />
-            Nova Venda
-          </button>
-        </div>
-      </div>
+    
+      
 
       {/* Stats */}
       <div
@@ -489,87 +575,54 @@ const Vendas: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal de Histórico */}
-      {showHistorico && (
-        <div className="modal-overlay" onClick={() => setShowHistorico(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Histórico de Vendas por Mês</h2>
-              <button className="modal-close" onClick={() => setShowHistorico(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {historicoMeses.length === 0 ? (
-                <p>Nenhum histórico encontrado.</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  {historicoMeses.map(h => (
-                    <li key={h.mes} style={{ padding: '12px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 500 }}>{h.mes}</span>
-                      <span style={{ color: '#22c55e', fontWeight: 700 }}>{formatCurrency(h.total)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de Histórico - Chakra */}
+      <Modal isOpen={showHistorico} onClose={() => setShowHistorico(false)} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Histórico de Vendas por Mês</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {historicoMeses.length === 0 ? (
+              <Text>Nenhum histórico encontrado.</Text>
+            ) : (
+              <VStack align="stretch" spacing={3}>
+                {historicoMeses.map(h => (
+                  <Flex key={h.mes} justify="space-between" py={2} borderBottom="1px" borderColor={border}>
+                    <Text fontWeight="medium">{h.mes}</Text>
+                    <Text color="green.600" fontWeight="bold">{formatCurrency(h.total)}</Text>
+                  </Flex>
+                ))}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setShowHistorico(false)}>Fechar</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {/* Filters */}
+      {/* Filtros - Chakra */}
       {showFilters && (
-        <div className="filters-container">
-          <div className="filter-group">
-            <label>Status</label>
-            <div className="filter-options">
-              <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
-                Todos
-              </button>
-              <button
-                className={filterStatus === "concluida" ? "active" : ""}
-                onClick={() => setFilterStatus("concluida")}
-              >
-                Concluídas
-              </button>
-              <button
-                className={filterStatus === "pendente" ? "active" : ""}
-                onClick={() => setFilterStatus("pendente")}
-              >
-                Pendentes
-              </button>
-              <button
-                className={filterStatus === "cancelada" ? "active" : ""}
-                onClick={() => setFilterStatus("cancelada")}
-              >
-                Canceladas
-              </button>
-            </div>
-          </div>
-          <div className="filter-group">
-            <label>Forma de Pagamento</label>
-            <div className="filter-options">
-              <button className={filterPayment === "all" ? "active" : ""} onClick={() => setFilterPayment("all")}>
-                Todas
-              </button>
-              <button
-                className={filterPayment === "Dinheiro" ? "active" : ""}
-                onClick={() => setFilterPayment("Dinheiro")}
-              >
-                Dinheiro
-              </button>
-              <button className={filterPayment === "PIX" ? "active" : ""} onClick={() => setFilterPayment("PIX")}>
-                PIX
-              </button>
-              <button
-                className={filterPayment === "Cartão de Crédito" ? "active" : ""}
-                onClick={() => setFilterPayment("Cartão de Crédito")}
-              >
-                Cartão
-              </button>
-            </div>
-          </div>
-        </div>
+        <Card bg={bgCard} border="1px" borderColor={border} mb={6}>
+          <CardBody>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <HStack spacing={3} flexWrap="wrap">
+                <Text fontWeight="semibold">Status:</Text>
+                <Button size="sm" variant={filterStatus === 'all' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('all')}>Todos</Button>
+                <Button size="sm" variant={filterStatus === 'concluida' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('concluida')}>Concluídas</Button>
+                <Button size="sm" variant={filterStatus === 'pendente' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('pendente')}>Pendentes</Button>
+                <Button size="sm" variant={filterStatus === 'cancelada' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('cancelada')}>Canceladas</Button>
+              </HStack>
+              <HStack spacing={3} flexWrap="wrap">
+                <Text fontWeight="semibold">Pagamento:</Text>
+                <Button size="sm" variant={filterPayment === 'all' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('all')}>Todas</Button>
+                <Button size="sm" variant={filterPayment === 'Dinheiro' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('Dinheiro')}>Dinheiro</Button>
+                <Button size="sm" variant={filterPayment === 'PIX' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('PIX')}>PIX</Button>
+                <Button size="sm" variant={filterPayment === 'Cartão de Crédito' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('Cartão de Crédito')}>Cartão</Button>
+              </HStack>
+            </SimpleGrid>
+          </CardBody>
+        </Card>
       )}
 
       {/* Search */}
@@ -607,261 +660,243 @@ const Vendas: React.FC = () => {
         </div>
       </div>
 
-      {/* Sales List */}
+      {/* Lista de Vendas - Chakra */}
       {filteredSales.length > 0 && (
-        <div className="client-list">
+        <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 3, md: 5, lg: 6 }}>
           {filteredSales.map((sale) => (
-            <div key={sale.id} className="client-card">
-              <div className="client-info-principal">
-                <h3>{sale.produto}</h3>
-
-                <p>
-                  <strong>Cliente:</strong>
-                  <User size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {clientesMap[sale.clienteUid || ''] || "Cliente não encontrado"}
-                </p>
-
-                <p>
-                  <strong>Quantidade:</strong>
-                  <Package size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {sale.quantidade} un.
-                </p>
-
-                <p>
-                  <strong>Valor Unit.:</strong>
-                  <DollarSign size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {formatCurrency(sale.precoUnitario)}
-                </p>
-
-                <p>
-                  <strong>Total:</strong>
-                  <DollarSign size={16} style={{ marginRight: "6px", color: "var(--success)" }} />
-                  <span style={{ color: "var(--success)", fontWeight: "700" }}>{formatCurrency(sale.precoTotal)}</span>
-                </p>
-
-                <p>
-                  <strong>Pagamento:</strong>
-                  <CreditCard size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {sale.formaPagamento}
-                </p>
-
-                <p>
-                  <strong>Data:</strong>
-                  <Clock size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {formatDate(sale.dataVenda)}
-                </p>
-
-                <div className="client-tags">
-                  <span
-                    className={`tag ${sale.status === "concluida" ? "success" : sale.status === "pendente" ? "warning" : "error"}`}
-                  >
-                    {sale.status === "concluida" ? "Concluída" : sale.status === "pendente" ? "Pendente" : "Cancelada"}
-                  </span>
-                  {sale.categoria && <span className="tag">{sale.categoria}</span>}
-                </div>
-              </div>
-
-              <div className="client-actions">
-                <button className="btn-icon" onClick={() => handleDeleteSale(sale.id)}>
-                  <Trash2 size={18} color="#ef4444" />
-                </button>
-                <button className="btn-icon" onClick={() => handleEditSale(sale)}>
-                  <Edit size={18} />
-                </button>
-                <button className="btn-icon" onClick={() => handleViewSale(sale)}>
-                  <Eye size={18} />
-                </button>
-              </div>
-            </div>
+            <Card
+              key={sale.id}
+              bg={bgCard}
+              border="1px"
+              borderColor={sale.status === 'concluida' ? 'green.200' : sale.status === 'pendente' ? 'yellow.200' : 'red.200'}
+              boxShadow="sm"
+              transition="all 0.25s ease"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-4px)' }}
+              borderRadius="xl"
+            >
+              <CardHeader pb={{ base: 2, md: 3 }}>
+                <Flex align="center" justify="space-between" gap={3}>
+                  <HStack spacing={{ base: 2, md: 3 }} overflow="hidden">
+                    <Avatar size={{ base: 'xs', md: 'sm' }} name={sale.vendedor} bg="purple.500" color="white" />
+                    <VStack align="start" spacing={0}>
+                      <Heading size={{ base: 'xs', md: 'sm' }} color="purple.700">{sale.produto}</Heading>
+                      {sale.categoria && (
+                        <Tag size={{ base: 'xs', md: 'sm' }} colorScheme="purple" variant="subtle" borderRadius="full">
+                          <TagLabel>{sale.categoria}</TagLabel>
+                        </Tag>
+                      )}
+                    </VStack>
+                  </HStack>
+                  <Badge variant="subtle" colorScheme="gray" fontSize={{ base: '9px', md: 'xs' }} px={{ base: 1.5, md: 2 }}>{formatDate(sale.dataVenda)}</Badge>
+                </Flex>
+              </CardHeader>
+              <CardBody pt={0}>
+                <VStack align="stretch" spacing={{ base: 2, md: 3 }} fontSize={{ base: 'xs', md: 'sm' }}>
+                  <HStack color="gray.700">
+                    <User size={16} />
+                    <Text><b>Cliente:</b> {clientesMap[sale.clienteUid || ''] || 'Cliente não encontrado'}</Text>
+                  </HStack>
+                  <HStack color="gray.700">
+                    <Package size={16} />
+                    <Text><b>Quantidade:</b> {sale.quantidade} un.</Text>
+                  </HStack>
+                  <HStack color="gray.700">
+                    <DollarSign size={16} />
+                    <Text><b>Valor Unit.:</b> {formatCurrency(sale.precoUnitario)}</Text>
+                  </HStack>
+                  <Flex align="center" justify="space-between" pt={{ base: 0.5, md: 1 }}>
+                    <Wrap align="center">
+                      <WrapItem>
+                        <HStack color="gray.700">
+                          <CreditCard size={16} />
+                          <Text><b>Pagamento:</b></Text>
+                          <Badge
+                            ml={1}
+                            variant="subtle"
+                            colorScheme={
+                              sale.formaPagamento === 'PIX' ? 'purple' :
+                              (sale.formaPagamento === 'Dinheiro' ? 'green' : 'blue')
+                            }
+                          >
+                            {sale.formaPagamento || '—'}
+                          </Badge>
+                        </HStack>
+                      </WrapItem>
+                    </Wrap>
+                    <Box bg="green.50" color="green.700" px={{ base: 2, md: 3 }} py={{ base: 1.5, md: 2 }} borderRadius="md" border="1px" borderColor="green.200">
+                      <Text fontSize={{ base: '10px', md: 'xs' }}>Total</Text>
+                      <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="bold">{formatCurrency(sale.precoTotal)}</Text>
+                    </Box>
+                  </Flex>
+                  <Divider />
+                  <Wrap spacing={{ base: 1.5, md: 2 }} pt={{ base: 0.5, md: 1 }}>
+                    <WrapItem>
+                      <Badge fontSize={{ base: '10px', md: 'xs' }} colorScheme={sale.status === 'concluida' ? 'green' : sale.status === 'pendente' ? 'yellow' : 'red'} variant="subtle">
+                        {sale.status === 'concluida' ? 'Concluída' : sale.status === 'pendente' ? 'Pendente' : 'Cancelada'}
+                      </Badge>
+                    </WrapItem>
+                    {sale.vendedor && (
+                      <WrapItem>
+                        <Tag size={{ base: 'xs', md: 'sm' }} variant="subtle" colorScheme="gray">
+                          <TagLabel>{sale.vendedor}</TagLabel>
+                        </Tag>
+                      </WrapItem>
+                    )}
+                  </Wrap>
+                </VStack>
+              </CardBody>
+              <CardFooter pt={0}>
+                <ButtonGroup variant="ghost" size={{ base: 'xs', md: 'sm' }}>
+                  <IconButton aria-label="Excluir" colorScheme="red" icon={<Trash2 size={18} />} onClick={() => handleDeleteSale(sale.id)} />
+                  <IconButton aria-label="Editar" icon={<Edit size={18} />} onClick={() => handleEditSale(sale)} />
+                </ButtonGroup>
+              </CardFooter>
+            </Card>
           ))}
-        </div>
+        </SimpleGrid>
       )}
 
-      {/* View Sale Modal */}
-      {showViewModal && selectedSale && (
-        <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Detalhes da Venda</h2>
-              <button className="modal-close" onClick={() => setShowViewModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="sale-details">
-                <div className="detail-group">
-                  <h3>Informações do Produto</h3>
-                  <p><strong>Produto:</strong> {selectedSale.produto}</p>
-                  <p><strong>Quantidade:</strong> {selectedSale.quantidade} un.</p>
-                  <p><strong>Preço Unitário:</strong> {formatCurrency(selectedSale.precoUnitario)}</p>
-                  <p><strong>Total:</strong> {formatCurrency(selectedSale.precoTotal)}</p>
-                  <p><strong>Categoria:</strong> {selectedSale.categoria || 'Não especificada'}</p>
-                </div>
-
-                <div className="detail-group">
-                  <h3>Informações da Venda</h3>
-                  <p><strong>Cliente:</strong> {clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado'}</p>
-                  <p><strong>Vendedor:</strong> {vendedoresMap[selectedSale.vendedorUid || ''] || 'Vendedor não encontrado'}</p>
-                  <p><strong>Forma de Pagamento:</strong> {selectedSale.formaPagamento}</p>
-                  <p><strong>Status:</strong> {selectedSale.status}</p>
-                  <p><strong>Data:</strong> {formatDate(selectedSale.dataVenda)}</p>
-                </div>
-
+      {/* Modal Ver Venda - Chakra */}
+      <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Detalhes da Venda</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {selectedSale && (
+              <VStack align="stretch" spacing={4}>
+                <Box>
+                  <Heading size="sm" mb={2}>Informações do Produto</Heading>
+                  <Text><b>Produto:</b> {selectedSale.produto}</Text>
+                  <Text><b>Quantidade:</b> {selectedSale.quantidade} un.</Text>
+                  <Text><b>Preço Unitário:</b> {formatCurrency(selectedSale.precoUnitario)}</Text>
+                  <Text><b>Total:</b> {formatCurrency(selectedSale.precoTotal)}</Text>
+                  <Text><b>Categoria:</b> {selectedSale.categoria || 'Não especificada'}</Text>
+                </Box>
+                <Divider />
+                <Box>
+                  <Heading size="sm" mb={2}>Informações da Venda</Heading>
+                  <Text><b>Cliente:</b> {clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado'}</Text>
+                  <Text><b>Vendedor:</b> {vendedoresMap[selectedSale.vendedorUid || ''] || 'Vendedor não encontrado'}</Text>
+                  <Text><b>Forma de Pagamento:</b> {selectedSale.formaPagamento}</Text>
+                  <Text><b>Status:</b> {selectedSale.status}</Text>
+                  <Text><b>Data:</b> {formatDate(selectedSale.dataVenda)}</Text>
+                </Box>
                 {selectedSale.observacoes && (
-                  <div className="detail-group">
-                    <h3>Observações</h3>
-                    <p>{selectedSale.observacoes}</p>
-                  </div>
+                  <Box>
+                    <Heading size="sm" mb={2}>Observações</Heading>
+                    <Text>{selectedSale.observacoes}</Text>
+                  </Box>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setShowViewModal(false)}>Fechar</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {/* Edit Sale Modal */}
-      {showEditModal && selectedSale && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Editar Venda</h2>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateSale}>
-              <div className="modal-body">
-                <div className="form-section">
-                  <div className="form-group">
-                    <label htmlFor="produto">Produto</label>
-                    <input
-                      type="text"
-                      id="produto"
-                      value={produto}
-                      onChange={(e) => setProduto(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="quantidade">Quantidade</label>
-                      <input
-                        type="number"
-                        id="quantidade"
-                        min="1"
-                        value={quantidade}
-                        onChange={(e) => setQuantidade(Number.parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="precoUnitario">Preço Unitário</label>
-                      <input
-                        type="number"
-                        id="precoUnitario"
-                        step="0.01"
-                        min="0"
-                        value={precoUnitario}
-                        onChange={(e) => setPrecoUnitario(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="categoria">Categoria</label>
-                    <div className="select-wrapper">
-                      <select id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-                        <option value="">Selecione uma categoria</option>
-                        <option value="Cabelo">Cabelo</option>
-                        <option value="Unhas">Unhas</option>
-                        <option value="Barba">Barba</option>
-                        <option value="Pele">Pele</option>
-                        <option value="Acessórios">Acessórios</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="cliente">Cliente</label>
-                    <div className="select-wrapper">
-                      <select id="cliente" value={clienteUid} onChange={handleClienteChange}>
-                        <option value="">Selecione o cliente</option>
-                        {clientes.map(c => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="vendedor">Vendedor</label>
-                    <div className="select-wrapper">
-                      <select id="vendedor" value={vendedorUid} onChange={handleVendedorChange}>
-                        <option value="">Selecione o vendedor</option>
-                        {colaboradores.map(c => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="formaPagamento">Forma de Pagamento</label>
-                    <div className="select-wrapper">
-                      <select
-                        id="formaPagamento"
-                        value={formaPagamento}
-                        onChange={(e) => setFormaPagamento(e.target.value)}
-                      >
-                        <option value="">Selecione a forma de pagamento</option>
-                        <option value="Dinheiro">Dinheiro</option>
-                        <option value="PIX">PIX</option>
-                        <option value="Cartão de Débito">Cartão de Débito</option>
-                        <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="status">Status</label>
-                    <div className="select-wrapper">
-                      <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                        <option value="concluida">Concluída</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="cancelada">Cancelada</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="observacoes">Observações</label>
-                    <textarea
-                      id="observacoes"
-                      rows={4}
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={18} />
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal Editar Venda - Chakra */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent borderRadius="xl" boxShadow="2xl" border="1px" borderColor={border}>
+          <ModalHeader>
+            <VStack align="start" spacing={1}>
+              <Heading size="md">Editar Venda</Heading>
+              <Text fontSize="sm" color="gray.500">Atualize as informações e salve as alterações</Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <form onSubmit={handleUpdateSale}>
+            <ModalBody>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Produto</FormLabel>
+                  <Input placeholder="Nome do produto" value={produto} onChange={(e) => setProduto(e.target.value)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md" />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Quantidade</FormLabel>
+                  <InputGroup>
+                    <Input type="number" min={1} value={quantidade} onChange={(e) => setQuantidade(Number.parseInt(e.target.value) || 1)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md" pr="10" />
+                    <InputRightElement pointerEvents="none" color="gray.500" fontSize="xs" mr={2}>un</InputRightElement>
+                  </InputGroup>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Preço Unitário</FormLabel>
+                  <InputGroup>
+                    <InputLeftElement pointerEvents="none" color="gray.500" fontSize="sm" pl={2}>R$</InputLeftElement>
+                    <Input type="number" step="0.01" min={0} value={precoUnitario} onChange={(e) => setPrecoUnitario(e.target.value)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md" pl={10} />
+                  </InputGroup>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select placeholder="Selecione uma categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    <option value="Cabelo">Cabelo</option>
+                    <option value="Unhas">Unhas</option>
+                    <option value="Barba">Barba</option>
+                    <option value="Pele">Pele</option>
+                    <option value="Acessórios">Acessórios</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Cliente</FormLabel>
+                  <Select placeholder="Selecione o cliente" value={clienteUid} onChange={handleClienteChange} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    {clientes.map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Vendedor</FormLabel>
+                  <Select placeholder="Selecione o vendedor" value={vendedorUid} onChange={handleVendedorChange} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    {colaboradores.map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Forma de Pagamento</FormLabel>
+                  <Select placeholder="Selecione a forma de pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="PIX">PIX</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Status</FormLabel>
+                  <Select value={status} onChange={(e) => setStatus(e.target.value)} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    <option value="concluida">Concluída</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="cancelada">Cancelada</option>
+                  </Select>
+                </FormControl>
+                <GridItem colSpan={{ base: 1, md: 2 }}>
+                  <FormControl>
+                    <FormLabel>Observações</FormLabel>
+                    <Textarea rows={4} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Adicione observações sobre a venda..." variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md" />
+                  </FormControl>
+                </GridItem>
+                <GridItem colSpan={{ base: 1, md: 2 }}>
+                  <Box mt={2} p={4} border="1px" borderColor={border} borderRadius="md" bg={useColorModeValue('gray.50','whiteAlpha.50')}>
+                    <Flex align="center" justify="space-between">
+                      <Text color="gray.600">Total da Venda</Text>
+                      <Heading size="md" color="green.600">{formatCurrency((quantidade || 0) * Number.parseFloat(precoUnitario || '0'))}</Heading>
+                    </Flex>
+                  </Box>
+                </GridItem>
+              </SimpleGrid>
+            </ModalBody>
+            <ModalFooter>
+              <ButtonGroup>
+                <Button variant="ghost" onClick={() => setShowEditModal(false)}>Cancelar</Button>
+                <Button colorScheme="purple" type="submit">Salvar Alterações</Button>
+              </ButtonGroup>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
 
       {/* Add Sale Modal */}
       {showModal && (
@@ -1110,7 +1145,8 @@ const Vendas: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      <Box display={{ base: 'block', md: 'block' }} height={{ base: 24, md: 16 }} />
+    </Container>
   )
 }
 

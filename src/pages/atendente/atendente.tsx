@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Eye, EyeOff, Headset, Calendar, MessageCircle, CheckCircle } from "lucide-react"
+import { Eye, EyeOff, Calendar, MessageCircle, CheckCircle } from "lucide-react"
 import EsqueciSenha from "../esqueciSenha/esqueciSenha"
 import { firestore } from '../../firebase/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -10,6 +10,7 @@ import './atendente.css';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { auth } from '../../firebase/firebase';
+import LogoBranca from "../../assets/logo_branca.png"
 
 const Atendente: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -76,8 +77,7 @@ const Atendente: React.FC = () => {
         <div className="atendente-left">
           <div className="atendente-left-content">
             <div className="logo">
-              <Headset className="user-icon" />
-              <span>AtendePro</span>
+              <img src={LogoBranca} alt="logoTrezu" className="logo_branca"/>
             </div>
 
             <h2>Portal do Atendente</h2>

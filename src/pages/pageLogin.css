@@ -82,6 +82,12 @@ body {
   margin-bottom: 30px;
 }
 
+.logo_branca {
+  display: flex;
+  width: 200px;
+  height: 100px;
+}
+
 .scissors-icon {
   color: #f9d342;
   margin-right: 10px;

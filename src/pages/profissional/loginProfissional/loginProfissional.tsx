@@ -4,12 +4,13 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import "./loginProfissional.css"
-import { Scissors, Calendar, User, Eye, EyeOff, Briefcase } from "lucide-react"
+import { Calendar, User, Eye, EyeOff, Briefcase } from "lucide-react"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import EsqueciSenha from "../../esqueciSenha/esqueciSenha"
 import { useNavigate } from "react-router-dom"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import { firestore } from "../../../firebase/firebase"
+import LogoBranca from "../../../assets/logo_branca.png"
 
 export default function LoginProfissional() {
   const [showPassword, setShowPassword] = useState(false)
@@ -90,10 +91,9 @@ export default function LoginProfissional() {
         <div className="profissional-login-left">
           <div className="profissional-login-left-content">
             <div className="profissional-logo">
-              <Scissors className="profissional-scissors-icon" />
-              <span style={{ color: "white" }}>Trezu</span>
+              <img src={LogoBranca} alt="logoTrezu" className="logo_branca" />
             </div>
-            <h2>Área do Profissional</h2>
+
             <p>Acesse sua agenda, gerencie seus horários e atenda seus clientes com excelência.</p>
             <div className="profissional-features">
               <div className="profissional-feature">

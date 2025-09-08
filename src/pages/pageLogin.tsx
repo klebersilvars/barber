@@ -4,12 +4,13 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import "./pageLogin.css"
-import { Scissors, Calendar, User, Eye, EyeOff, Building } from "lucide-react"
+import { Calendar, User, Eye, EyeOff, Building } from "lucide-react"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import EsqueciSenha from "./esqueciSenha/esqueciSenha"
 import { useNavigate } from "react-router-dom"
 import { collection, query, where, getDocs, updateDoc, addDoc, collection as firestoreCollection } from 'firebase/firestore';
 import { firestore } from '../firebase/firebase';
+import LogoBranca from "../assets/logo_branca.png"
 
 async function registrarLogAcesso(email: string) {
   const log = {
@@ -119,8 +120,7 @@ export default function PageLogin() {
         <div className="login-left">
           <div className="login-left-content">
             <div className="logo">
-              <Scissors className="scissors-icon" />
-              <span style={{ color: "white" }}>Trezu</span>
+              <img src={LogoBranca} alt="Trezu" className="logo_branca"  />
             </div>
             <h2>Gerencie sua agenda com facilidade</h2>
             <p>Plataforma completa para profissionais de beleza controlarem agendamentos e clientes.</p>
