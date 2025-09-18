@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Calendar,
   Clock,
@@ -8,10 +8,8 @@ import {
   DollarSign,
   Plus,
   Filter,
-  Download,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Check,
   X,
   User,
@@ -26,6 +24,7 @@ import {
   LogOut,
   Square,
   MessageCircle,
+  Edit
 } from "lucide-react"
 import "./agendaAtendente.css"
 import { firestore } from "../../../firebase/firebase"
@@ -33,11 +32,28 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, g
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
 import { auth } from "../../../firebase/firebase"
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  Input as ChakraInput,
+  Select as ChakraSelect,
+  Textarea as ChakraTextarea,
+  HStack,
+} from '@chakra-ui/react'
 
 const AgendaAtendente = () => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
 
@@ -321,9 +337,22 @@ const AgendaAtendente = () => {
     setShowDayModal(true)
   }
 
-  // Mock data
+  // Profissionais para filtros (a partir de agendamentos do estabelecimento)
+  const profissionaisAgendados = useMemo(() => {
+    const nomes = agendamentosEstab
+      .map((a: any) => a.professional)
+      .filter((n: any) => typeof n === 'string' && n.trim().length > 0)
+    return Array.from(new Set(nomes))
+  }, [agendamentosEstab])
+
+  // Dados do dia + filtro por profissional
   const todayISO = new Date(selectedDate).toISOString().split("T")[0]
-  const todayAppointments = agendamentosEstab.filter((a) => a.date === todayISO)
+  const todayAppointments = agendamentosEstab.filter((a) => {
+    const isSameDay = a.date === todayISO
+    const professionalOk = selectedProfessional === 'todos' ? true : a.professional === selectedProfessional
+    const statusOk = selectedStatusFilter === 'todos' ? true : (a.status || 'agendado') === selectedStatusFilter
+    return isSameDay && professionalOk && statusOk
+  })
   const receitaPrevistaHoje = todayAppointments.reduce((sum, a) => sum + (a.price || 0), 0)
   const confirmadosHoje = todayAppointments.filter((a) => a.status === "confirmado").length
   const pendentesHoje = todayAppointments.filter((a) => a.status !== "confirmado").length
@@ -345,6 +374,62 @@ const AgendaAtendente = () => {
   // Histórico geral: todos finalizados
   const [showHistoricoModal, setShowHistoricoModal] = useState(false)
   const historicoGeral = agendamentosEstab.filter((a) => a.status === "finalizado")
+
+  // Modal de edição de agendamento
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingAppointment, setEditingAppointment] = useState<any | null>(null)
+  const [originalProfessionalEdit, setOriginalProfessionalEdit] = useState<string>("")
+
+  const openEditAppointment = (appointment: any) => {
+    setEditingAppointment({ ...appointment })
+    setOriginalProfessionalEdit(appointment.professional || "")
+    setShowEditModal(true)
+  }
+
+  const closeEditAppointment = () => {
+    setShowEditModal(false)
+    setEditingAppointment(null)
+    setOriginalProfessionalEdit("")
+  }
+
+  const handleSaveEditedAppointment = async () => {
+    if (!editingAppointment?.id) return
+    try {
+      await updateDoc(doc(firestore, 'agendaAdmin', editingAppointment.id), {
+        clientName: editingAppointment.clientName,
+        clientPhone: editingAppointment.clientPhone,
+        service: editingAppointment.service,
+        professional: editingAppointment.professional,
+        date: editingAppointment.date,
+        time: editingAppointment.time,
+        price: editingAppointment.price || 0,
+        paymentMethod: editingAppointment.paymentMethod || '',
+        notes: editingAppointment.notes || '',
+      })
+      alert('Agendamento atualizado com sucesso!')
+      closeEditAppointment()
+    } catch (error: any) {
+      console.error('Erro ao atualizar agendamento:', error)
+      alert('Erro ao atualizar agendamento: ' + (error?.message || error))
+    }
+  }
+
+  const notifyProfessionalChange = () => {
+    if (!editingAppointment) return
+    const phone = (editingAppointment.clientPhone || '').replace(/\D/g, '')
+    if (!phone) {
+      alert('Telefone do cliente não encontrado!')
+      return
+    }
+    const phoneWithCountry = phone.length === 11 ? `55${phone}` : phone
+    const oldProf = originalProfessionalEdit || 'seu profissional anterior'
+    const newProf = editingAppointment.professional || 'novo profissional'
+    const dateStr = editingAppointment.date ? new Date(editingAppointment.date).toLocaleDateString('pt-BR') : ''
+    const timeStr = editingAppointment.time || ''
+    const message = `Olá ${editingAppointment.clientName || ''}! Informamos que, devido à alta demanda, seu atendimento foi transferido do profissional ${oldProf} para ${newProf} em ${dateStr} às ${timeStr}. Qualquer dúvida, estamos à disposição.`
+    const whatsappUrl = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+  }
 
   // Atualizar função de iniciar atendimento
   const handleIniciarAtendimento = async (id: string) => {
@@ -626,10 +711,6 @@ const AgendaAtendente = () => {
                     <Filter size={16} />
                     Filtros
                   </button>
-                  <button className="atendente-btn-export">
-                    <Download size={16} />
-                    Exportar
-                  </button>
                 </div>
               </div>
 
@@ -640,18 +721,20 @@ const AgendaAtendente = () => {
                     <label>Profissional:</label>
                     <select value={selectedProfessional} onChange={(e) => setSelectedProfessional(e.target.value)}>
                       <option value="todos">Todos</option>
-                      <option value="carlos">Carlos</option>
-                      <option value="ana">Ana</option>
-                      <option value="fernanda">Fernanda</option>
+                      {profissionaisAgendados.map((nome: string) => (
+                        <option key={nome} value={nome}>{nome}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="atendente-filter-group">
                     <label>Status:</label>
-                    <select>
+                    <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)}>
                       <option value="todos">Todos</option>
                       <option value="confirmado">Confirmados</option>
                       <option value="agendado">Agendados</option>
+                      <option value="em_andamento">Em andamento</option>
                       <option value="finalizado">Finalizados</option>
+                      <option value="cancelado">Cancelados</option>
                     </select>
                   </div>
                 </div>
@@ -683,7 +766,7 @@ const AgendaAtendente = () => {
                       </div>
 
                       <div className="atendente-appointment-status">
-                        <span className={`atendente-status-badge`}>Agendado</span>
+                        <span className={`atendente-status-badge`}>{appointment.status || 'agendado'}</span>
                       </div>
                     </div>
 
@@ -691,8 +774,9 @@ const AgendaAtendente = () => {
                       <button className="atendente-btn-action-sm" title="Iniciar Atendimento" onClick={() => handleIniciarAtendimento(appointment.id)}>
                         <PlayIcon size={16} />
                       </button>
-                      <button className="atendente-btn-action-sm" title="Ver detalhes">
-                        <Eye size={16} />
+                      <button className="atendente-btn-action-sm" title="Editar" onClick={() => openEditAppointment(appointment)}>
+                        <X size={0} style={{ display: 'none' }} />
+                        <Edit size={16} />
                       </button>
                       <button className="atendente-btn-action-sm danger" title="Cancelar">
                         <X size={16} />
@@ -1226,6 +1310,109 @@ const AgendaAtendente = () => {
         </div>
       )}
 
+      {/* Edit Appointment Modal (Chakra UI - simples como admin) */}
+      {showEditModal && editingAppointment && (
+        <Modal isOpen={showEditModal} onClose={closeEditAppointment} size="xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Editar Agendamento</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <FormControl>
+                  <FormLabel>Cliente</FormLabel>
+                  <ChakraInput
+                    value={editingAppointment.clientName || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, clientName: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>WhatsApp</FormLabel>
+                  <ChakraInput
+                    value={editingAppointment.clientPhone || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, clientPhone: e.target.value.replace(/\D/g, '') }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Serviço</FormLabel>
+                  <ChakraInput
+                    value={editingAppointment.service || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, service: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Profissional</FormLabel>
+                  <ChakraSelect
+                    value={editingAppointment.professional || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, professional: e.target.value }))}
+                  >
+                    {(
+                      Array.isArray(editingAppointment.profissionaisServico) && editingAppointment.profissionaisServico.length > 0
+                        ? editingAppointment.profissionaisServico
+                        : colaboradoresEstab.map((c: any) => c.nome)
+                    ).map((nome: any, idx: number) => (
+                      <option key={`${String(nome)}-${idx}`} value={String(nome)}>{String(nome)}</option>
+                    ))}
+                  </ChakraSelect>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Data</FormLabel>
+                  <ChakraInput
+                    type="date"
+                    value={editingAppointment.date || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, date: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Hora</FormLabel>
+                  <ChakraInput
+                    type="time"
+                    value={editingAppointment.time || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, time: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Preço (R$)</FormLabel>
+                  <ChakraInput
+                    type="number"
+                    value={editingAppointment.price ?? 0}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, price: Number(e.target.value) }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Forma de pagamento</FormLabel>
+                  <ChakraInput
+                    value={editingAppointment.paymentMethod || ''}
+                    onChange={(e) => setEditingAppointment((p: any) => ({ ...p, paymentMethod: e.target.value }))}
+                  />
+                </FormControl>
+              </div>
+              <FormControl style={{ marginTop: 12 }}>
+                <FormLabel>Observações</FormLabel>
+                <ChakraTextarea
+                  rows={3}
+                  value={editingAppointment.notes || ''}
+                  onChange={(e) => setEditingAppointment((p: any) => ({ ...p, notes: e.target.value }))}
+                />
+              </FormControl>
+
+              {editingAppointment.professional && originalProfessionalEdit && editingAppointment.professional !== originalProfessionalEdit && (
+                <HStack spacing={2} style={{ marginTop: 10 }}>
+                  <Button colorScheme='blue' variant='outline' onClick={notifyProfessionalChange}>
+                    Informar cliente da troca de profissional
+                  </Button>
+                </HStack>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <HStack spacing={2}>
+                <Button variant='ghost' onClick={closeEditAppointment}>Fechar</Button>
+                <Button colorScheme='blue' onClick={handleSaveEditedAppointment}>Salvar alterações</Button>
+              </HStack>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
       {/* Modal de agendamentos do dia */}
       {showDayModal && selectedDay && (
         <div className="atendente-modal-overlay" onClick={() => setShowDayModal(false)}>

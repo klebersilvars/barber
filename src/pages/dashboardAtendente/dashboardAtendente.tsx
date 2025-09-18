@@ -12,6 +12,7 @@ import {
   User,
   Gift,
   ChevronRight,
+  LogOut,
   Menu as MenuIcon,
 } from "lucide-react"
 import { useParams, useNavigate, Outlet, useLocation } from "react-router-dom"
@@ -19,6 +20,8 @@ import { firestore, auth } from "../../firebase/firebase"
 import { collection, getDocs, query, where, getDoc, doc } from "firebase/firestore"
 import { signOut } from 'firebase/auth';
 import { X } from 'lucide-react';
+import trezuLogo from "../../assets/LOGOTIPO-TREZU-BLUE.png"
+import favAzul from "../../assets/fav_azul.png"
 
 const DashboardAtendente: React.FC = () => {
   const { uid } = useParams()
@@ -34,7 +37,7 @@ const DashboardAtendente: React.FC = () => {
     { icon: ShoppingCart, label: "Vendas", path: `/acessoAtendente/${uid}/vendas` },
     { icon: Users, label: "Clientes", path: `/acessoAtendente/${uid}/clientes` },
     { icon: Calendar, label: "Agenda Online", path: `/acessoAtendente/${uid}/agendaAtendente` },
-    { icon: ChevronRight, label: "Sair da Conta", path: "#logout", className: "logout-item" },
+    { icon: LogOut, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
   useEffect(() => {
@@ -109,8 +112,7 @@ const DashboardAtendente: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottom: '1px solid #eee' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Headset className="logo-icon" />
-              <span style={{ fontWeight: 700, fontSize: 20 }}>Trezu</span>
+
             </div>
             <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X /></button>
           </div>
@@ -173,12 +175,21 @@ const DashboardAtendente: React.FC = () => {
 
       {/* Main Layout */}
       <div className="main-layout">
-        {/* Sidebar */}
+        {/* Sidebar */} 
         <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
           <div className="sidebar-header">
             <div className="logo">
-              <Headset className="logo-icon" />
-              {!sidebarCollapsed && <span>Trezu</span>}
+              <img 
+                src={trezuLogo} 
+                alt="Trezu Logo" 
+                className={`logo-icon-no-bg logo-img-full ${sidebarCollapsed ? 'hidden' : 'visible'}`}
+                style={{position: 'absolute', left: '80px'}}
+              />
+              <img 
+                src={favAzul}
+                alt="Trezu Ícone"
+                className={`logo-icon-fav logo-img-fav ${sidebarCollapsed ? 'visible' : 'hidden'}`}
+              />
             </div>
             <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
               <ChevronRight className={sidebarCollapsed ? "" : "rotated"} />

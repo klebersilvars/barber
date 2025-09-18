@@ -1,3 +1,30 @@
+/* Alinhado ao dashboardUser: animação e tamanhos */
+.logo-img-full {
+  max-height: 42px;
+  width: auto;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.logo-img-fav {
+  width: 28px;
+  height: 28px;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.logo .visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.logo .hidden {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+/* Ajuste fino: alinhar logo ao centro visual do botão hambúrguer */
+.sidebar-header .logo {
+  transform: translateX(-6px);
+}
 /* Reset e configurações básicas */
 * {
     margin: 0;
