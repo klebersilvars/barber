@@ -540,15 +540,15 @@ const DespesasAdmin = () => {
               <Heading size="lg">Gestão de Despesas</Heading>
               <Text color={useColorModeValue('gray.600','gray.300')}>Controle seus gastos e acompanhe o fluxo de caixa</Text>
             </Box>
-            <HStack spacing={2}>
-              <Button variant="outline" leftIcon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
+            <HStack spacing={2} flexWrap="wrap" w="100%" justify={{ base: 'stretch', md: 'flex-end' }}>
+              <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" leftIcon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
                 Filtros
                 <Badge ml={2} colorScheme="purple" variant="subtle">
                   {Object.values({ filterTipo, filterPayment }).filter((f) => f !== 'all').length || 0}
                 </Badge>
               </Button>
-              <Button variant="outline" leftIcon={<Download size={16} />} onClick={() => setShowHistoryModal(true)}>Relatório</Button>
-              <Button colorScheme="purple" leftIcon={<Plus size={16} />} onClick={handleOpenModal} isDisabled={!isCurrentMonth && monthClosed}>Nova Despesa</Button>
+              <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" leftIcon={<Download size={16} />} onClick={() => setShowHistoryModal(true)}>Relatório</Button>
+              <Button size="sm" w={{ base: '100%', sm: 'auto' }} colorScheme="purple" leftIcon={<Plus size={16} />} onClick={handleOpenModal} isDisabled={!isCurrentMonth && monthClosed}>Nova Despesa</Button>
             </HStack>
           </Flex>
       </Box>
@@ -556,20 +556,20 @@ const DespesasAdmin = () => {
       {/* Month Selector (Chakra) */}
       <Box px={4} py={4} width="100%">
         <Flex bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4} align="center" justify="space-between" wrap="wrap" gap={3}>
-          <HStack>
-            <Button variant="outline" onClick={goToPreviousMonth} leftIcon={<ChevronLeft size={18}/>}>Anterior</Button>
+          <HStack flexWrap="wrap" gap={2}>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" onClick={goToPreviousMonth} leftIcon={<ChevronLeft size={18}/>}>Anterior</Button>
             <Box>
               <Heading size="md" textAlign="center">{getMonthName(selectedMonth)} {selectedYear}</Heading>
               <Text color={useColorModeValue('gray.600','gray.300')} textAlign="center">Despesas do mês</Text>
             </Box>
-            <Button variant="outline" onClick={goToNextMonth} rightIcon={<ChevronRight size={18}/>} isDisabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}>Próximo</Button>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" onClick={goToNextMonth} rightIcon={<ChevronRight size={18}/>} isDisabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}>Próximo</Button>
             <Badge colorScheme={isCurrentMonth ? 'blue' : monthClosed ? 'red' : 'gray'} ml={2}>{isCurrentMonth ? 'MÊS ATUAL' : monthClosed ? 'MÊS FECHADO' : 'MÊS ANTERIOR'}</Badge>
           </HStack>
-          <HStack>
-            <Button variant="ghost" leftIcon={<Calendar size={16} />} onClick={() => setShowHistoryModal(true)}>Histórico</Button>
-            <Button variant="ghost" leftIcon={<BarChart2 size={16} />} onClick={() => setShowCompareModal(true)}>Comparar</Button>
-            {!isCurrentMonth && !monthClosed && (
-              <Button colorScheme="red" variant="outline" leftIcon={<Lock size={16}/>} onClick={() => setShowCloseMonthModal(true)}>Fechar Mês</Button>
+          <HStack flexWrap="wrap" justify={{ base: 'center', md: 'flex-end' }} gap={2}>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="ghost" leftIcon={<Calendar size={16} />} onClick={() => setShowHistoryModal(true)}>Histórico</Button>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="ghost" leftIcon={<BarChart2 size={16} />} onClick={() => setShowCompareModal(true)}>Comparar</Button>
+          {!isCurrentMonth && !monthClosed && (
+              <Button size="sm" w={{ base: '100%', sm: 'auto' }} colorScheme="red" variant="outline" leftIcon={<Lock size={16}/>} onClick={() => setShowCloseMonthModal(true)}>Fechar Mês</Button>
             )}
           </HStack>
         </Flex>
@@ -657,7 +657,7 @@ const DespesasAdmin = () => {
             <HStack flex={1} minW={{ base: '100%', md: '400px' }}>
               <Search size={18} />
               <input style={{ flex: 1, background: 'transparent', border: '1px solid', borderColor: 'transparent', outline: 'none' }} placeholder="Buscar por descrição ou categoria..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
-              {searchQuery && (
+          {searchQuery && (
                 <Button size="sm" variant="ghost" onClick={()=>setSearchQuery('')} leftIcon={<X size={16}/>}>Limpar</Button>
               )}
             </HStack>
@@ -680,7 +680,7 @@ const DespesasAdmin = () => {
       {filteredDespesas.length > 0 && (
         <Box px={4} py={2}>
           <VStack spacing={3} align="stretch">
-            {filteredDespesas.map((despesa) => (
+          {filteredDespesas.map((despesa) => (
               <Box key={despesa.id} bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4}>
                 <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3}>
                   <Box>
@@ -691,7 +691,7 @@ const DespesasAdmin = () => {
                       <HStack><CreditCard size={14}/><Text>{despesa.formaPagamento}</Text></HStack>
                       <HStack><Calendar size={14}/><Text>{formatDate(despesa.data)}</Text></HStack>
                     </SimpleGrid>
-                    {despesa.observacoes && (
+                {despesa.observacoes && (
                       <Text mt={2} fontSize="sm" color={useColorModeValue('gray.600','gray.300')}><b>Obs:</b> {despesa.observacoes}</Text>
                     )}
                     <HStack mt={2} spacing={2}>
@@ -701,10 +701,10 @@ const DespesasAdmin = () => {
                     </HStack>
                   </Box>
                   <HStack spacing={2} justify={{ base: 'flex-start', md: 'flex-end' }}>
-                    {!monthClosed && (
+                {!monthClosed && (
                       <Button variant="outline" colorScheme="red" leftIcon={<Trash2 size={16}/>} onClick={()=>handleDeleteDespesa(despesa.id)}>Excluir</Button>
-                    )}
-                    {!monthClosed && (
+                )}
+                {!monthClosed && (
                       <Button variant="outline" leftIcon={<Edit size={16}/>} onClick={()=>handleEditDespesa(despesa)}>Editar</Button>
                     )}
                     <Button variant="solid" leftIcon={<Eye size={16}/>} onClick={()=>handleViewDespesa(despesa)}>Ver Detalhes</Button>

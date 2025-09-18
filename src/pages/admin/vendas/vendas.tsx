@@ -440,7 +440,7 @@ const Vendas: React.FC = () => {
   const border = useColorModeValue('gray.200', 'gray.700')
 
   return (
-    <Container maxW="container.xl" px={{ base: 3, md: 10 }} py={{ base: 4, md: 6 }} minH={{ base: 'calc(80dvh + 200px)', md: 'calc(100vh + 140px)' }} overflowY="auto" pb={{ base: 40, md: 32 }}>
+    <Box width="100%" px={{ base: 3, md: 6 }} py={{ base: 4, md: 6 }} minH={{ base: 'calc(80dvh + 200px)', md: 'calc(100vh + 140px)' }} overflowY="auto" pb={{ base: 40, md: 32 }}>
       <Flex align="center" mb={6} gap={4} wrap="wrap">
         <Box>
           <Heading size="lg" color="purple.700">Vendas</Heading>
@@ -1146,7 +1146,7 @@ const Vendas: React.FC = () => {
         </div>
       )}
       <Box display={{ base: 'block', md: 'block' }} height={{ base: 24, md: 16 }} />
-    </Container>
+    </Box>
   )
 }
 
