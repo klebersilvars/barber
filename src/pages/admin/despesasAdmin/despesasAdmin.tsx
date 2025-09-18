@@ -34,6 +34,22 @@ import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, 
 import { useParams, useNavigate } from "react-router-dom"
 import "./despesasAdmin.css"
 import { getAuth } from "firebase/auth"
+import {
+  Box,
+  Container,
+  Flex,
+  Heading,
+  Text,
+  HStack,
+  Button,
+  Badge,
+  SimpleGrid,
+  VStack,
+  Input,
+  Select,
+  Textarea,
+  useColorModeValue,
+} from '@chakra-ui/react'
 
 interface Despesa {
   id: string
@@ -516,332 +532,188 @@ const DespesasAdmin = () => {
   }, [tipoPlano, isPremium, navigate, auth.currentUser])
 
   return (
-    <div className="despesas-container">
-      {/* Header */}
-      <div className="despesas-header">
-        <div className="header-title">
-          <h1>Gestão de Despesas</h1>
-          <p>Controle seus gastos e acompanhe o fluxo de caixa</p>
-        </div>
-        <div className="header-actions">
-          <button className="btn-action filter" onClick={() => setShowFilters(!showFilters)}>
-            <div className="btn-icon-wrapper">
-              <Filter size={18} />
-            </div>
-            <span className="btn-text">Filtros</span>
-            <div className="btn-badge">
-              {Object.values({ filterTipo, filterPayment }).filter((f) => f !== "all").length || ""}
-            </div>
-          </button>
+    <Box className="despesas-container" width="100%">
+      {/* Header (Chakra UI) */}
+      <Box bg={useColorModeValue('white','gray.800')} borderBottom="1px" borderColor={useColorModeValue('gray.200','gray.700')} px={4} py={4} width="100%">
+          <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3} width="100%">
+            <Box>
+              <Heading size="lg">Gestão de Despesas</Heading>
+              <Text color={useColorModeValue('gray.600','gray.300')}>Controle seus gastos e acompanhe o fluxo de caixa</Text>
+            </Box>
+            <HStack spacing={2}>
+              <Button variant="outline" leftIcon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
+                Filtros
+                <Badge ml={2} colorScheme="purple" variant="subtle">
+                  {Object.values({ filterTipo, filterPayment }).filter((f) => f !== 'all').length || 0}
+                </Badge>
+              </Button>
+              <Button variant="outline" leftIcon={<Download size={16} />} onClick={() => setShowHistoryModal(true)}>Relatório</Button>
+              <Button colorScheme="purple" leftIcon={<Plus size={16} />} onClick={handleOpenModal} isDisabled={!isCurrentMonth && monthClosed}>Nova Despesa</Button>
+            </HStack>
+          </Flex>
+      </Box>
 
-          <button className="btn-action report" onClick={() => setShowHistoryModal(true)}>
-            <div className="btn-icon-wrapper">
-              <Download size={18} />
-            </div>
-            <span className="btn-text">Relatório</span>
-            <div className="btn-indicator"></div>
-          </button>
+      {/* Month Selector (Chakra) */}
+      <Box px={4} py={4} width="100%">
+        <Flex bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4} align="center" justify="space-between" wrap="wrap" gap={3}>
+          <HStack>
+            <Button variant="outline" onClick={goToPreviousMonth} leftIcon={<ChevronLeft size={18}/>}>Anterior</Button>
+            <Box>
+              <Heading size="md" textAlign="center">{getMonthName(selectedMonth)} {selectedYear}</Heading>
+              <Text color={useColorModeValue('gray.600','gray.300')} textAlign="center">Despesas do mês</Text>
+            </Box>
+            <Button variant="outline" onClick={goToNextMonth} rightIcon={<ChevronRight size={18}/>} isDisabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}>Próximo</Button>
+            <Badge colorScheme={isCurrentMonth ? 'blue' : monthClosed ? 'red' : 'gray'} ml={2}>{isCurrentMonth ? 'MÊS ATUAL' : monthClosed ? 'MÊS FECHADO' : 'MÊS ANTERIOR'}</Badge>
+          </HStack>
+          <HStack>
+            <Button variant="ghost" leftIcon={<Calendar size={16} />} onClick={() => setShowHistoryModal(true)}>Histórico</Button>
+            <Button variant="ghost" leftIcon={<BarChart2 size={16} />} onClick={() => setShowCompareModal(true)}>Comparar</Button>
+            {!isCurrentMonth && !monthClosed && (
+              <Button colorScheme="red" variant="outline" leftIcon={<Lock size={16}/>} onClick={() => setShowCloseMonthModal(true)}>Fechar Mês</Button>
+            )}
+          </HStack>
+        </Flex>
+      </Box>
 
-          <button className="btn-action primary" onClick={handleOpenModal} disabled={!isCurrentMonth && monthClosed}>
-            <div className="btn-icon-wrapper">
-              <Plus size={18} />
-            </div>
-            <span className="btn-text">Nova Despesa</span>
-            <div className="btn-shine"></div>
-          </button>
-        </div>
-      </div>
+      {/* Stats Cards (Chakra) */}
+      <Box px={4} py={2} width="100%">
+        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+          <Box border="1px" borderColor={useColorModeValue('gray.200','gray.700')} bg={useColorModeValue('white','gray.800')} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>Total de Despesas</Text>
+                <Heading size="md">{formatCurrency(totalDespesas)}</Heading>
+                <Text fontSize="xs" color="red.500">-{((totalDespesas / receitaEstimada) * 100).toFixed(1)}%</Text>
+              </Box>
+              <TrendingDown size={28} color="#ef4444"/>
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={useColorModeValue('gray.200','gray.700')} bg={useColorModeValue('white','gray.800')} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>Receita Estimada</Text>
+                <Heading size="md">{formatCurrency(receitaEstimada)}</Heading>
+                <Button size="xs" variant="outline" mt={2} onClick={()=>setShowEditEstimatesModal(true)}>Editar</Button>
+              </Box>
+              <TrendingUp size={28} color="#22c55e"/>
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={useColorModeValue('gray.200','gray.700')} bg={useColorModeValue('white','gray.800')} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>Saldo do Mês</Text>
+                <Heading size="md">{formatCurrency(saldoEsperado)}</Heading>
+                <Text fontSize="xs" color={saldoEsperado>=0?'green.500':'red.500'}>
+                  {saldoEsperado >= 0 ? '+' : ''}{((saldoEsperado / receitaEstimada) * 100).toFixed(1)}%
+                </Text>
+              </Box>
+              <Wallet size={28} color="#3b82f6"/>
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={useColorModeValue('gray.200','gray.700')} bg={useColorModeValue('white','gray.800')} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>Gastos Fixos</Text>
+                <Heading size="md">{formatCurrency(despesasFixas)}</Heading>
+                <Text fontSize="xs" color={useColorModeValue('gray.600','gray.300')}>Variáveis: {formatCurrency(despesasVariaveis)}</Text>
+              </Box>
+              <Receipt size={28} color="#a855f7"/>
+            </Flex>
+          </Box>
+        </SimpleGrid>
+      </Box>
 
-      {/* Month Selector */}
-      <div className="month-selector-container">
-        <div className="month-selector">
-          <button className="month-nav-btn prev" onClick={goToPreviousMonth}>
-            <ChevronLeft size={20} />
-          </button>
-          <div className="month-display">
-            <div className="month-info">
-              <h3>
-                {getMonthName(selectedMonth)} {selectedYear}
-              </h3>
-              <p>Despesas do mês</p>
-            </div>
-            <div className="month-status">
-              {isCurrentMonth ? (
-                <span className="status-badge current">Mês Atual</span>
-              ) : monthClosed ? (
-                <span className="status-badge past">Mês Fechado</span>
-              ) : (
-                <span className="status-badge past">Mês Anterior</span>
-              )}
-            </div>
-          </div>
-          <button
-            className="month-nav-btn next"
-            onClick={goToNextMonth}
-            disabled={selectedMonth === new Date().getMonth() && selectedYear === new Date().getFullYear()}
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        <div className="month-actions">
-          <button className="btn-month-action" onClick={() => setShowHistoryModal(true)}>
-            <Calendar size={16} />
-            Histórico
-          </button>
-          <button className="btn-month-action" onClick={() => setShowCompareModal(true)}>
-            <BarChart2 size={16} />
-            Comparar
-          </button>
-          {!isCurrentMonth && !monthClosed && (
-            <button className="btn-month-action close-month" onClick={() => setShowCloseMonthModal(true)}>
-              <Lock size={16} />
-              Fechar Mês
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card red">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <TrendingDown size={24} />
-            </div>
-            <span className="stat-change negative">-{((totalDespesas / receitaEstimada) * 100).toFixed(1)}%</span>
-          </div>
-          <div className="stat-content">
-            <h3>{formatCurrency(totalDespesas)}</h3>
-            <p>Total de Despesas</p>
-          </div>
-        </div>
-
-        <div className="stat-card green">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <TrendingUp size={24} />
-            </div>
-            <span className="stat-change positive">+100%</span>
-          </div>
-          <div className="stat-content">
-            <h3>{formatCurrency(receitaEstimada)}</h3>
-            <p>Receita Estimada</p>
-            <button
-              className="btn-edit-estimates"
-              onClick={() => setShowEditEstimatesModal(true)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--primary)",
-                cursor: "pointer",
-                fontSize: "12px",
-                marginTop: "4px",
-              }}
-            >
-              Editar
-            </button>
-          </div>
-        </div>
-
-        <div className="stat-card blue">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <Wallet size={24} />
-            </div>
-            <span className={`stat-change ${saldoEsperado >= 0 ? "positive" : "negative"}`}>
-              {saldoEsperado >= 0 ? "+" : ""}
-              {((saldoEsperado / receitaEstimada) * 100).toFixed(1)}%
-            </span>
-          </div>
-          <div className="stat-content">
-            <h3>{formatCurrency(saldoEsperado)}</h3>
-            <p>Saldo do Mês</p>
-          </div>
-        </div>
-
-        <div className="stat-card purple">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <Receipt size={24} />
-            </div>
-            <span className="stat-change neutral">
-              {despesasFixas > 0 ? ((despesasFixas / totalDespesas) * 100).toFixed(0) : 0}%
-            </span>
-          </div>
-          <div className="stat-content">
-            <h3>{formatCurrency(despesasFixas)}</h3>
-            <p>Gastos Fixos</p>
-            <small style={{ color: "var(--text-light)", fontSize: "12px" }}>
-              Variáveis: {formatCurrency(despesasVariaveis)}
-            </small>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
+      {/* Filters (Chakra) */}
       {showFilters && (
-        <div className="filters-container">
-          <div className="filter-group">
-            <label>Tipo de Despesa</label>
-            <div className="filter-options">
-              <button className={filterTipo === "all" ? "active" : ""} onClick={() => setFilterTipo("all")}>
-                Todas
-              </button>
-              <button className={filterTipo === "fixa" ? "active" : ""} onClick={() => setFilterTipo("fixa")}>
-                Fixas
-              </button>
-              <button className={filterTipo === "variavel" ? "active" : ""} onClick={() => setFilterTipo("variavel")}>
-                Variáveis
-              </button>
-            </div>
-          </div>
-          <div className="filter-group">
-            <label>Forma de Pagamento</label>
-            <div className="filter-options">
-              <button className={filterPayment === "all" ? "active" : ""} onClick={() => setFilterPayment("all")}>
-                Todas
-              </button>
-              <button className={filterPayment === "PIX" ? "active" : ""} onClick={() => setFilterPayment("PIX")}>
-                PIX
-              </button>
-              <button
-                className={filterPayment === "Cartão de Crédito" ? "active" : ""}
-                onClick={() => setFilterPayment("Cartão de Crédito")}
-              >
-                Cartão
-              </button>
-              <button
-                className={filterPayment === "Dinheiro" ? "active" : ""}
-                onClick={() => setFilterPayment("Dinheiro")}
-              >
-                Dinheiro
-              </button>
-            </div>
-          </div>
-        </div>
+        <Box px={4} py={2} width="100%">
+          <Box bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4}>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Tipo de Despesa</Text>
+                <HStack>
+                  <Button size="sm" variant={filterTipo==='all'?'solid':'outline'} colorScheme="purple" onClick={()=>setFilterTipo('all')}>Todas</Button>
+                  <Button size="sm" variant={filterTipo==='fixa'?'solid':'outline'} colorScheme="purple" onClick={()=>setFilterTipo('fixa')}>Fixas</Button>
+                  <Button size="sm" variant={filterTipo==='variavel'?'solid':'outline'} colorScheme="purple" onClick={()=>setFilterTipo('variavel')}>Variáveis</Button>
+                </HStack>
+              </Box>
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Forma de Pagamento</Text>
+                <HStack>
+                  <Button size="sm" variant={filterPayment==='all'?'solid':'outline'} onClick={()=>setFilterPayment('all')}>Todas</Button>
+                  <Button size="sm" variant={filterPayment==='PIX'?'solid':'outline'} onClick={()=>setFilterPayment('PIX')}>PIX</Button>
+                  <Button size="sm" variant={filterPayment==='Cartão de Crédito'?'solid':'outline'} onClick={()=>setFilterPayment('Cartão de Crédito')}>Cartão</Button>
+                  <Button size="sm" variant={filterPayment==='Dinheiro'?'solid':'outline'} onClick={()=>setFilterPayment('Dinheiro')}>Dinheiro</Button>
+                </HStack>
+              </Box>
+            </SimpleGrid>
+          </Box>
+        </Box>
       )}
 
-      {/* Search */}
-      <div className="search-container">
-        <div className="search-input">
-          <Search size={20} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar por descrição ou categoria..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button className="clear-search" onClick={() => setSearchQuery("")}>
-              <X size={16} />
-            </button>
-          )}
-        </div>
-        <div className="search-results">
-          {filteredDespesas.length > 0 ? (
-            <div className="results-count">
-              <span>{filteredDespesas.length} despesa(s) encontrada(s)</span>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <Receipt size={48} />
-              <h3>Nenhuma despesa encontrada</h3>
-              <p>
-                {isCurrentMonth
-                  ? "Cadastre sua primeira despesa para começar!"
-                  : "Não há despesas registradas neste mês."}
-              </p>
-              {isCurrentMonth && !monthClosed && (
-                <button className="btn-primary" onClick={handleOpenModal}>
-                  <Plus size={18} />
-                  Nova Despesa
-                </button>
+      {/* Search (Chakra) */}
+      <Box px={4} py={2} width="100%">
+        <Box bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4}>
+          <Flex gap={3} align="center" wrap="wrap">
+            <HStack flex={1} minW={{ base: '100%', md: '400px' }}>
+              <Search size={18} />
+              <input style={{ flex: 1, background: 'transparent', border: '1px solid', borderColor: 'transparent', outline: 'none' }} placeholder="Buscar por descrição ou categoria..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
+              {searchQuery && (
+                <Button size="sm" variant="ghost" onClick={()=>setSearchQuery('')} leftIcon={<X size={16}/>}>Limpar</Button>
               )}
-            </div>
+            </HStack>
+            <Badge colorScheme="gray">{filteredDespesas.length} resultado(s)</Badge>
+          </Flex>
+          {filteredDespesas.length === 0 && (
+            <VStack py={10} spacing={2} color={useColorModeValue('gray.600','gray.300')}>
+              <Receipt size={48}/>
+              <Heading size="sm">Nenhuma despesa encontrada</Heading>
+              <Text>{isCurrentMonth ? 'Cadastre sua primeira despesa para começar!' : 'Não há despesas registradas neste mês.'}</Text>
+              {isCurrentMonth && !monthClosed && (
+                <Button leftIcon={<Plus size={16}/>} colorScheme="purple" onClick={handleOpenModal}>Nova Despesa</Button>
+              )}
+            </VStack>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      {/* Despesas List */}
+      {/* Despesas List (Chakra) */}
       {filteredDespesas.length > 0 && (
-        <div className="despesas-list">
-          {filteredDespesas.map((despesa) => (
-            <div key={despesa.id} className="despesa-card">
-              <div className="despesa-info-principal">
-                <h3>{despesa.descricao}</h3>
-
-                <p>
-                  <strong>Valor:</strong>
-                  <DollarSign size={16} style={{ marginRight: "6px", color: "var(--error)" }} />
-                  <span style={{ color: "var(--error)", fontWeight: "700" }}>{formatCurrency(despesa.valor)}</span>
-                </p>
-
-                <p>
-                  <strong>Categoria:</strong>
-                  <Tag size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {despesa.categoria}
-                </p>
-
-                <p>
-                  <strong>Pagamento:</strong>
-                  <CreditCard size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {despesa.formaPagamento}
-                </p>
-
-                <p>
-                  <strong>Data:</strong>
-                  <Calendar size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {formatDate(despesa.data)}
-                </p>
-
-                {despesa.observacoes && (
-                  <p>
-                    <strong>Obs:</strong>
-                    <span style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>{despesa.observacoes}</span>
-                  </p>
-                )}
-
-                <div className="despesa-tags">
-                  <span className={`tag ${despesa.tipo === "fixa" ? "blue" : "warning"}`}>
-                    {despesa.tipo === "fixa" ? "Fixa" : "Variável"}
-                  </span>
-                  {despesa.recorrente && (
-                    <span className="tag success">
-                      <Clock size={12} style={{ marginRight: "4px" }} />
-                      Recorrente
-                    </span>
-                  )}
-                  {monthClosed && (
-                    <span className="tag locked">
-                      <Lock size={12} style={{ marginRight: "4px" }} />
-                      Mês Fechado
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="despesa-actions">
-                {!monthClosed && (
-                  <button className="btn-icon" onClick={() => handleDeleteDespesa(despesa.id)}>
-                    <Trash2 size={18} color="#ef4444" />
-                  </button>
-                )}
-                {!monthClosed && (
-                  <button className="btn-icon" onClick={() => handleEditDespesa(despesa)}>
-                    <Edit size={18} />
-                  </button>
-                )}
-                <button className="btn-icon" onClick={() => handleViewDespesa(despesa)}>
-                  <Eye size={18} />
-                </button>
-                <button className="btn-secondary" onClick={() => handleViewDespesa(despesa)}>
-                  Ver Detalhes
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <Box px={4} py={2}>
+          <VStack spacing={3} align="stretch">
+            {filteredDespesas.map((despesa) => (
+              <Box key={despesa.id} bg={useColorModeValue('white','gray.800')} border="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="md" p={4}>
+                <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3}>
+                  <Box>
+                    <Heading size="sm" mb={1}>{despesa.descricao}</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={2} color={useColorModeValue('gray.600','gray.300')} fontSize="sm">
+                      <HStack><DollarSign size={14}/><Text fontWeight="semibold" color="red.500">{formatCurrency(despesa.valor)}</Text></HStack>
+                      <HStack><Tag size={14}/><Text>{despesa.categoria}</Text></HStack>
+                      <HStack><CreditCard size={14}/><Text>{despesa.formaPagamento}</Text></HStack>
+                      <HStack><Calendar size={14}/><Text>{formatDate(despesa.data)}</Text></HStack>
+                    </SimpleGrid>
+                    {despesa.observacoes && (
+                      <Text mt={2} fontSize="sm" color={useColorModeValue('gray.600','gray.300')}><b>Obs:</b> {despesa.observacoes}</Text>
+                    )}
+                    <HStack mt={2} spacing={2}>
+                      <Badge colorScheme={despesa.tipo === 'fixa' ? 'blue':'orange'}>{despesa.tipo === 'fixa' ? 'Fixa':'Variável'}</Badge>
+                      {despesa.recorrente && (<Badge colorScheme="green">Recorrente</Badge>)}
+                      {monthClosed && (<Badge colorScheme="red">Mês Fechado</Badge>)}
+                    </HStack>
+                  </Box>
+                  <HStack spacing={2} justify={{ base: 'flex-start', md: 'flex-end' }}>
+                    {!monthClosed && (
+                      <Button variant="outline" colorScheme="red" leftIcon={<Trash2 size={16}/>} onClick={()=>handleDeleteDespesa(despesa.id)}>Excluir</Button>
+                    )}
+                    {!monthClosed && (
+                      <Button variant="outline" leftIcon={<Edit size={16}/>} onClick={()=>handleEditDespesa(despesa)}>Editar</Button>
+                    )}
+                    <Button variant="solid" leftIcon={<Eye size={16}/>} onClick={()=>handleViewDespesa(despesa)}>Ver Detalhes</Button>
+                  </HStack>
+                </Flex>
+              </Box>
+            ))}
+          </VStack>
+        </Box>
       )}
 
       {/* Empty Month Modal */}
@@ -1698,7 +1570,7 @@ const DespesasAdmin = () => {
           </div>
         </div>
       )}
-    </div>
+    </Box>
   )
 }
 

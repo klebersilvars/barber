@@ -90,18 +90,18 @@
 
 /* Logo sem fundo - apenas o texto */
 .logo-icon-no-bg {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   filter: brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(246deg) brightness(104%) contrast(97%);
 }
 
 /* Estilos e animações para alternância suave entre logos */
 .logo-img-full,
-.logo-img-fav {
+.logo-img-fav { 
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 18%;
   transform: translate(-50%, -50%) scale(1);
   transition: opacity 0.25s ease, transform 0.25s ease;
   opacity: 0;
@@ -123,6 +123,8 @@
   width: 40px;
   height: 40px;
   object-fit: contain;
+  position: absolute;
+  left: 25px;
 }
 
 .header-logo-no-bg {
