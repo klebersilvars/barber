@@ -48,6 +48,20 @@ import {
   IconButton,
   Tooltip,
   useBreakpointValue,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Input,
+  Textarea,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  CloseButton,
 } from '@chakra-ui/react'
 import type { ResponsiveValue } from '@chakra-ui/react'
 
@@ -55,10 +69,18 @@ const AgendaAdmin = () => {
   const [currentView, setCurrentView] = useState("dashboard")
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
+  const [selectedStatus, setSelectedStatus] = useState("todos")
   const [showFilters, setShowFilters] = useState(false)
 
   // Modal states
   const { onOpen: onDayModalOpen } = useDisclosure()
+  const {
+    isOpen: isDetailsOpen,
+    onOpen: onDetailsOpen,
+    onClose: onDetailsClose,
+  } = useDisclosure()
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null)
+  const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null)
 
   const auth = getAuth()
   const navigate = useNavigate()
@@ -96,7 +118,25 @@ const AgendaAdmin = () => {
     const agendamentosRef = collection(firestore, 'agendaAdmin')
     const q = query(agendamentosRef, where('nomeEstabelecimento', '==', estabelecimento))
     const unsub = onSnapshot(q, (snapshot) => {
-      const agendamentosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const agendamentosData = snapshot.docs.map(docSnap => {
+        const data: any = docSnap.data()
+        // Normalizar campo date para 'YYYY-MM-DD'
+        let normalizedDate: string = ''
+        const rawDate = data.date
+        if (rawDate && typeof rawDate === 'string') {
+          // Se vier como string, tentar cortar apenas a parte da data
+          normalizedDate = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate
+        } else if (rawDate && typeof rawDate === 'object' && typeof rawDate.toDate === 'function') {
+          const d: Date = rawDate.toDate()
+          normalizedDate = formatLocalISODate(d)
+        }
+        return {
+          id: docSnap.id,
+          ...data,
+          date: normalizedDate || data.date,
+          status: data.status || 'agendado',
+        }
+      })
       setAgendamentos(agendamentosData)
     })
     return () => unsub()
@@ -143,9 +183,89 @@ const AgendaAdmin = () => {
     onDayModalOpen()
   }
 
+  // Assinar em tempo real o agendamento selecionado
+  useEffect(() => {
+    if (!selectedAppointmentId) return
+    const ref = doc(firestore, 'agendaAdmin', selectedAppointmentId)
+    const unsub = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const data: any = snap.data()
+        let normalizedDate = data.date
+        if (normalizedDate && typeof normalizedDate === 'object' && typeof normalizedDate.toDate === 'function') {
+          normalizedDate = formatLocalISODate(data.date.toDate())
+        }
+        setSelectedAppointment({ id: snap.id, ...data, date: normalizedDate })
+      }
+    })
+    return () => unsub()
+  }, [selectedAppointmentId])
+
+  const openDetails = (id: string) => {
+    setSelectedAppointmentId(id)
+    onDetailsOpen()
+  }
+
+  const handleUpdateAppointment = async () => {
+    if (!selectedAppointment?.id) return
+    try {
+      const ref = doc(firestore, 'agendaAdmin', selectedAppointment.id)
+      const payload: any = { ...selectedAppointment }
+      delete payload.id
+      await updateDoc(ref, payload)
+      alert('Agendamento atualizado com sucesso!')
+      // toast({
+      //   position: 'top-right',
+      //   duration: 3500,
+      //   isClosable: true,
+      //   render: ({ onClose }) => (
+      //     <Alert status="success" variant="subtle" borderRadius="md" boxShadow="lg">
+      //       <AlertIcon />
+      //       <Box>
+      //         <AlertTitle>Agendamento atualizado</AlertTitle>
+      //         <AlertDescription>As alterações foram salvas com sucesso!</AlertDescription>
+      //       </Box>
+      //       <CloseButton position="absolute" right="8px" top="8px" onClick={onClose} />
+      //     </Alert>
+      //   ),
+      // })
+      onDetailsClose()
+    } catch (error: any) {
+      alert('Erro ao atualizar o agendamento, tente novamente mais tarde!')
+      // toast({
+      //   position: 'top-right',
+      //   duration: 5000,
+      //   isClosable: true,
+      //   render: ({ onClose }) => (
+      //     <Alert status="error" variant="subtle" borderRadius="md" boxShadow="lg">
+      //       <AlertIcon />
+      //       <Box>
+      //         <AlertTitle>Erro ao salvar</AlertTitle>
+      //         <AlertDescription>{`Não foi possível salvar as alterações. ${error?.message || error}`}</AlertDescription>
+      //       </Box>
+      //       <CloseButton position="absolute" right="8px" top="8px" onClick={onClose} />
+      //     </Alert>
+      //   ),
+      // })
+    }
+    
+  }
+
+  // Utilitário para formatar data local (YYYY-MM-DD) sem deslocamento de fuso
+  const formatLocalISODate = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Mock data
-  const todayISO = new Date(selectedDate).toISOString().split('T')[0]
-  const todayAppointments = agendamentos.filter(a => a.date === todayISO)
+  const todayISO = formatLocalISODate(new Date(selectedDate))
+  const todayAppointments = agendamentos.filter(a => {
+    const isSameDay = a.date === todayISO
+    const professionalOk = selectedProfessional === 'todos' ? true : a.professional === selectedProfessional
+    const statusOk = selectedStatus === 'todos' ? true : a.status === selectedStatus
+    return isSameDay && professionalOk && statusOk
+  })
   const receitaPrevistaHoje = todayAppointments.reduce((sum, a) => sum + (a.price || 0), 0)
   const confirmadosHoje = todayAppointments.filter(a => a.status === 'confirmado').length
   const pendentesHoje = todayAppointments.filter(a => a.status !== 'confirmado').length
@@ -379,13 +499,6 @@ const AgendaAdmin = () => {
                     >
                       Filtros
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      leftIcon={<Download size={16} />}
-                    >
-                      Exportar
-                    </Button>
                   </HStack>
                 </Flex>
               </CardHeader>
@@ -408,11 +521,12 @@ const AgendaAdmin = () => {
                     </FormControl>
                     <FormControl>
                       <FormLabel fontSize="sm">Status:</FormLabel>
-                      <Select size="sm">
+                      <Select size="sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
                         <option value="todos">Todos</option>
                         <option value="confirmado">Confirmados</option>
                         <option value="agendado">Agendados</option>
                         <option value="finalizado">Finalizados</option>
+                        <option value="em_andamento">Em andamento</option>
                       </Select>
                     </FormControl>
                   </SimpleGrid>
@@ -486,22 +600,14 @@ const AgendaAdmin = () => {
                                 />
                               </Tooltip>
                             )}
-                            <Tooltip label="Ver detalhes">
-                              <IconButton
-                                size={{ base: 'sm', md: 'md' }}
-                                icon={<Eye size={16} />}
-                                colorScheme="gray"
-                                variant="ghost"
-                                aria-label="Ver detalhes"
-                              />
-                            </Tooltip>
                             <Tooltip label="Editar">
                               <IconButton
                                 size={{ base: 'sm', md: 'md' }}
                                 icon={<Edit size={16} />}
                                 colorScheme="gray"
                                 variant="ghost"
-                                aria-label="Editar"
+                                aria-label="Ver detalhes"
+                                onClick={() => openDetails(appointment.id)}
                               />
                             </Tooltip>
                           </HStack>
@@ -649,7 +755,7 @@ const AgendaAdmin = () => {
                     </Box>
                   ))}
                   {getMonthDays(selectedDate).map((day, idx) => {
-                    const dayISO = day.toISOString().split('T')[0];
+                    const dayISO = formatLocalISODate(day);
                     const isToday = day.toDateString() === new Date().toDateString();
                     const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
                     const hasAppointments = agendamentos.some(a => a.date === dayISO);
@@ -685,8 +791,120 @@ const AgendaAdmin = () => {
           </Card>
         )}
       </Container>
+      {/* Modal Detalhes do Agendamento */}
+      <Modal isOpen={isDetailsOpen} onClose={onDetailsClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Detalhes do Agendamento</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {selectedAppointment && (
+              <VStack spacing={3} align="stretch">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                  <FormControl>
+                    <FormLabel>Cliente</FormLabel>
+                    <Input
+                      value={selectedAppointment.clientName || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, clientName: e.target.value }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>WhatsApp</FormLabel>
+                    <Input
+                      value={selectedAppointment.clientPhone || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, clientPhone: e.target.value.replace(/\D/g, '') }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Serviço</FormLabel>
+                    <Input
+                      value={selectedAppointment.service || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, service: e.target.value }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Profissional</FormLabel>
+                    <Select
+                      value={selectedAppointment.professional || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, professional: e.target.value }))}
+                    >
+                      {(Array.isArray(selectedAppointment.profissionaisServico) && selectedAppointment.profissionaisServico.length > 0
+                        ? selectedAppointment.profissionaisServico
+                        : colaboradores.map((c: any) => c.nome)
+                      ).map((nome: any) => (
+                        <option key={String(nome)} value={String(nome)}>{String(nome)}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Data</FormLabel>
+                    <Input
+                      type="date"
+                      value={selectedAppointment.date || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, date: e.target.value }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Hora</FormLabel>
+                    <Input
+                      type="time"
+                      value={selectedAppointment.time || ''}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, time: e.target.value }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Preço (R$)</FormLabel>
+                    <Input
+                      type="number"
+                      value={selectedAppointment.price ?? 0}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, price: Number(e.target.value) }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Status</FormLabel>
+                    <Select
+                      value={selectedAppointment.status || 'agendado'}
+                      onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, status: e.target.value }))}
+                    >
+                      <option value="agendado">Agendado</option>
+                      <option value="confirmado">Confirmado</option>
+                      <option value="em_andamento">Em andamento</option>
+                      <option value="finalizado">Finalizado</option>
+                      <option value="cancelado">Cancelado</option>
+                    </Select>
+                  </FormControl>
+                </SimpleGrid>
+                <FormControl>
+                  <FormLabel>Forma de pagamento</FormLabel>
+                  <Input
+                    value={selectedAppointment.paymentMethod || ''}
+                    onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, paymentMethod: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Observações</FormLabel>
+                  <Textarea
+                    rows={3}
+                    value={selectedAppointment.notes || ''}
+                    onChange={(e) => setSelectedAppointment((p: any) => ({ ...p, notes: e.target.value }))}
+                  />
+                </FormControl>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={2}>
+              <Button variant="ghost" onClick={onDetailsClose}>Fechar</Button>
+              <Button colorScheme="blue" onClick={handleUpdateAppointment}>Salvar alterações</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   )
 }
 
 export default AgendaAdmin
+
+// Modal de Detalhes
+// Inserido ao fim do componente JSX principal
