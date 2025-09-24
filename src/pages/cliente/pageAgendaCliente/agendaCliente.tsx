@@ -38,7 +38,7 @@ import {
 } from "@chakra-ui/react"
 import "./agendaCliente.css"
 import { firestore } from "../../../firebase/firebase"
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc, doc } from "firebase/firestore"
 import PageErro from '../../pageErro/pageErro'
 import { useNavigate } from "react-router-dom"
 
@@ -113,9 +113,9 @@ const AgendaCliente = () => {
         }
         setPrimaryColor(establishmentPrimaryColor)
         
-        // Buscar serviços do estabelecimento
+        // Buscar serviços do estabelecimento usando o email do proprietário
         const servicosRef = collection(firestore, "servicosAdmin")
-        const servicosQuery = query(servicosRef, where("nomeEstabelecimento", "==", establishmentData.nomeEstabelecimento))
+        const servicosQuery = query(servicosRef, where("emailProprietario", "==", establishmentData.email))
         const servicosSnapshot = await getDocs(servicosQuery)
         const servicosData = servicosSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -241,6 +241,55 @@ const AgendaCliente = () => {
     try {
       setSubmitting(true)
       
+      // Primeiro, salvar ou atualizar dados do cliente na coleção clienteUser
+      const clienteData = {
+        nome: clientData.name,
+        sobrenome: '', // Não coletamos sobrenome no agendamento
+        telefone: clientData.phone.replace(/\D/g, ''),
+        whatsapp: clientData.phone.replace(/\D/g, ''), // Usar o mesmo telefone para WhatsApp
+        email: clientData.email || '',
+        instagram: '', // Não coletamos Instagram no agendamento
+        cep: '', // Não coletamos endereço no agendamento
+        cidade: '',
+        rua: '',
+        numeroCasa: '',
+        complementoCasa: '',
+        comoConheceu: 'agendamento_online',
+        anotacoesImportantes: clientData.notes || '',
+        agendamentoOnline: true, // Cliente que agendou online
+        dataCriacao: new Date(),
+        estabelecimento: establishment.nomeEstabelecimento,
+        cadastradoPor: 'sistema_agendamento_online', // Identificar que veio do agendamento online
+        tags: ['Agendamento Online'], // Tag para identificar clientes que agendaram online
+        status: 'active'
+      }
+
+      // Verificar se cliente já existe pelo telefone
+      const clientesRef = collection(firestore, 'clienteUser')
+      const qCliente = query(clientesRef, 
+        where('telefone', '==', clientData.phone.replace(/\D/g, '')),
+        where('estabelecimento', '==', establishment.nomeEstabelecimento)
+      )
+      const clienteSnapshot = await getDocs(qCliente)
+      
+      let clienteId = ''
+      if (clienteSnapshot.empty) {
+        // Cliente não existe, criar novo
+        const novoCliente = await addDoc(clientesRef, clienteData)
+        clienteId = novoCliente.id
+        console.log('✅ Novo cliente criado:', clienteId)
+      } else {
+        // Cliente existe, atualizar dados
+        const clienteDoc = clienteSnapshot.docs[0]
+        clienteId = clienteDoc.id
+        await updateDoc(doc(firestore, 'clienteUser', clienteId), {
+          ...clienteData,
+          dataCriacao: clienteDoc.data().dataCriacao, // Manter data original
+          cadastradoPor: clienteDoc.data().cadastradoPor // Manter quem cadastrou originalmente
+        })
+        console.log('✅ Cliente existente atualizado:', clienteId)
+      }
+      
       // Preparar dados do agendamento seguindo o padrão mostrado
       const appointmentData = {
         // Dados do estabelecimento (mantém como está)
@@ -265,7 +314,7 @@ const AgendaCliente = () => {
         clientName: clientData.name,
         clientPhone: clientData.phone.replace(/\D/g, ''), // Remove caracteres não numéricos
         clientEmail: clientData.email || '',
-        clientId: '', // Será preenchido pelo sistema se necessário
+        clientId: clienteId, // Referência ao cliente na coleção clienteUser
         
         // Forma de pagamento e observações (campos em inglês)
         paymentMethod: clientData.paymentMethod || '',
@@ -288,6 +337,8 @@ const AgendaCliente = () => {
       // Salvar na coleção agendaAdmin
       const agendaRef = collection(firestore, "agendaAdmin")
       await addDoc(agendaRef, appointmentData)
+      
+      console.log('✅ Agendamento criado com sucesso!')
       
       // Ir para tela de sucesso
       setCurrentStep(6)

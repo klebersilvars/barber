@@ -937,9 +937,35 @@ const ConfiguracoesAdmin = () => {
                   </HStack>
                 </CardHeader>
                 <CardBody>
-                  <VStack spacing={6}>
-                    {/* Horários de Funcionamento */}
-                    <Card>
+                  {/* Verificar se tem plano para mostrar bloqueio */}
+                  {!isPremium && (!tipoPlano || tipoPlano === '') ? (
+                    <Box
+                      bg="orange.50"
+                      border="1px solid"
+                      borderColor="orange.200"
+                      borderRadius="lg"
+                      p={6}
+                      textAlign="center"
+                    >
+                      <Icon as={Clock} boxSize={12} color="orange.500" mb={4} />
+                      <Heading size="md" color="orange.700" mb={2}>
+                        Funcionalidade Bloqueada
+                      </Heading>
+                      <Text color="orange.600" mb={4}>
+                        Para configurar horários e políticas de atendimento, você precisa ter um plano ativo.
+                      </Text>
+                      <Button
+                        colorScheme="orange"
+                        size="lg"
+                        onClick={() => window.location.href = `/dashboard/${auth.currentUser?.uid}/plano`}
+                      >
+                        Ver Planos Disponíveis
+                      </Button>
+                    </Box>
+                  ) : (
+                    <VStack spacing={6}>
+                      {/* Horários de Funcionamento */}
+                      <Card>
                       <CardHeader>
                         <Heading size="sm">Horários de Funcionamento</Heading>
                       </CardHeader>
@@ -1115,7 +1141,8 @@ const ConfiguracoesAdmin = () => {
                         </SimpleGrid>
                       </CardBody>
                     </Card>
-                  </VStack>
+                    </VStack>
+                  )}
                 </CardBody>
               </Card>
             </VStack>

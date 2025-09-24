@@ -100,20 +100,39 @@ export default function DashboardUser() {
     amanha: 0,
     semana: 0
   })
+  
+  // Estados para estatísticas detalhadas (igual ao agendaAdmin)
+  const [todayAppointments, setTodayAppointments] = useState<any[]>([])
+  const [receitaPrevistaHoje, setReceitaPrevistaHoje] = useState(0)
+  const [receitaConfirmadaHoje, setReceitaConfirmadaHoje] = useState(0)
+  
+  // Estados para dados do mês atual
+  const [faturamentoMes, setFaturamentoMes] = useState(0)
+  const [novosClientesMes, setNovosClientesMes] = useState(0)
+  const [servicosRealizadosMes, setServicosRealizadosMes] = useState(0)
   const [colaboradoresStats, setColaboradoresStats] = useState<any[]>([])
-  const [resumoMes, setResumoMes] = useState({
-    faturamento: 0,
-    clientesNovos: 0,
-    servicosRealizados: 0,
-    avaliacaoMedia: 0,
-    crescimento: 0
-  })
 
   // Cores responsivas
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'white');
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300');
+
+  // Função para formatar data local (igual ao agendaAdmin)
+  const formatLocalISODate = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Função para formatar moeda
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value)
+  }
 
   // Função para formatar a data de término
   const formatarDataTermino = (dataISO: string) => {
@@ -149,18 +168,8 @@ export default function DashboardUser() {
           const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
           const terminoData = new Date(dataTerminoObj.getFullYear(), dataTerminoObj.getMonth(), dataTerminoObj.getDate());
           
-          console.log('=== VERIFICAÇÃO AUTOMÁTICA DE EXPIRAÇÃO ===');
-          console.log('Data de término do plano:', dataTermino);
-          console.log('Data de término processada:', terminoData.toISOString());
-          console.log('Data atual:', hojeData.toISOString());
-          console.log('Plano expirou?', hojeData >= terminoData);
-          console.log('Premium atual:', data.premium);
-          console.log('Tipo de plano atual:', data.tipoPlano);
-          
           // Se a data de término já passou, desativar premium
           if (hojeData >= terminoData) {
-            console.log('🚨 PLANO EXPIRADO - Desativando premium para:', auth.currentUser.uid);
-            
             await updateDoc(docRef, {
               premium: false,
               tipoPlano: '', // String vazia sinalizando que não tem mais planos
@@ -169,20 +178,11 @@ export default function DashboardUser() {
               dias_restantes_teste_gratis: 0,
               avaliacao_gratis: false
             });
-            
-            console.log('✅ Premium desativado com sucesso!');
-            console.log('✅ Campos resetados: premium=false, tipoPlano="", data_termino=null, dias=0');
-          } else {
-            console.log('✅ Plano ainda ativo - Premium mantido');
           }
-          
-          console.log('=== FIM VERIFICAÇÃO ===');
-        } else {
-          console.log('ℹ️ Nenhuma data de término encontrada para verificação');
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao verificar expiração do plano:', error);
+      // Erro silencioso - não exibir logs no console
     }
   };
 
@@ -190,15 +190,11 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid) return;
 
-    console.log('=== INICIANDO CARREGAMENTO DO DASHBOARD ===');
-    console.log('UID do usuário:', uid);
-
     // Verificar expiração do plano ao carregar
     verificarExpiracaoPlano();
 
     // Verificar a cada 5 minutos se o plano expirou
     const intervalId = setInterval(() => {
-      console.log('🔄 Verificação periódica de expiração (5 min)');
       verificarExpiracaoPlano();
     }, 5 * 60 * 1000); // 5 minutos
 
@@ -210,14 +206,6 @@ export default function DashboardUser() {
       if (!snapshot.empty) {
         const contaData = snapshot.docs[0].data();
         
-        console.log('=== DADOS DA CONTA CARREGADOS ===');
-        console.log('Nome do estabelecimento:', contaData.nomeEstabelecimento);
-        console.log('Premium:', contaData.premium);
-        console.log('Tipo de plano:', contaData.tipoPlano);
-        console.log('Data de término:', contaData.data_termino_plano_premium);
-        console.log('Dias restantes teste:', contaData.dias_restantes_teste_gratis);
-        console.log('Dias plano pago restante:', contaData.dias_plano_pago_restante);
-        
         setEstabelecimentoNome(contaData.nomeEstabelecimento || '');
         setIsPremium(contaData.premium === true);
         setTipoPlano(contaData.tipoPlano || null);
@@ -226,46 +214,11 @@ export default function DashboardUser() {
         setJaPegouPremiumGratis(contaData.ja_pegou_premium_gratis ?? false);
         setDiasRestantesTeste(contaData.dias_restantes_teste_gratis ?? null);
         setDataTerminoPlano(contaData.data_termino_plano_premium || null);
-        
-        // Debug específico para data de término
-        if (contaData.data_termino_plano_premium) {
-          console.log('=== DEBUG DATA DE TÉRMINO ===');
-          console.log('Data bruta do Firebase:', contaData.data_termino_plano_premium);
-          console.log('Tipo da data:', typeof contaData.data_termino_plano_premium);
-          console.log('Data é válida?', !isNaN(new Date(contaData.data_termino_plano_premium).getTime()));
-          
-          try {
-            const dataObj = new Date(contaData.data_termino_plano_premium);
-            console.log('Data convertida:', dataObj);
-            console.log('Data formatada:', dataObj.toLocaleDateString('pt-BR'));
-            console.log('Data ISO:', dataObj.toISOString());
-            
-            // Verificar se a data de término já passou
-            const hoje = new Date();
-            const hojeData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-            const terminoData = new Date(dataObj.getFullYear(), dataObj.getMonth(), dataObj.getDate());
-            
-            console.log('Data atual (sem hora):', hojeData.toISOString());
-            console.log('Data término (sem hora):', terminoData.toISOString());
-            console.log('Plano expirou?', hojeData >= terminoData);
-            
-          } catch (error) {
-            console.error('Erro ao processar data:', error);
-          }
-          
-          console.log('Estado dataTerminoPlano será:', contaData.data_termino_plano_premium || null);
-          console.log('=== FIM DEBUG ===');
-        } else {
-          console.log('ℹ️ Nenhuma data de término encontrada para:', contaData.tipoPlano);
-        }
-        
-        console.log('=== FIM DADOS CARREGADOS ===');
       }
     });
 
     // Cleanup function
     return () => {
-      console.log('🧹 Cleanup: Desconectando listeners');
       unsubscribe();
       clearInterval(intervalId);
     };
@@ -275,40 +228,67 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid || !estabelecimentoNome) return;
 
-    console.log('=== CARREGANDO DADOS REAIS DO DASHBOARD ===');
-    console.log('UID:', uid);
-    console.log('Estabelecimento:', estabelecimentoNome);
-
-    // Buscar agendamentos
+    // Buscar agendamentos (igual ao agendaAdmin)
     const agendamentosRef = collection(firestore, 'agendaAdmin');
     const qAgendamentos = query(agendamentosRef, where('nomeEstabelecimento', '==', estabelecimentoNome));
     
     const unsubscribeAgendamentos = onSnapshot(qAgendamentos, (snapshot) => {
-      const agendamentosData: any[] = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
+      const agendamentosData: any[] = snapshot.docs.map(docSnap => {
+        const data: any = docSnap.data()
+        // Normalizar campo date para 'YYYY-MM-DD' (igual ao agendaAdmin)
+        let normalizedDate: string = ''
+        const rawDate = data.date
+        if (rawDate && typeof rawDate === 'string') {
+          // Se vier como string, tentar cortar apenas a parte da data
+          normalizedDate = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate
+        } else if (rawDate && typeof rawDate === 'object' && typeof rawDate.toDate === 'function') {
+          const d: Date = rawDate.toDate()
+          normalizedDate = formatLocalISODate(d)
+        }
+        return {
+          id: docSnap.id,
+          ...data,
+          date: normalizedDate || data.date,
+          status: data.status || 'agendado',
+        }
+      });
+      
       setAgendamentos(agendamentosData);
       
-      // Calcular estatísticas de agenda
-      const hoje = new Date().toISOString().split('T')[0];
-      const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      // Calcular estatísticas usando a mesma lógica do agendaAdmin
+      const hojeISO = formatLocalISODate(new Date());
+      const amanhaISO = formatLocalISODate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+      
+      // Agendamentos de hoje (todos os status)
+      const agendamentosHoje = agendamentosData.filter((ag: any) => ag.date === hojeISO);
+      setTodayAppointments(agendamentosHoje);
+      
+      // Receita prevista hoje (todos os agendamentos de hoje)
+      const receitaPrevista = agendamentosHoje.reduce((sum, ag) => sum + (ag.price || 0), 0);
+      setReceitaPrevistaHoje(receitaPrevista);
+      
+      // Receita confirmada hoje (apenas finalizados)
+      const receitaConfirmada = agendamentosHoje.filter(ag => ag.status === 'finalizado').reduce((sum, ag) => sum + (ag.price || 0), 0);
+      setReceitaConfirmadaHoje(receitaConfirmada);
+      
+      // Estatísticas para os cartões
+      const agendamentosAmanha = agendamentosData.filter((ag: any) => ag.date === amanhaISO);
+      
+      // Calcular semana atual
       const inicioSemana = new Date();
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
       const fimSemana = new Date(inicioSemana);
       fimSemana.setDate(fimSemana.getDate() + 6);
       
-      const agendamentosHoje = agendamentosData.filter((ag: any) => ag.date === hoje && ag.status === 'confirmado').length;
-      const agendamentosAmanha = agendamentosData.filter((ag: any) => ag.date === amanha && ag.status === 'confirmado').length;
       const agendamentosSemana = agendamentosData.filter((ag: any) => {
         const dataAgendamento = new Date(ag.date);
-        return dataAgendamento >= inicioSemana && dataAgendamento <= fimSemana && ag.status === 'confirmado';
-      }).length;
+        return dataAgendamento >= inicioSemana && dataAgendamento <= fimSemana;
+      });
       
       setAgendaStats({
-        hoje: agendamentosHoje,
-        amanha: agendamentosAmanha,
-        semana: agendamentosSemana
+        hoje: agendamentosHoje.length,
+        amanha: agendamentosAmanha.length,
+        semana: agendamentosSemana.length
       });
     });
 
@@ -350,58 +330,16 @@ export default function DashboardUser() {
     const vendasRef = collection(firestore, 'vendas');
     const qVendas = query(vendasRef, where('empresaUid', '==', uid));
     
-    const unsubscribeVendas = onSnapshot(qVendas, (snapshot) => {
-      const vendasData: any[] = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
-      
-      // Calcular resumo do mês
-      const mesAtual = new Date().getMonth();
-      const anoAtual = new Date().getFullYear();
-      
-      const vendasMes = vendasData.filter((venda: any) => {
-        const dataVenda = venda.dataVenda?.toDate ? venda.dataVenda.toDate() : new Date(venda.dataVenda);
-        return dataVenda.getMonth() === mesAtual && dataVenda.getFullYear() === anoAtual;
-      });
-      
-      const faturamento = vendasMes.reduce((total: number, venda: any) => total + (venda.precoTotal || 0), 0);
-      const servicosRealizados = vendasMes.length;
-      
-      // Mock para outros dados
-      const avaliacaoMedia = 4.5 + Math.random() * 0.5; // Mock entre 4.5 e 5.0
-      const crescimento = Math.floor(Math.random() * 20) + 5; // Mock entre 5% e 25%
-      
-      setResumoMes(prev => ({
-        ...prev,
-        faturamento,
-        servicosRealizados,
-        avaliacaoMedia: parseFloat(avaliacaoMedia.toFixed(1)),
-        crescimento
-      }));
+    const unsubscribeVendas = onSnapshot(qVendas, () => {
+      // Não usar mais resumoMes, usar os estados específicos
     });
 
     // Buscar clientes
     const clientesRef = collection(firestore, 'clienteUser');
     const qClientes = query(clientesRef, where('cadastradoPor', '==', uid));
     
-    const unsubscribeClientes = onSnapshot(qClientes, (snapshot) => {
-      const clientesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // Calcular clientes novos do mês atual
-      const mesAtual = new Date().getMonth();
-      const anoAtual = new Date().getFullYear();
-      
-      const clientesNovos = clientesData.filter((cliente: any) => {
-        const dataCadastro = cliente.criadoEm?.toDate ? cliente.criadoEm.toDate() : new Date(cliente.criadoEm);
-        return dataCadastro.getMonth() === mesAtual && dataCadastro.getFullYear() === anoAtual;
-      }).length;
-      
-      // Atualizar resumo do mês com dados reais de clientes
-      setResumoMes(prev => ({
-        ...prev,
-        clientesNovos: clientesNovos
-      }));
+    const unsubscribeClientes = onSnapshot(qClientes, () => {
+      // Não usar mais resumoMes, usar os estados específicos
     });
 
     return () => {
@@ -412,6 +350,94 @@ export default function DashboardUser() {
     };
   }, [uid, estabelecimentoNome]);
 
+  // Buscar dados de vendas do mês atual
+  useEffect(() => {
+    if (!uid) return
+    
+    const vendasRef = collection(firestore, 'vendas');
+    const qVendas = query(vendasRef, where('empresaUid', '==', uid));
+    
+    const unsubscribeVendas = onSnapshot(qVendas, (snapshot) => {
+      const vendasData = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      // Calcular faturamento do mês atual
+      const agora = new Date();
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0);
+      
+      const vendasDoMes = vendasData.filter((venda: any) => {
+        const dataVenda = venda.dataVenda?.toDate ? venda.dataVenda.toDate() : new Date(venda.dataVenda);
+        return dataVenda >= inicioMes && dataVenda <= fimMes;
+      });
+      
+      const faturamentoTotal = vendasDoMes.reduce((sum: number, venda: any) => sum + (venda.precoTotal || venda.valor || 0), 0);
+      setFaturamentoMes(faturamentoTotal);
+    });
+    
+    return () => unsubscribeVendas();
+  }, [uid]);
+
+  // Buscar dados de clientes do mês atual
+  useEffect(() => {
+    if (!uid || !estabelecimentoNome) return
+    
+    const clientesRef = collection(firestore, 'clienteUser');
+    const qClientes = query(clientesRef, where('estabelecimento', '==', estabelecimentoNome));
+    
+    const unsubscribeClientes = onSnapshot(qClientes, (snapshot) => {
+      const clientesData = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      // Calcular novos clientes do mês atual
+      const agora = new Date();
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0);
+      
+      const novosClientesDoMes = clientesData.filter((cliente: any) => {
+        const dataCriacao = cliente.dataCriacao?.toDate ? cliente.dataCriacao.toDate() : new Date(cliente.dataCriacao);
+        return dataCriacao >= inicioMes && dataCriacao <= fimMes;
+      });
+      
+      setNovosClientesMes(novosClientesDoMes.length);
+    });
+    
+    return () => unsubscribeClientes();
+  }, [uid, estabelecimentoNome]);
+
+  // Buscar serviços finalizados do mês atual
+  useEffect(() => {
+    if (!uid || !estabelecimentoNome) return
+    
+    const historicoRef = collection(firestore, 'historicoAgendamentoFinalizadoAdmin');
+    const qHistorico = query(historicoRef, where('nomeEstabelecimento', '==', estabelecimentoNome));
+    
+    const unsubscribeHistorico = onSnapshot(qHistorico, (snapshot) => {
+      const historicoData = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      // Calcular serviços realizados do mês atual
+      const agora = new Date();
+      const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0);
+      
+      const servicosDoMes = historicoData.filter((servico: any) => {
+        const dataFinalizacao = servico.dataFinalizacao?.toDate ? servico.dataFinalizacao.toDate() : new Date(servico.dataFinalizacao);
+        return dataFinalizacao >= inicioMes && dataFinalizacao <= fimMes;
+      });
+      
+      setServicosRealizadosMes(servicosDoMes.length);
+    });
+    
+    return () => unsubscribeHistorico();
+  }, [uid, estabelecimentoNome]);
+
   // Função para ativar o teste grátis
   const ativarTesteGratis = async () => {
     if (!auth.currentUser?.uid) return
@@ -419,11 +445,6 @@ export default function DashboardUser() {
     const hoje = new Date()
     const dataTermino = new Date(hoje)
     dataTermino.setDate(hoje.getDate() + 7) // 7 dias de teste grátis
-    
-    console.log('=== ATIVANDO TESTE GRÁTIS ===');
-    console.log('Data atual:', hoje.toISOString());
-    console.log('Data de término calculada:', dataTermino.toISOString());
-    console.log('Dias restantes: 7');
     
     await updateDoc(docRef, {
       premium: true,
@@ -434,9 +455,6 @@ export default function DashboardUser() {
       ja_pegou_premium_gratis: true,
       avaliacao_gratis: true
     })
-    
-    console.log('Teste grátis ativado com sucesso!');
-    console.log('Data de término salva:', dataTermino.toISOString());
     
     setTesteGratisAtivo(true)
     setJaPegouPremiumGratis(true)
@@ -607,10 +625,16 @@ export default function DashboardUser() {
       }));
     }
   } else {
-    // Caso não tenha plano, permite apenas plano e configurações
+    // Caso não tenha plano, permite apenas: início, plano e configurações
+    const allowedPathsSemPlano = [
+      `/dashboard/${uid}`,
+      `/dashboard/${uid}/plano`,
+      `/dashboard/${uid}/configuracoes`,
+      '#logout'
+    ];
     filteredMenuItems = menuItems.map(item => ({
       ...item,
-      disabled: !alwaysAllowedPaths.includes(item.path)
+      disabled: !allowedPathsSemPlano.includes(item.path)
     }));
   }
 
@@ -630,11 +654,9 @@ export default function DashboardUser() {
   const handleLogout = () => {
     signOut(auth).then(() => {
       // Logout bem-sucedido
-      console.log("Usuário deslogado com sucesso!");
       navigate('/login'); // Redirecionar para a página de login
     }).catch((error) => {
       // Ocorreu um erro durante o logout
-      console.error("Erro ao deslogar:", error);
       alert("Erro ao deslogar: " + error.message);
     });
   };
@@ -685,14 +707,18 @@ export default function DashboardUser() {
         ...menuItems.map(item => item.path)
       ];
     } else {
-      // Caso não tenha plano, permite apenas plano e configurações
-      allowedPaths = [...alwaysAllowedPaths];
+      // Caso não tenha plano, permite apenas: início, plano e configurações
+      allowedPaths = [
+        `/dashboard/${uid}`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/configuracoes`,
+        '#logout'
+      ];
     }
     
     const isAllowed = allowedPaths.some(path => location.pathname.startsWith(path));
     
     if (!isAllowed) {
-      console.log('Redirecionando para plano - rota não permitida:', location.pathname);
       navigate(`/dashboard/${uid}/plano`);
     }
   }, [uid, tipoPlano, location.pathname]);
@@ -938,8 +964,10 @@ export default function DashboardUser() {
                     <Flex justify="space-between" align="center">
                       <Stat>
                         <StatLabel color="blue.100" fontSize="sm">Agenda de Hoje</StatLabel>
-                        <StatNumber fontSize="3xl">{agendaStats.hoje}</StatNumber>
-                        <StatHelpText color="blue.200">Agendamentos</StatHelpText>
+                        <StatNumber fontSize="3xl">{todayAppointments.length}</StatNumber>
+                        <StatHelpText color="blue.200">
+                          {todayAppointments.filter(ag => ag.status === 'confirmado').length} confirmados • {todayAppointments.filter(ag => ag.status !== 'confirmado').length} pendentes
+                        </StatHelpText>
                       </Stat>
                       <Icon as={Calendar} w={8} h={8} color="blue.200" />
                     </Flex>
@@ -950,11 +978,13 @@ export default function DashboardUser() {
                   <CardBody p={6}>
                     <Flex justify="space-between" align="center">
                       <Stat>
-                        <StatLabel color="green.100" fontSize="sm">Agenda de Amanhã</StatLabel>
-                        <StatNumber fontSize="3xl">{agendaStats.amanha}</StatNumber>
-                        <StatHelpText color="green.200">Agendamentos</StatHelpText>
+                        <StatLabel color="green.100" fontSize="sm">Receita Prevista Hoje</StatLabel>
+                        <StatNumber fontSize="3xl">R$ {receitaPrevistaHoje.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</StatNumber>
+                        <StatHelpText color="green.200">
+                          R$ {receitaConfirmadaHoje.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} já confirmados
+                        </StatHelpText>
                       </Stat>
-                      <Icon as={Clock} w={8} h={8} color="green.200" />
+                      <Icon as={DollarSign} w={8} h={8} color="green.200" />
                     </Flex>
                   </CardBody>
                 </Card>
@@ -1041,7 +1071,7 @@ export default function DashboardUser() {
                       <Flex justify="space-between" align="center">
                         <Stat>
                           <StatLabel color="yellow.100" fontSize="sm">Faturamento</StatLabel>
-                          <StatNumber fontSize="2xl">R$ {resumoMes.faturamento.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}</StatNumber>
+                          <StatNumber fontSize="2xl">{formatCurrency(faturamentoMes)}</StatNumber>
                           <StatHelpText color="yellow.200">Este mês</StatHelpText>
                         </Stat>
                         <Icon as={DollarSign} w={6} h={6} color="yellow.200" />
@@ -1054,7 +1084,7 @@ export default function DashboardUser() {
                       <Flex justify="space-between" align="center">
                         <Stat>
                           <StatLabel color="teal.100" fontSize="sm">Novos Clientes</StatLabel>
-                          <StatNumber fontSize="2xl">{resumoMes.clientesNovos}</StatNumber>
+                          <StatNumber fontSize="2xl">{novosClientesMes}</StatNumber>
                           <StatHelpText color="teal.200">Este mês</StatHelpText>
                         </Stat>
                         <Icon as={Users} w={6} h={6} color="teal.200" />
@@ -1067,7 +1097,7 @@ export default function DashboardUser() {
                       <Flex justify="space-between" align="center">
                         <Stat>
                           <StatLabel color="orange.100" fontSize="sm">Serviços Realizados</StatLabel>
-                          <StatNumber fontSize="2xl">{resumoMes.servicosRealizados}</StatNumber>
+                          <StatNumber fontSize="2xl">{servicosRealizadosMes}</StatNumber>
                           <StatHelpText color="orange.200">Este mês</StatHelpText>
                         </Stat>
                         <Icon as={CheckCircle} w={6} h={6} color="orange.200" />

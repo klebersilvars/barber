@@ -119,6 +119,7 @@ const Vendas: React.FC = () => {
   const [vendedoresMap, setVendedoresMap] = useState<{ [key: string]: string }>({});
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [isPremium, setIsPremium] = useState<boolean>(true)
+  const [nomeEstabelecimento, setNomeEstabelecimento] = useState("")
   const navigate = useNavigate()
   const auth = getAuth()
   useEffect(() => {
@@ -166,6 +167,24 @@ const Vendas: React.FC = () => {
   const [historicoMeses, setHistoricoMeses] = useState<{ mes: string, total: number }[]>([])
 
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+
+  // Buscar nome do estabelecimento do admin logado
+  useEffect(() => {
+    const fetchEstabelecimento = async () => {
+      if (!auth.currentUser?.email) return
+
+      const contasRef = collection(firestore, 'contas')
+      const q = query(contasRef, where('email', '==', auth.currentUser.email))
+      const snapshot = await getDocs(q)
+
+      if (!snapshot.empty) {
+        const nomeEstab = snapshot.docs[0].data().nomeEstabelecimento
+        setNomeEstabelecimento(nomeEstab)
+      }
+    }
+
+    fetchEstabelecimento()
+  }, [auth.currentUser])
 
   // Buscar colaboradores e nome da empresa
   useEffect(() => {
@@ -322,8 +341,13 @@ const Vendas: React.FC = () => {
 
   const handleVendedorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;
-    setVendedor(selectedId ? colaboradores.find(c => c.id === selectedId)?.nome || "" : "");
-    setVendedorUid(selectedId);
+    if (selectedId === 'admin') {
+      setVendedor(nomeEstabelecimento);
+      setVendedorUid('admin');
+    } else {
+      setVendedor(selectedId ? colaboradores.find(c => c.id === selectedId)?.nome || "" : "");
+      setVendedorUid(selectedId);
+    }
   };
 
   const handleClienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -333,6 +357,19 @@ const Vendas: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação dos campos obrigatórios
+    if (!produto || !precoUnitario || !vendedor || !formaPagamento) {
+      alert('Preencha todos os campos obrigatórios!')
+      return
+    }
+
+    // Se não for cliente presencial, verificar se cliente foi selecionado
+    if (clienteUid !== 'presencial' && !clienteUid) {
+      alert('Selecione um cliente ou marque como Presencial!')
+      return
+    }
+
     const precoTotal = quantidade * Number.parseFloat(precoUnitario || '0');
     const vendaData = {
       empresaUid: uid,
@@ -346,7 +383,8 @@ const Vendas: React.FC = () => {
       produto,
       quantidade,
       categoria,
-      clienteUid: clienteUid,
+      clienteUid: clienteUid === 'presencial' ? 'presencial' : clienteUid,
+      clienteNome: clienteUid === 'presencial' ? 'Cliente Presencial' : (clientesMap[clienteUid] || 'Cliente não encontrado'),
       status,
       observacoes,
       dataVenda: new Date(),
@@ -402,7 +440,8 @@ const Vendas: React.FC = () => {
         produto,
         quantidade,
         categoria,
-        clienteUid: clienteUid,
+        clienteUid: clienteUid === 'presencial' ? 'presencial' : clienteUid,
+        clienteNome: clienteUid === 'presencial' ? 'Cliente Presencial' : (clientesMap[clienteUid] || 'Cliente não encontrado'),
         status,
         observacoes,
         dataVenda: selectedSale.dataVenda,
@@ -694,7 +733,7 @@ const Vendas: React.FC = () => {
                 <VStack align="stretch" spacing={{ base: 2, md: 3 }} fontSize={{ base: 'xs', md: 'sm' }}>
                   <HStack color="gray.700">
                     <User size={16} />
-                    <Text><b>Cliente:</b> {clientesMap[sale.clienteUid || ''] || 'Cliente não encontrado'}</Text>
+                    <Text><b>Cliente:</b> {sale.clienteUid === 'presencial' ? 'Cliente Presencial' : (clientesMap[sale.clienteUid || ''] || 'Cliente não encontrado')}</Text>
                   </HStack>
                   <HStack color="gray.700">
                     <Package size={16} />
@@ -776,8 +815,8 @@ const Vendas: React.FC = () => {
                 <Divider />
                 <Box>
                   <Heading size="sm" mb={2}>Informações da Venda</Heading>
-                  <Text><b>Cliente:</b> {clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado'}</Text>
-                  <Text><b>Vendedor:</b> {vendedoresMap[selectedSale.vendedorUid || ''] || 'Vendedor não encontrado'}</Text>
+                  <Text><b>Cliente:</b> {selectedSale.clienteUid === 'presencial' ? 'Cliente Presencial' : (clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado')}</Text>
+                  <Text><b>Vendedor:</b> {selectedSale.vendedorUid === 'admin' ? nomeEstabelecimento : (vendedoresMap[selectedSale.vendedorUid || ''] || selectedSale.vendedor || 'Vendedor não encontrado')}</Text>
                   <Text><b>Forma de Pagamento:</b> {selectedSale.formaPagamento}</Text>
                   <Text><b>Status:</b> {selectedSale.status}</Text>
                   <Text><b>Data:</b> {formatDate(selectedSale.dataVenda)}</Text>
@@ -842,6 +881,7 @@ const Vendas: React.FC = () => {
                 <FormControl>
                   <FormLabel>Cliente</FormLabel>
                   <Select placeholder="Selecione o cliente" value={clienteUid} onChange={handleClienteChange} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    <option value="presencial">Cliente Presencial</option>
                     {clientes.map(c => (
                       <option key={c.id} value={c.id}>{c.nome}</option>
                     ))}
@@ -850,6 +890,9 @@ const Vendas: React.FC = () => {
                 <FormControl>
                   <FormLabel>Vendedor</FormLabel>
                   <Select placeholder="Selecione o vendedor" value={vendedorUid} onChange={handleVendedorChange} variant="filled" size="sm" focusBorderColor="purple.400" borderRadius="md">
+                    {nomeEstabelecimento && (
+                      <option value="admin">{nomeEstabelecimento} (Administrador)</option>
+                    )}
                     {colaboradores.map(c => (
                       <option key={c.id} value={c.id}>{c.nome}</option>
                     ))}
@@ -1013,17 +1056,12 @@ const Vendas: React.FC = () => {
                     <div className="form-group">
                       <label htmlFor="cliente">Cliente*</label>
                       <div className="select-wrapper">
-                        <select id="cliente" value={clienteUid} onChange={handleClienteChange} disabled={clientes.length === 0}>
-                          {clientes.length === 0 ? (
-                            <option value="">Nenhum cliente encontrado</option>
-                          ) : (
-                            <>
-                              <option value="">Selecione o cliente</option>
-                              {clientes.map(c => (
-                                <option key={c.id} value={c.id}>{c.nome}</option>
-                              ))}
-                            </>
-                          )}
+                        <select id="cliente" value={clienteUid} onChange={handleClienteChange}>
+                          <option value="">Selecione o cliente</option>
+                          <option value="presencial">Cliente Presencial</option>
+                          {clientes.map(c => (
+                            <option key={c.id} value={c.id}>{c.nome}</option>
+                          ))}
                         </select>
                         <ChevronDown size={18} />
                       </div>
@@ -1034,6 +1072,9 @@ const Vendas: React.FC = () => {
                       <div className="select-wrapper">
                         <select id="vendedor" value={vendedorUid} onChange={handleVendedorChange}>
                           <option value="">Selecione o vendedor</option>
+                          {nomeEstabelecimento && (
+                            <option value="admin">{nomeEstabelecimento} (Administrador)</option>
+                          )}
                           {colaboradores.map(c => (
                             <option key={c.id} value={c.id}>{c.nome}</option>
                           ))}
@@ -1115,7 +1156,7 @@ const Vendas: React.FC = () => {
                         <strong>Preço Unitário:</strong> {formatCurrency(Number.parseFloat(precoUnitario || "0"))}
                       </p>
                       <p>
-                        <strong>Cliente:</strong> {clientesMap[clienteUid] || "Cliente não encontrado"}
+                        <strong>Cliente:</strong> {clienteUid === 'presencial' ? 'Cliente Presencial' : (clientesMap[clienteUid] || "Cliente não encontrado")}
                       </p>
                       <p>
                         <strong>Vendedor:</strong> {vendedor}
