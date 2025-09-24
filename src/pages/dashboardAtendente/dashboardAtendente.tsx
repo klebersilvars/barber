@@ -5,7 +5,6 @@ import './dashboardAtendente.css'
 
 import { useState, useEffect } from "react"
 import {
-  Headset,
   ShoppingCart,
   Users,
   Calendar,

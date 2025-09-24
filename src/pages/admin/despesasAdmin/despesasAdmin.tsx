@@ -23,7 +23,6 @@ import {
   TrendingDown,
   Wallet,
   Receipt,
-  Clock,
   Tag,
   BarChart2,
   Lock,
@@ -36,7 +35,6 @@ import "./despesasAdmin.css"
 import { getAuth } from "firebase/auth"
 import {
   Box,
-  Container,
   Flex,
   Heading,
   Text,
@@ -45,9 +43,6 @@ import {
   Badge,
   SimpleGrid,
   VStack,
-  Input,
-  Select,
-  Textarea,
   useColorModeValue,
 } from '@chakra-ui/react'
 

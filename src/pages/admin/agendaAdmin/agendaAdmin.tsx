@@ -7,10 +7,8 @@ import {
   Users,
   DollarSign,
   Filter,
-  Download,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Edit,
   Check,
   X,
@@ -57,11 +55,6 @@ import {
   ModalCloseButton,
   Input,
   Textarea,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  CloseButton,
 } from '@chakra-ui/react'
 import type { ResponsiveValue } from '@chakra-ui/react'
 

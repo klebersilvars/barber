@@ -4,7 +4,6 @@ import './vendas.css'
 import { useState, useEffect } from "react"
 import {
   Box,
-  Container,
   Heading,
   Text,
   Flex,
