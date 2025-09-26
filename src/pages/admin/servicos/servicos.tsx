@@ -28,6 +28,38 @@ import './servicos.css'
 import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firebase'
 import { getAuth } from "firebase/auth"
+import {
+  Box,
+  Flex,
+  Heading,
+  Text,
+  HStack,
+  VStack,
+  Button,
+  Badge,
+  SimpleGrid,
+  useColorModeValue,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Wrap,
+  WrapItem,
+  
+} from '@chakra-ui/react'
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Select,
+  Checkbox,
+  Textarea,
+} from '@chakra-ui/react'
 
 interface Servico {
   id: string
@@ -69,6 +101,11 @@ const Servicos = () => {
   const [filterProfissional, setFilterProfissional] = useState("all")
   const [servicos, setServicos] = useState<Servico[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+
+  // Chakra UI color tokens
+  const colorBg = useColorModeValue('white','gray.800')
+  const colorBorder = useColorModeValue('gray.200','gray.700')
+  const colorTextSecondary = useColorModeValue('gray.600','gray.300')
 
   // Form states
   const [nomeServico, setNomeServico] = useState("")
@@ -351,7 +388,7 @@ const Servicos = () => {
   // Statistics
   const totalServicos = servicos.length
   const servicosAtivos = servicos.filter((s) => s.servicoAtivo).length
-  const servicosInativos = servicos.filter((s) => !s.servicoAtivo).length
+  // const servicosInativos = servicos.filter((s) => !s.servicoAtivo).length
   const valorMedio = servicos.reduce((sum, s) => sum + s.valorServico, 0) / (servicos.length || 1)
 
   if (!auth.currentUser) {
@@ -359,805 +396,499 @@ const Servicos = () => {
   }
 
   return (
-    <div className="servicos-container">
-      {/* Header */}
-      <div className="servicos-header">
-        <div className="header-title">
-          <h1>Gestão de Serviços</h1>
-          <p>Gerencie o catálogo de serviços oferecidos</p>
-        </div>
-        <div className="header-actions">
-          <button className="btn-action filter" onClick={() => setShowFilters(!showFilters)}>
-            <div className="btn-icon-wrapper">
-              <Filter size={18} />
-            </div>
-            <span className="btn-text">Filtros</span>
-            <div className="btn-badge">
-              {Object.values({ filterCategoria, filterStatus, filterProfissional }).filter((f) => f !== "all").length ||
-                ""}
-            </div>
-          </button>
+    <Box
+      width="100%"
+      minH={{ base: '40dvh', md: 'auto' }}
+      overflowY={{ base: 'auto', md: 'visible' }}
+      pb={{ base: 12, md: 0 }}
+      sx={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      <Box bg={colorBg} borderBottom="1px" borderColor={colorBorder} px={4} py={4} width="100%">
+        <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3} width="100%">
+          <Box>
+            <Heading size="lg">Serviços</Heading>
+            <Text color={colorTextSecondary}>Gerencie o catálogo de serviços.</Text>
+          </Box>
+          <HStack spacing={2} flexWrap="wrap" w="100%" justify={{ base: 'stretch', md: 'flex-end' }}>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" leftIcon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
+              Filtros
+              <Badge ml={2} colorScheme="purple" variant="subtle">
+                {Object.values({ filterCategoria, filterStatus, filterProfissional }).filter((f) => f !== 'all').length || 0}
+              </Badge>
+            </Button>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} colorScheme="purple" leftIcon={<Plus size={16} />} onClick={handleOpenModal}>Novo Serviço</Button>
+          </HStack>
+        </Flex>
+      </Box>
 
-          <button className="btn-action primary" onClick={handleOpenModal}>
-            <div className="btn-icon-wrapper">
-              <Plus size={18} />
-            </div>
-            <span className="btn-text">Novo Serviço</span>
-            <div className="btn-shine"></div>
-          </button>
-        </div>
-      </div>
+      <Box px={4} py={2} width="100%">
+        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+          <Box border="1px" borderColor={colorBorder} bg={colorBg} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={colorTextSecondary}>Total de Serviços</Text>
+                <Heading size="md">{totalServicos}</Heading>
+                <Text fontSize="xs" color="green.500">+{((servicosAtivos / (totalServicos || 1)) * 100).toFixed(0)}%</Text>
+              </Box>
+              <Scissors size={28} />
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={colorBorder} bg={colorBg} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={colorTextSecondary}>Valor Médio</Text>
+                <Heading size="md">{formatCurrency(valorMedio)}</Heading>
+              </Box>
+              <DollarSign size={28} />
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={colorBorder} bg={colorBg} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={colorTextSecondary}>Profissionais</Text>
+                <Heading size="md">{colaboradores.length}</Heading>
+              </Box>
+              <Users size={28} />
+            </Flex>
+          </Box>
+          <Box border="1px" borderColor={colorBorder} bg={colorBg} borderRadius="md" p={4}>
+            <Flex justify="space-between" align="center">
+              <Box>
+                <Text fontSize="sm" color={colorTextSecondary}>Categorias</Text>
+                <Heading size="md">{categorias.length}</Heading>
+              </Box>
+              <Scissors size={28} />
+            </Flex>
+          </Box>
+        </SimpleGrid>
+      </Box>
 
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card blue">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <Scissors size={24} />
-            </div>
-            <span className="stat-change positive">+{((servicosAtivos / totalServicos) * 100).toFixed(0)}%</span>
-          </div>
-          <div className="stat-content">
-            <h3>{totalServicos}</h3>
-            <p>Total de Serviços</p>
-            <small style={{ color: "var(--text-light)", fontSize: "12px" }}>
-              {servicosAtivos} ativos, {servicosInativos} inativos
-            </small>
-          </div>
-        </div>
-
-        <div className="stat-card green">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <DollarSign size={24} />
-            </div>
-          </div>
-          <div className="stat-content">
-            <h3>{formatCurrency(valorMedio)}</h3>
-            <p>Valor Médio</p>
-          </div>
-        </div>
-
-        <div className="stat-card purple">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <Users size={24} />
-            </div>
-          </div>
-          <div className="stat-content">
-            <h3>{colaboradores.length}</h3>
-            <p>Profissionais</p>
-          </div>
-        </div>
-
-        <div className="stat-card orange">
-          <div className="stat-header">
-            <div className="stat-icon">
-              <Scissors size={24} />
-            </div>
-          </div>
-          <div className="stat-content">
-            <h3>{categorias.length}</h3>
-            <p>Categorias</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
       {showFilters && (
-        <div className="filters-container">
-          <div className="filter-group">
-            <label>Categoria</label>
-            <div className="filter-options">
-              <button className={filterCategoria === "all" ? "active" : ""} onClick={() => setFilterCategoria("all")}>
-                Todas
-              </button>
-              {categorias.map((cat) => (
-                <button
-                  key={cat.id}
-                  className={filterCategoria === cat.id ? "active" : ""}
-                  onClick={() => setFilterCategoria(cat.id)}
-                >
-                  {(() => {
-                    const IconComponent = cat.icon
-                    return IconComponent ? <IconComponent size={14} /> : null
-                  })()}
-                  {cat.nome}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="filter-group">
-            <label>Status</label>
-            <div className="filter-options">
-              <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
-                Todos
-              </button>
-              <button className={filterStatus === "ativo" ? "active" : ""} onClick={() => setFilterStatus("ativo")}>
-                Ativos
-              </button>
-              <button className={filterStatus === "inativo" ? "active" : ""} onClick={() => setFilterStatus("inativo")}>
-                Inativos
-              </button>
-            </div>
-          </div>
-          <div className="filter-group">
-            <label>Profissional</label>
-            <div className="filter-options">
-              <button
-                className={filterProfissional === "all" ? "active" : ""}
-                onClick={() => setFilterProfissional("all")}
-              >
-                Todos
-              </button>
-              {colaboradores.map((colab) => (
-                <button
-                  key={colab.id}
-                  className={filterProfissional === colab.nome ? "active" : ""}
-                  onClick={() => setFilterProfissional(colab.nome)}
-                >
-                  {colab.nome}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Box px={4} py={2} width="100%">
+          <Box bg={colorBg} border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Categoria</Text>
+                <Wrap>
+                  <WrapItem>
+                    <Button size="sm" variant={filterCategoria==='all'?'solid':'outline'} onClick={()=>setFilterCategoria('all')}>Todas</Button>
+                  </WrapItem>
+                  {categorias.map((cat)=> (
+                    <WrapItem key={cat.id}>
+                      <Button size="sm" variant={filterCategoria===cat.id?'solid':'outline'} onClick={()=>setFilterCategoria(cat.id)} leftIcon={cat.icon ? <cat.icon size={14}/> : undefined}>{cat.nome}</Button>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </Box>
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Status</Text>
+                <HStack>
+                  <Button size="sm" variant={filterStatus==='all'?'solid':'outline'} onClick={()=>setFilterStatus('all')}>Todos</Button>
+                  <Button size="sm" variant={filterStatus==='ativo'?'solid':'outline'} onClick={()=>setFilterStatus('ativo')}>Ativos</Button>
+                  <Button size="sm" variant={filterStatus==='inativo'?'solid':'outline'} onClick={()=>setFilterStatus('inativo')}>Inativos</Button>
+                </HStack>
+              </Box>
+              <Box>
+                <Text fontWeight="semibold" mb={2}>Profissional</Text>
+                <Wrap>
+                  <WrapItem>
+                    <Button size="sm" variant={filterProfissional==='all'?'solid':'outline'} onClick={()=>setFilterProfissional('all')}>Todos</Button>
+                  </WrapItem>
+                  {colaboradores.map((colab)=> (
+                    <WrapItem key={colab.id}>
+                      <Button size="sm" variant={filterProfissional===colab.nome?'solid':'outline'} onClick={()=>setFilterProfissional(colab.nome)}>{colab.nome}</Button>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </Box>
+            </SimpleGrid>
+          </Box>
+        </Box>
       )}
 
-      {/* Search and View Toggle */}
-      <div className="search-container">
-        <div className="search-input">
-          <Search size={20} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar por nome ou descrição..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <Box px={4} py={2} width="100%">
+        <Box bg={colorBg} border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+          <Flex gap={3} align="center" wrap="wrap">
+            <HStack flex={1} minW={{ base: '100%', md: '400px' }}>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none">
+                  <Search size={18} />
+                </InputLeftElement>
+                <Input placeholder="Buscar por nome ou descrição..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
+              </InputGroup>
           {searchQuery && (
-            <button className="clear-search" onClick={() => setSearchQuery("")}>
-              <X size={16} />
-            </button>
-          )}
-        </div>
-        <div className="view-toggle">
-          <button className={`view-btn ${viewMode === "grid" ? "active" : ""}`} onClick={() => setViewMode("grid")}>
-            <div className="grid-icon"></div>
-          </button>
-          <button className={`view-btn ${viewMode === "list" ? "active" : ""}`} onClick={() => setViewMode("list")}>
-            <div className="list-icon"></div>
-          </button>
-        </div>
-        <div className="search-results">
-          {filteredServicos.length > 0 ? (
-            <div className="results-count">
-              <span>{filteredServicos.length} serviço(s) encontrado(s)</span>
-            </div>
-          ) : (
-            <div className="empty-state">
+                <Button size="sm" variant="ghost" onClick={()=>setSearchQuery('')} leftIcon={<X size={16}/>}>Limpar</Button>
+              )}
+            </HStack>
+            <HStack>
+              <Button size="sm" variant={viewMode==='grid'?'solid':'outline'} onClick={()=>setViewMode('grid')}>Grid</Button>
+              <Button size="sm" variant={viewMode==='list'?'solid':'outline'} onClick={()=>setViewMode('list')}>Lista</Button>
+            </HStack>
+            <Badge colorScheme="gray">{filteredServicos.length} resultado(s)</Badge>
+          </Flex>
+          {filteredServicos.length === 0 && (
+            <VStack py={10} spacing={2} color={colorTextSecondary}>
               <Scissors size={48} />
-              <h3>Nenhum serviço encontrado</h3>
-              <p>Cadastre seu primeiro serviço para começar!</p>
-              <button className="btn-primary" onClick={handleOpenModal}>
-                <Plus size={18} />
-                Novo Serviço
-              </button>
-            </div>
+              <Heading size="sm">Nenhum serviço encontrado</Heading>
+              <Text>Cadastre seu primeiro serviço para começar!</Text>
+              <Button colorScheme="purple" leftIcon={<Plus size={16}/>} onClick={handleOpenModal}>Novo Serviço</Button>
+            </VStack>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      {/* Services List */}
       {filteredServicos.length > 0 && (
-        <div className={`servicos-list ${viewMode}`}>
+        <Box px={4} py={2}>
+          <VStack spacing={3} align="stretch">
           {filteredServicos.map((servico) => {
             const categoriaInfo = getCategoriaInfo(servico.categoriaServico)
             return (
-              <div key={servico.id} className={`servico-card ${!servico.servicoAtivo ? "inactive" : ""}`}>
-                <div className="servico-image">
-                  <div className="servico-placeholder" style={{ backgroundColor: categoriaInfo.color }}>
-                    {categoriaInfo.icon &&
-                      (() => {
-                        const IconComponent = categoriaInfo.icon
-                        return IconComponent ? <IconComponent size={32} color="white" /> : null
-                      })()}
-                  </div>
-                  <div className="servico-category">
-                    {categoriaInfo.icon &&
-                      (() => {
-                        const IconComponent = categoriaInfo.icon
-                        return IconComponent ? <IconComponent size={14} /> : null
-                      })()}
-                    <span>{categoriaInfo.nome}</span>
-                  </div>
-                </div>
-
-                <div className="servico-info">
-                  <div className="servico-header">
-                    <h3>{servico.nomeServico}</h3>
-                    <div className="servico-status">
-                      <button
-                        className={`status-toggle ${servico.servicoAtivo ? "active" : ""}`}
-                        onClick={() => handleToggleStatus(servico.id)}
-                      >
-                        {servico.servicoAtivo ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="servico-description">{servico.descricaoServico}</p>
-
-                  <div className="servico-details">
-                    <div className="detail-item">
-                      <DollarSign size={16} />
-                      <span className="price">{formatCurrency(servico.valorServico)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <Clock size={16} />
-                      <span>{formatDuration(servico.duracaoServico)}</span>
-                    </div>
-                    <div className="detail-item">
-                      <Users size={16} />
-                      <span>{servico.profissionaisServico.length} profissionais</span>
-                    </div>
-                  </div>
-
-                  <div className="servico-profissionais">
-                    <span className="label">Profissionais:</span>
-                    <div className="profissionais-list">
-                      {servico.profissionaisServico.map((prof, index) => (
-                        <span key={index} className="profissional-tag">
-                          {prof}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="servico-actions">
-                  <button className="btn-icon" onClick={() => handleDeleteServico(servico.id)}>
-                    <Trash2 size={18} color="#ef4444" />
-                  </button>
-                  <button className="btn-icon" onClick={() => handleEditServico(servico)}>
-                    <Edit size={18} />
-                  </button>
-                  <button className="btn-icon" onClick={() => handleViewServico(servico)}>
-                    <Eye size={18} />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+                <Box key={servico.id} bg={colorBg} border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+                  <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3}>
+                    <Box>
+                      <Heading size="sm" mb={1}>{servico.nomeServico}</Heading>
+                      <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} spacing={2} color={colorTextSecondary} fontSize="sm">
+                        <HStack><DollarSign size={14}/><Text>{formatCurrency(servico.valorServico)}</Text></HStack>
+                        <HStack><Clock size={14}/><Text>{formatDuration(servico.duracaoServico)}</Text></HStack>
+                        <HStack><Users size={14}/><Text>{servico.profissionaisServico.length} profissionais</Text></HStack>
+                        <HStack>{categoriaInfo.icon ? <categoriaInfo.icon size={14}/> : null}<Text>{categoriaInfo.nome}</Text></HStack>
+                      </SimpleGrid>
+                      {servico.descricaoServico && (
+                        <Text mt={2} fontSize="sm" color={colorTextSecondary}>{servico.descricaoServico}</Text>
+                      )}
+                      {servico.profissionaisServico.length > 0 && (
+                        <HStack mt={2} spacing={2} flexWrap="wrap">
+                          {servico.profissionaisServico.map((prof, idx)=>(
+                            <Badge key={idx} colorScheme="purple" variant="subtle">{prof}</Badge>
+                          ))}
+                        </HStack>
+                      )}
+                    </Box>
+                    <HStack spacing={2} justify={{ base: 'stretch', md: 'flex-end' }} flexWrap="wrap">
+                      <Button size="sm" w={{ base: '100%', md: 'auto' }} variant="outline" colorScheme="red" leftIcon={<Trash2 size={16}/>} onClick={()=>handleDeleteServico(servico.id)}>Excluir</Button>
+                      <Button size="sm" w={{ base: '100%', md: 'auto' }} variant="outline" leftIcon={<Edit size={16}/>} onClick={()=>handleEditServico(servico)}>Editar</Button>
+                      <Button size="sm" w={{ base: '100%', md: 'auto' }} variant="solid" leftIcon={<Eye size={16}/>} onClick={()=>handleViewServico(servico)}>Ver Detalhes</Button>
+                      <Button size="sm" w={{ base: '100%', md: 'auto' }} variant={servico.servicoAtivo?'solid':'outline'} onClick={()=>handleToggleStatus(servico.id)} leftIcon={servico.servicoAtivo ? <ToggleRight size={16}/> : <ToggleLeft size={16}/>}>{servico.servicoAtivo ? 'Ativo' : 'Inativo'}</Button>
+                    </HStack>
+                  </Flex>
+                </Box>
+              )
+            })}
+          </VStack>
+        </Box>
       )}
 
-      {/* View Service Modal */}
-      {showViewModal && selectedServico && (
-        <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Detalhes do Serviço</h2>
-              <button className="modal-close" onClick={() => setShowViewModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="servico-details-view">
-                <div className="detail-section">
-                  <div className="service-image-large">
-                    <div
-                      className="service-placeholder-large"
-                      style={{ backgroundColor: getCategoriaInfo(selectedServico.categoriaServico).color }}
+      {/* View Service Modal - Chakra UI */}
+      <Modal isOpen={showViewModal && !!selectedServico} onClose={() => setShowViewModal(false)} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Heading size="md">Detalhes do Serviço</Heading>
+          </ModalHeader>
+          <ModalCloseButton />
+          {selectedServico && (
+            <ModalBody>
+              <VStack align="stretch" spacing={4}>
+                <Flex gap={4} direction={{ base: 'column', md: 'row' }} align={{ base: 'stretch', md: 'center' }}>
+                  <Box>
+                    <Box
+                      borderRadius="md"
+                      bg={getCategoriaInfo(selectedServico.categoriaServico).color}
+                      w={{ base: '100%', md: '120px' }}
+                      h={{ base: '120px', md: '120px' }}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
                     >
                       {(() => {
                         const IconComponent = getCategoriaInfo(selectedServico.categoriaServico).icon
                         return IconComponent ? <IconComponent size={48} color="white" /> : null
                       })()}
-                    </div>
-                  </div>
+                    </Box>
+                  </Box>
+                  <Box flex={1}>
+                    <Heading size="sm" mb={1}>{selectedServico.nomeServico}</Heading>
+                    <Text color={colorTextSecondary}>{selectedServico.descricaoServico}</Text>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={3}>
+                      <HStack>
+                        <DollarSign size={18} />
+                        <VStack align="start" spacing={0}>
+                          <Text fontSize="sm" color={colorTextSecondary}>Valor</Text>
+                          <Text fontWeight="semibold">{formatCurrency(selectedServico.valorServico)}</Text>
+                        </VStack>
+                      </HStack>
+                      <HStack>
+                        <Clock size={18} />
+                        <VStack align="start" spacing={0}>
+                          <Text fontSize="sm" color={colorTextSecondary}>Duração</Text>
+                          <Text fontWeight="semibold">{formatDuration(selectedServico.duracaoServico)}</Text>
+                        </VStack>
+                      </HStack>
+                    </SimpleGrid>
+                  </Box>
+                </Flex>
 
-                  <div className="service-info-large">
-                    <h3>{selectedServico.nomeServico}</h3>
-                    <p className="service-description-large">{selectedServico.descricaoServico}</p>
-
-                    <div className="service-stats">
-                      <div className="stat-item">
-                        <DollarSign size={20} />
-                        <div>
-                          <span className="stat-value">{formatCurrency(selectedServico.valorServico)}</span>
-                          <span className="stat-label">Valor</span>
-                        </div>
-                      </div>
-                      <div className="stat-item">
-                        <Clock size={20} />
-                        <div>
-                          <span className="stat-value">{formatDuration(selectedServico.duracaoServico)}</span>
-                          <span className="stat-label">Duração</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="detail-section">
-                  <h4>Profissionais Habilitados</h4>
-                  <div className="profissionais-grid">
+                <Box>
+                  <Heading size="sm" mb={2}>Profissionais Habilitados</Heading>
+                  <Wrap>
                     {selectedServico.profissionaisServico.map((prof, index) => (
-                      <div key={index} className="profissional-card">
-                        <div className="profissional-avatar">
-                          <User size={20} />
-                        </div>
-                        <span>{prof}</span>
-                      </div>
+                      <WrapItem key={index}>
+                        <Badge colorScheme="purple" variant="subtle">{prof}</Badge>
+                      </WrapItem>
                     ))}
-                  </div>
-                </div>
+                  </Wrap>
+                </Box>
 
-                <div className="detail-section">
-                  <h4>Informações Adicionais</h4>
-                  <div className="info-grid">
-                    <div className="info-item">
-                      <span className="info-label">Categoria:</span>
-                      <span className="info-value">{getCategoriaInfo(selectedServico.categoriaServico).nome}</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="info-label">Status:</span>
-                      <span className={`info-value ${selectedServico.servicoAtivo ? "active" : "inactive"}`}>
-                        {selectedServico.servicoAtivo ? "Ativo" : "Inativo"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                  <HStack>
+                    <Tag size={16} />
+                    <Text><b>Categoria:</b> {getCategoriaInfo(selectedServico.categoriaServico).nome}</Text>
+                  </HStack>
+                  <HStack>
+                    <Text><b>Status:</b></Text>
+                    <Badge colorScheme={selectedServico.servicoAtivo ? 'green' : 'red'}>
+                      {selectedServico.servicoAtivo ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </HStack>
+                </SimpleGrid>
+              </VStack>
+            </ModalBody>
+          )}
+          <ModalFooter>
+            <HStack w="100%" justify="space-between">
+              <Button variant="ghost" onClick={() => setShowViewModal(false)}>Fechar</Button>
+              {selectedServico && (
+                <Button variant="solid" leftIcon={<Edit size={16}/>} onClick={() => { setShowViewModal(false); handleEditServico(selectedServico) }}>Editar Serviço</Button>
+              )}
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowViewModal(false)}>
-                Fechar
-              </button>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setShowViewModal(false)
-                  handleEditServico(selectedServico)
-                }}
-              >
-                <Edit size={18} />
-                Editar Serviço
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Service Modal */}
-      {showEditModal && selectedServico && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Editar Serviço</h2>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* Edit Service Modal - Chakra UI */}
+      <Modal isOpen={showEditModal && !!selectedServico} onClose={() => setShowEditModal(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Heading size="md">Editar Serviço</Heading>
+          </ModalHeader>
+          <ModalCloseButton />
+          {selectedServico && (
             <form onSubmit={handleUpdateServico}>
-              <div className="modal-body">
-                <div className="form-section">
-                  <div className="form-group">
-                    <label htmlFor="nome">Nome do Serviço*</label>
-                    <input
-                      type="text"
-                      id="nome"
-                      required
-                      value={nomeServico}
-                      onChange={(e) => setNomeServico(e.target.value)}
-                      placeholder="Ex: Corte Masculino"
-                    />
-                  </div>
+              <ModalBody>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="nome">Nome do Serviço</FormLabel>
+                    <Input id="nome" value={nomeServico} onChange={(e)=>setNomeServico(e.target.value)} placeholder="Ex: Corte Masculino" />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="valor">Valor (R$)</FormLabel>
+                    <Input id="valor" type="number" step="0.01" min="0" value={valorServico} onChange={(e)=>setValorServico(e.target.value)} placeholder="0,00" />
+                  </FormControl>
+                </SimpleGrid>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="duracao">Duração (minutos)</FormLabel>
+                    <Input id="duracao" type="number" min="1" value={duracaoServico} onChange={(e)=>setDuracaoServico(e.target.value)} placeholder="30" />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="categoria">Categoria</FormLabel>
+                    <Select id="categoria" value={categoriaServico} onChange={(e)=>setCategoriaServico(e.target.value)} placeholder="Selecione uma categoria">
+                      {categorias.map((cat)=> (
+                        <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </SimpleGrid>
+                <FormControl mt={4}>
+                  <FormLabel htmlFor="descricao">Descrição</FormLabel>
+                  <Textarea id="descricao" rows={3} value={descricaoServico} onChange={(e)=>setDescricaoServico(e.target.value)} placeholder="Breve descrição do serviço..." />
+                </FormControl>
 
-                  <div className="form-group">
-                    <label htmlFor="descricao">Descrição</label>
-                    <textarea
-                      id="descricao"
-                      value={descricaoServico}
-                      onChange={(e) => setDescricaoServico(e.target.value)}
-                      placeholder="Breve descrição do serviço..."
-                      rows={3}
-                    />
-                  </div>
+                <Box mt={6}>
+                  <FormLabel>Profissionais Habilitados</FormLabel>
+                  <Text fontSize="sm" color={colorTextSecondary} mb={2}>Selecione quais profissionais podem executar este serviço</Text>
+                  <VStack align="stretch" spacing={1} maxH="40vh" overflowY="auto">
+                    {nomeEstabelecimento && (
+                      <Checkbox isChecked={profissionaisSelecionados.includes(nomeEstabelecimento)} onChange={()=>handleProfissionalToggle(nomeEstabelecimento)}>
+                        {nomeEstabelecimento} (Administrador)
+                      </Checkbox>
+                    )}
+                    {colaboradores.length > 0 ? (
+                      colaboradores.map((colab)=> (
+                        <Checkbox key={colab.id} isChecked={profissionaisSelecionados.includes(colab.nome)} onChange={()=>handleProfissionalToggle(colab.nome)}>
+                          {colab.nome}
+                        </Checkbox>
+                      ))
+                    ) : (
+                      <Text fontSize="sm" color={colorTextSecondary}>Nenhum profissional encontrado. Cadastre um profissional primeiro.</Text>
+                    )}
+                  </VStack>
+                  {profissionaisSelecionados.length === 0 && (
+                    <Text fontSize="xs" color="red.500" mt={2}>Selecione pelo menos um profissional</Text>
+                  )}
+                </Box>
 
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="valor">Valor (R$)*</label>
-                      <input
-                        type="number"
-                        id="valor"
-                        step="0.01"
-                        min="0"
-                        required
-                        value={valorServico}
-                        onChange={(e) => setValorServico(e.target.value)}
-                        placeholder="0,00"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="duracao">Duração (minutos)*</label>
-                      <input
-                        type="number"
-                        id="duracao"
-                        min="1"
-                        required
-                        value={duracaoServico}
-                        onChange={(e) => setDuracaoServico(e.target.value)}
-                        placeholder="30"
-                      />
-                    </div>
-                  </div>
+                <Box mt={4}>
+                  <Checkbox id="ativo" isChecked={servicoAtivo} onChange={(e)=>setServicoAtivo(e.target.checked)}>Serviço ativo</Checkbox>
+                  <Text fontSize="xs" color={colorTextSecondary}>Serviços inativos não aparecem para agendamento</Text>
+                </Box>
+              </ModalBody>
+              <ModalFooter>
+                <HStack w="100%" justify="space-between">
+                  <Button variant="ghost" onClick={()=>setShowEditModal(false)}>Cancelar</Button>
+                  <Button type="submit" colorScheme="purple" leftIcon={<Check size={16} />}>Salvar Alterações</Button>
+                </HStack>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
 
-                  <div className="form-group">
-                    <label htmlFor="categoria">Categoria*</label>
-                    <div className="select-wrapper">
-                      <select
-                        id="categoria"
-                        required
-                        value={categoriaServico}
-                        onChange={(e) => setCategoriaServico(e.target.value)}
-                      >
-                        <option value="">Selecione uma categoria</option>
-                        {categorias.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.nome}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Profissionais Habilitados*</label>
-                    <p className="form-help">Selecione quais profissionais podem executar este serviço</p>
-                    <div className="profissionais-selection">
-                      {/* Checkbox para o próprio dono da conta (admin) */}
+      {/* Add Service Modal - Chakra UI */}
+      <Modal isOpen={showModal} onClose={handleCloseModal} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack justify="space-between">
+              <HStack>
+                <Button variant="ghost" size="sm" onClick={formStep > 1 ? handlePrevStep : handleCloseModal} leftIcon={<ArrowLeft size={18}/>}>Voltar</Button>
+                <Heading size="md">
+                  {formStep === 1 && 'Novo Serviço'}
+                  {formStep === 2 && 'Configurações'}
+                  {formStep === 3 && 'Finalizar'}
+                </Heading>
+              </HStack>
+              <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
+                <Badge colorScheme={formStep>=1?'purple':'gray'}>1</Badge>
+                <Badge colorScheme={formStep>=2?'purple':'gray'}>2</Badge>
+                <Badge colorScheme={formStep>=3?'purple':'gray'}>3</Badge>
+              </HStack>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <form onSubmit={handleSubmit}>
+            {formStep === 1 && (
+              <ModalBody>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="nome">Nome do Serviço</FormLabel>
+                    <Input id="nome" placeholder="Ex: Corte Masculino, Unha em Gel..." value={nomeServico} onChange={(e)=>setNomeServico(e.target.value)} />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="valor">Valor (R$)</FormLabel>
+                    <Input id="valor" type="number" step="0.01" min="0" placeholder="0,00" value={valorServico} onChange={(e)=>setValorServico(e.target.value)} />
+                  </FormControl>
+                </SimpleGrid>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="duracao">Duração (minutos)</FormLabel>
+                    <Input id="duracao" type="number" min="1" placeholder="30" value={duracaoServico} onChange={(e)=>setDuracaoServico(e.target.value)} />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel htmlFor="categoria">Categoria</FormLabel>
+                    <Select id="categoria" placeholder="Selecione uma categoria" value={categoriaServico} onChange={(e)=>setCategoriaServico(e.target.value)}>
+                      {categorias.map((cat)=> (
+                        <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </SimpleGrid>
+                <FormControl mt={4}>
+                  <FormLabel htmlFor="descricao">Descrição</FormLabel>
+                  <Textarea id="descricao" rows={4} placeholder="Breve descrição do serviço oferecido..." value={descricaoServico} onChange={(e)=>setDescricaoServico(e.target.value)} />
+                </FormControl>
+              </ModalBody>
+            )}
+            {formStep === 2 && (
+              <ModalBody>
+                <Box>
+                  <Heading size="sm" mb={3}>Configurações do Serviço</Heading>
+                  <Box>
+                    <FormLabel>Profissionais Habilitados</FormLabel>
+                    <Text fontSize="sm" color={colorTextSecondary} mb={2}>Selecione quais profissionais podem executar este serviço</Text>
+                    <VStack align="stretch" spacing={1} maxH="40vh" overflowY="auto">
                       {nomeEstabelecimento && (
-                        <label className="checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={profissionaisSelecionados.includes(nomeEstabelecimento)}
-                            onChange={() => handleProfissionalToggle(nomeEstabelecimento)}
-                          />
-                          <span className="checkmark"></span>
+                        <Checkbox isChecked={profissionaisSelecionados.includes(nomeEstabelecimento)} onChange={()=>handleProfissionalToggle(nomeEstabelecimento)}>
                           {nomeEstabelecimento} (Administrador)
-                        </label>
+                        </Checkbox>
                       )}
                       {colaboradores.length > 0 ? (
-                        colaboradores.map((colab) => (
-                          <label key={colab.id} className="checkbox-item">
-                            <input
-                              type="checkbox"
-                              checked={profissionaisSelecionados.includes(colab.nome)}
-                              onChange={() => handleProfissionalToggle(colab.nome)}
-                            />
-                            <span className="checkmark"></span>
+                        colaboradores.map((colab)=> (
+                          <Checkbox key={colab.id} isChecked={profissionaisSelecionados.includes(colab.nome)} onChange={()=>handleProfissionalToggle(colab.nome)}>
                             {colab.nome}
-                          </label>
+                          </Checkbox>
                         ))
                       ) : (
-                        <p className="no-professionals">Nenhum profissional encontrado. Cadastre um profissional primeiro.</p>
+                        <Text fontSize="sm" color={colorTextSecondary}>Nenhum profissional encontrado. Cadastre um profissional primeiro.</Text>
                       )}
-                    </div>
+                    </VStack>
                     {profissionaisSelecionados.length === 0 && (
-                      <small style={{ color: "var(--error)", fontSize: "12px" }}>
-                        Selecione pelo menos um profissional
-                      </small>
+                      <Text fontSize="xs" color="red.500" mt={2}>Selecione pelo menos um profissional</Text>
                     )}
-                  </div>
-
-                  <div className="form-group">
-                    <div className="checkbox-group">
-                      <input
-                        type="checkbox"
-                        id="ativo"
-                        checked={servicoAtivo}
-                        onChange={(e) => setServicoAtivo(e.target.checked)}
-                      />
-                      <label htmlFor="ativo">Serviço ativo</label>
-                    </div>
-                    <small style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
-                      Serviços inativos não aparecem para agendamento
-                    </small>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={18} />
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Service Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <button className="modal-back" onClick={formStep > 1 ? handlePrevStep : handleCloseModal}>
-                <ArrowLeft size={20} />
-              </button>
-              <h2>
-                {formStep === 1 && "Novo Serviço"}
-                {formStep === 2 && "Configurações"}
-                {formStep === 3 && "Finalizar"}
-              </h2>
-              <div className="modal-steps">
-                <div className={`step ${formStep >= 1 ? "active" : ""}`}>1</div>
-                <div className="step-line"></div>
-                <div className={`step ${formStep >= 2 ? "active" : ""}`}>2</div>
-                <div className="step-line"></div>
-                <div className={`step ${formStep >= 3 ? "active" : ""}`}>3</div>
-              </div>
-              <button className="modal-close" onClick={handleCloseModal}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              {/* Step 1: Basic Information */}
+                  </Box>
+                  <Box mt={4}>
+                    <HStack>
+                      <Checkbox id="ativo" isChecked={servicoAtivo} onChange={(e)=>setServicoAtivo(e.target.checked)}>Serviço ativo</Checkbox>
+                    </HStack>
+                    <Text fontSize="xs" color={colorTextSecondary}>Serviços inativos não aparecem para agendamento</Text>
+                  </Box>
+                </Box>
+              </ModalBody>
+            )}
+            {formStep === 3 && (
+              <ModalBody>
+                <Box>
+                  <Heading size="sm" mb={3}>Revisar Informações</Heading>
+                  <VStack align="stretch" spacing={3}>
+                    <Text><b>Nome:</b> {nomeServico || '—'}</Text>
+                    <Text><b>Descrição:</b> {descricaoServico || 'Sem descrição'}</Text>
+                    <HStack><DollarSign size={16}/><Text>{formatCurrency(Number.parseFloat(valorServico || '0'))}</Text></HStack>
+                    <HStack><Clock size={16}/><Text>{formatDuration(Number.parseInt(duracaoServico || '0'))}</Text></HStack>
+                    <HStack><Tag size={16}/><Text>{(categorias.find(c=>c.id===categoriaServico)?.nome) || '—'}</Text></HStack>
+                    <Box>
+                      <Text fontWeight="semibold">Profissionais:</Text>
+                      <Wrap mt={1}>
+                        {profissionaisSelecionados.map((p, i)=> (
+                          <WrapItem key={i}><Badge colorScheme="purple" variant="subtle">{p}</Badge></WrapItem>
+                        ))}
+                      </Wrap>
+                    </Box>
+                    <HStack>
+                      <Text fontWeight="semibold">Status:</Text>
+                      <Badge colorScheme={servicoAtivo ? 'green' : 'red'}>{servicoAtivo ? 'Ativo' : 'Inativo'}</Badge>
+                    </HStack>
+                    {nomeEstabelecimento === '' && (
+                      <Text color="red.500">O nome do estabelecimento não foi carregado. Aguarde ou recarregue a página.</Text>
+                    )}
+                  </VStack>
+                </Box>
+              </ModalBody>
+            )}
+            <ModalFooter>
               {formStep === 1 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Informações Básicas</h3>
-
-                    <div className="form-group">
-                      <label htmlFor="nome">Nome do Serviço*</label>
-                      <input
-                        type="text"
-                        id="nome"
-                        placeholder="Ex: Corte Masculino, Unha em Gel..."
-                        required
-                        value={nomeServico}
-                        onChange={(e) => setNomeServico(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="descricao">Descrição</label>
-                      <textarea
-                        id="descricao"
-                        placeholder="Breve descrição do serviço oferecido..."
-                        rows={4}
-                        value={descricaoServico}
-                        onChange={(e) => setDescricaoServico(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="valor">Valor (R$)*</label>
-                        <input
-                          type="number"
-                          id="valor"
-                          placeholder="0,00"
-                          step="0.01"
-                          min="0"
-                          required
-                          value={valorServico}
-                          onChange={(e) => setValorServico(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="duracao">Duração (minutos)*</label>
-                        <input
-                          type="number"
-                          id="duracao"
-                          placeholder="30"
-                          min="1"
-                          required
-                          value={duracaoServico}
-                          onChange={(e) => setDuracaoServico(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="categoria">Categoria*</label>
-                      <div className="select-wrapper">
-                        <select
-                          id="categoria"
-                          required
-                          value={categoriaServico}
-                          onChange={(e) => setCategoriaServico(e.target.value)}
-                        >
-                          <option value="">Selecione uma categoria</option>
-                          {categorias.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.nome}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handleCloseModal}>
-                      Cancelar
-                    </button>
-                    <button type="button" className="btn-primary" onClick={handleNextStep}>
-                      Próximo
-                      <ChevronDown size={18} className="rotate-270" />
-                    </button>
-                  </div>
-                </div>
+                <HStack w="100%" justify="space-between">
+                  <Button variant="ghost" onClick={handleCloseModal}>Cancelar</Button>
+                  <Button colorScheme="purple" onClick={handleNextStep} rightIcon={<ChevronDown size={16} />}>Próximo</Button>
+                </HStack>
               )}
-
-              {/* Step 2: Professionals and Settings */}
               {formStep === 2 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Configurações do Serviço</h3>
-
-                    <div className="form-group">
-                      <label>Profissionais Habilitados*</label>
-                      <p className="form-help">Selecione quais profissionais podem executar este serviço</p>
-                      <div className="profissionais-selection">
-                        {/* Checkbox para o próprio dono da conta (admin) */}
-                        {nomeEstabelecimento && (
-                          <label className="checkbox-item">
-                            <input
-                              type="checkbox"
-                              checked={profissionaisSelecionados.includes(nomeEstabelecimento)}
-                              onChange={() => handleProfissionalToggle(nomeEstabelecimento)}
-                            />
-                            <span className="checkmark"></span>
-                            {nomeEstabelecimento} (Administrador)
-                          </label>
-                        )}
-                        {colaboradores.length > 0 ? (
-                          colaboradores.map((colab) => (
-                            <label key={colab.id} className="checkbox-item">
-                              <input
-                                type="checkbox"
-                                checked={profissionaisSelecionados.includes(colab.nome)}
-                                onChange={() => handleProfissionalToggle(colab.nome)}
-                              />
-                              <span className="checkmark"></span>
-                              {colab.nome}
-                            </label>
-                          ))
-                        ) : (
-                          <p className="no-professionals">Nenhum profissional encontrado. Cadastre um profissional primeiro.</p>
-                        )}
-                      </div>
-                      {profissionaisSelecionados.length === 0 && (
-                        <small style={{ color: "var(--error)", fontSize: "12px" }}>
-                          Selecione pelo menos um profissional
-                        </small>
-                      )}
-                    </div>
-
-                    <div className="form-group">
-                      <div className="checkbox-group">
-                        <input
-                          type="checkbox"
-                          id="ativo"
-                          checked={servicoAtivo}
-                          onChange={(e) => setServicoAtivo(e.target.checked)}
-                        />
-                        <label htmlFor="ativo">Serviço ativo</label>
-                      </div>
-                      <small style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
-                        Serviços inativos não aparecem para agendamento
-                      </small>
-                    </div>
-                  </div>
-
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="rotate-90" />
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={handleNextStep}
-                      disabled={profissionaisSelecionados.length === 0}
-                    >
-                      Próximo
-                      <ChevronDown size={18} className="rotate-270" />
-                    </button>
-                  </div>
-                </div>
+                <HStack w="100%" justify="space-between">
+                  <Button variant="ghost" leftIcon={<ChevronDown size={16} style={{ transform: 'rotate(90deg)' }} />} onClick={handlePrevStep}>Voltar</Button>
+                  <Button colorScheme="purple" onClick={handleNextStep} rightIcon={<ChevronDown size={16} />} isDisabled={profissionaisSelecionados.length === 0}>Próximo</Button>
+                </HStack>
               )}
-
-              {/* Step 3: Review */}
               {formStep === 3 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Revisar Informações</h3>
-
-                    <div className="service-preview">
-                      <div className="preview-image">
-                        <div
-                          className="preview-placeholder"
-                          style={{ backgroundColor: getCategoriaInfo(categoriaServico).color }}
-                        >
-                          {(() => {
-                            const IconComponent = getCategoriaInfo(categoriaServico).icon
-                            return IconComponent ? <IconComponent size={32} color="white" /> : null
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="preview-info">
-                        <h4>{nomeServico}</h4>
-                        <p>{descricaoServico || "Sem descrição"}</p>
-
-                        <div className="preview-details">
-                          <div className="preview-item">
-                            <DollarSign size={16} />
-                            <span>{formatCurrency(Number.parseFloat(valorServico || "0"))}</span>
-                          </div>
-                          <div className="preview-item">
-                            <Clock size={16} />
-                            <span>{formatDuration(Number.parseInt(duracaoServico || "0"))}</span>
-                          </div>
-                          <div className="preview-item">
-                            <Tag size={16} />
-                            <span>{getCategoriaInfo(categoriaServico).nome}</span>
-                          </div>
-                        </div>
-
-                        <div className="preview-profissionais">
-                          <span className="preview-label">Profissionais:</span>
-                          <div className="preview-tags">
-                            {profissionaisSelecionados.map((prof, index) => (
-                              <span key={index} className="preview-tag">
-                                {prof}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="preview-status">
-                          <span className={`status-indicator ${servicoAtivo ? "active" : "inactive"}`}>
-                            {servicoAtivo ? "Ativo" : "Inativo"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {nomeEstabelecimento === "" && (
-                    <div style={{ color: 'red', marginBottom: 8 }}>
-                      O nome do estabelecimento não foi carregado. Aguarde ou recarregue a página.
-                    </div>
-                  )}
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="rotate-90" />
-                      Voltar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={nomeEstabelecimento === ""}>
-                      <Check size={18} />
-                      Cadastrar Serviço
-                    </button>
-                  </div>
-                </div>
+                <HStack w="100%" justify="space-between">
+                  <Button variant="ghost" leftIcon={<ChevronDown size={16} style={{ transform: 'rotate(90deg)' }} />} onClick={handlePrevStep}>Voltar</Button>
+                  <Button type="submit" colorScheme="purple" leftIcon={<Check size={16} />} isDisabled={nomeEstabelecimento === ''}>Cadastrar Serviço</Button>
+                </HStack>
               )}
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
+    </Box>
   )
 }
 

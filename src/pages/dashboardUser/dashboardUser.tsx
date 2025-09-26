@@ -23,7 +23,8 @@ import {
   DollarSign,
   TrendingUp,
   Star,
-  CheckCircle
+  CheckCircle,
+  LogOut
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
@@ -511,7 +512,7 @@ export default function DashboardUser() {
     { icon: Package, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true },
     { icon: Clock, label: "Agenda Online", path: `/dashboard/${uid}/agenda`, premiumRequired: true },
     { icon: Search, label: "Configurações", path: `/dashboard/${uid}/configuracoes` },
-    { icon: Bell, label: "Sair da Conta", path: "#logout", className: "logout-item" },
+    { icon: LogOut, label: "Sair da Conta", path: "#logout", className: "logout-item" },
   ]
 
   // NOVA LÓGICA DE ROTAS POR PLANO

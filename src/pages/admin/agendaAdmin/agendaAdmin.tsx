@@ -59,7 +59,8 @@ import {
 import type { ResponsiveValue } from '@chakra-ui/react'
 
 const AgendaAdmin = () => {
-  const [currentView, setCurrentView] = useState("dashboard")
+  const [currentView, setCurrentView] = useState("calendar")
+  const [calendarGranularity, setCalendarGranularity] = useState<'month'|'week'|'day'>('month')
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedProfessional, setSelectedProfessional] = useState("todos")
   const [selectedStatus, setSelectedStatus] = useState("todos")
@@ -262,6 +263,27 @@ const AgendaAdmin = () => {
   const receitaPrevistaHoje = todayAppointments.reduce((sum, a) => sum + (a.price || 0), 0)
   const confirmadosHoje = todayAppointments.filter(a => a.status === 'confirmado').length
   const pendentesHoje = todayAppointments.filter(a => a.status !== 'confirmado').length
+  // Helpers para Semana/Dia
+  const getStartOfWeek = (d: Date) => {
+    const day = d.getDay()
+    const diff = d.getDate() - day
+    return new Date(d.getFullYear(), d.getMonth(), diff)
+  }
+  const weekDays = (() => {
+    const start = getStartOfWeek(selectedDate)
+    return Array.from({ length: 7 }).map((_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
+  })()
+  const weekAppointmentsByDay: Record<string, any[]> = weekDays.reduce((acc, day) => {
+    const key = formatLocalISODate(day)
+    acc[key] = agendamentos.filter(a => a.date === key)
+    return acc
+  }, {} as Record<string, any[]>)
+
+  const dayHours = Array.from({ length: 12 }).map((_, i) => `${String(i + 8).padStart(2, '0')}:00`)
+  const dayAppointmentsByHour: Record<string, any[]> = dayHours.reduce((acc, h) => {
+    acc[h] = todayAppointments.filter(a => (a.time || '').startsWith(h.slice(0,2)))
+    return acc
+  }, {} as Record<string, any[]>)
 
   // Receita confirmada do dia
   const receitaConfirmadaHoje = todayAppointments.filter(a => a.status === 'finalizado').reduce((sum, a) => sum + (a.price || 0), 0)
@@ -421,6 +443,13 @@ const AgendaAdmin = () => {
             Calendário
           </Button>
         </HStack>
+        {currentView === 'calendar' && (
+          <HStack spacing={2} mt={2}>
+            <Button size="sm" colorScheme={calendarGranularity==='month'?'blue':'gray'} variant={calendarGranularity==='month'?'solid':'outline'} onClick={()=>setCalendarGranularity('month')}>Mês</Button>
+            <Button size="sm" colorScheme={calendarGranularity==='week'?'blue':'gray'} variant={calendarGranularity==='week'?'solid':'outline'} onClick={()=>setCalendarGranularity('week')}>Semana</Button>
+            <Button size="sm" colorScheme={calendarGranularity==='day'?'blue':'gray'} variant={calendarGranularity==='day'?'solid':'outline'} onClick={()=>setCalendarGranularity('day')}>Dia</Button>
+          </HStack>
+        )}
       </Box>
 
       {/* Main Content */}
@@ -726,59 +755,72 @@ const AgendaAdmin = () => {
                   />
                 </HStack>
                 <HStack spacing={2} justify={{ base: 'center', md: 'flex-end' }}>
-                  <Button size="sm" colorScheme="blue" variant="solid">Mês</Button>
-                  <Button size="sm" variant="outline">Semana</Button>
-                  <Button size="sm" variant="outline">Dia</Button>
+                  <Button size="sm" colorScheme={calendarGranularity==='month'?'blue':'gray'} variant={calendarGranularity==='month'?'solid':'outline'} onClick={()=>setCalendarGranularity('month')}>Mês</Button>
+                  <Button size="sm" colorScheme={calendarGranularity==='week'?'blue':'gray'} variant={calendarGranularity==='week'?'solid':'outline'} onClick={()=>setCalendarGranularity('week')}>Semana</Button>
+                  <Button size="sm" colorScheme={calendarGranularity==='day'?'blue':'gray'} variant={calendarGranularity==='day'?'solid':'outline'} onClick={()=>setCalendarGranularity('day')}>Dia</Button>
                 </HStack>
               </Flex>
             </CardHeader>
             <CardBody>
               <Box overflowX="auto">
-                <SimpleGrid columns={7} gap={{ base: 0.5, md: 1 }} minW={{ base: '280px', md: 'auto' }}>
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-                    <Box 
-                      key={day} 
-                      p={{ base: 1, md: 2 }} 
-                      textAlign="center" 
-                      fontWeight="bold" 
-                      color="gray.600"
-                      fontSize={{ base: 'xs', md: 'sm' }}
-                    >
-                      {day}
-                    </Box>
-                  ))}
-                  {getMonthDays(selectedDate).map((day, idx) => {
-                    const dayISO = formatLocalISODate(day);
-                    const isToday = day.toDateString() === new Date().toDateString();
-                    const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
-                    const hasAppointments = agendamentos.some(a => a.date === dayISO);
-                    return (
-                      <Box
-                        key={idx}
-                        p={{ base: 1, md: 2 }}
-                        textAlign="center"
-                        cursor="pointer"
-                        border={hasAppointments ? '2px solid' : '1px solid'}
-                        borderColor={hasAppointments ? 'blue.500' : 'gray.200'}
-                        bg={isToday ? 'blue.50' : 'white'}
-                        color={!isCurrentMonth ? 'gray.400' : 'gray.700'}
-                        borderRadius="md"
-                        onClick={() => handleDayClick()}
-                        _hover={{ bg: 'gray.50' }}
-                        minH={{ base: '40px', md: '60px' }}
-                        display="flex"
-                        flexDirection="column"
-                        justifyContent="center"
-                        alignItems="center"
-                      >
-                        <Text fontSize={{ base: 'xs', md: 'sm' }}>{day.getDate()}</Text>
-                        {hasAppointments && (
-                          <Box w="3px" h="3px" bg="blue.500" borderRadius="full" mx="auto" mt={0.5} />
-                        )}
-                      </Box>
-                    );
-                  })}
-                </SimpleGrid>
+                {calendarGranularity === 'month' && (
+                  <SimpleGrid columns={7} gap={{ base: 0.5, md: 1 }} minW={{ base: '280px', md: 'auto' }}>
+                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                      <Box key={day} p={{ base: 1, md: 2 }} textAlign="center" fontWeight="bold" color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>{day}</Box>
+                    ))}
+                    {getMonthDays(selectedDate).map((day, idx) => {
+                      const dayISO = formatLocalISODate(day);
+                      const isToday = day.toDateString() === new Date().toDateString();
+                      const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
+                      const hasAppointments = agendamentos.some(a => a.date === dayISO);
+                      return (
+                        <Box key={idx} p={{ base: 1, md: 2 }} textAlign="center" cursor="pointer" border={hasAppointments ? '2px solid' : '1px solid'} borderColor={hasAppointments ? 'blue.500' : 'gray.200'} bg={isToday ? 'blue.50' : 'white'} color={!isCurrentMonth ? 'gray.400' : 'gray.700'} borderRadius="md" onClick={() => handleDayClick()} _hover={{ bg: 'gray.50' }} minH={{ base: '40px', md: '60px' }} display="flex" flexDirection="column" justifyContent="center" alignItems="center">
+                          <Text fontSize={{ base: 'xs', md: 'sm' }}>{day.getDate()}</Text>
+                          {hasAppointments && (<Box w="3px" h="3px" bg="blue.500" borderRadius="full" mx="auto" mt={0.5} />)}
+                        </Box>
+                      );
+                    })}
+                  </SimpleGrid>
+                )}
+                {calendarGranularity === 'week' && (
+                  <SimpleGrid columns={7} gap={2}>
+                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                      <Box key={day} textAlign="center" fontWeight="bold" color="gray.600" fontSize="sm">{day}</Box>
+                    ))}
+                    {weekDays.map((day, i) => {
+                      const key = formatLocalISODate(day)
+                      const items = weekAppointmentsByDay[key]
+                      return (
+                        <VStack key={i} align="stretch" p={2} border="1px" borderColor="gray.200" borderRadius="md" minH="100px" bg="white" spacing={1}>
+                          {items.length === 0 && (
+                            <Text fontSize="xs" color="gray.400">Sem agendamentos</Text>
+                          )}
+                          {items.slice(0,3).map((a) => (
+                            <HStack key={a.id} spacing={2} fontSize="xs" color="gray.700" justify="space-between">
+                              <Text noOfLines={1}>{a.time || '--:--'}</Text>
+                              <Text noOfLines={1}>{a.clientName || 'Cliente'}</Text>
+                            </HStack>
+                          ))}
+                          {items.length > 3 && (
+                            <Text fontSize="xs" color="blue.500">+{items.length - 3} mais</Text>
+                          )}
+                        </VStack>
+                      )
+                    })}
+                  </SimpleGrid>
+                )}
+                {calendarGranularity === 'day' && (
+                  <VStack align="stretch" spacing={2}>
+                    {dayHours.map((h) => (
+                      <Button key={h} variant="outline" justifyContent="space-between" onClick={()=> onDayModalOpen()}>
+                        <HStack spacing={2}>
+                          <Text>{h}</Text>
+                        </HStack>
+                        <Badge colorScheme={dayAppointmentsByHour[h].length>0? 'blue':'gray'}>{dayAppointmentsByHour[h].length}</Badge>
+                      </Button>
+                    ))}
+                  </VStack>
+                )}
               </Box>
             </CardBody>
           </Card>
