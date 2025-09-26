@@ -12,7 +12,6 @@ import {
   Package,
   Shield,
   HelpCircle,
-  Bell,
   Search,
   ChevronRight,
   User,
