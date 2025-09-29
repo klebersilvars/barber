@@ -111,6 +111,7 @@ export default function DashboardUser() {
   const [novosClientesMes, setNovosClientesMes] = useState(0)
   const [servicosRealizadosMes, setServicosRealizadosMes] = useState(0)
   const [colaboradoresStats, setColaboradoresStats] = useState<any[]>([])
+  const [colaboradores, setColaboradores] = useState<any[]>([])
 
   // Cores responsivas
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -301,29 +302,8 @@ export default function DashboardUser() {
         id: doc.id, 
         ...doc.data() 
       }));
-      
-      // Calcular estatísticas dos colaboradores
-      const colaboradoresStatsData = colaboradoresData.map((colab: any) => {
-        const agendamentosColab = agendamentos.filter((ag: any) => 
-          ag.professional === colab.nome && 
-          ag.date === new Date().toISOString().split('T')[0] &&
-          ag.status === 'confirmado'
-        ).length;
-        
-        // Mock do valor a receber (pode ser calculado baseado em comissões reais)
-        const valorReceber = agendamentosColab * 50; // R$ 50 por agendamento
-        
-        return {
-          id: colab.id,
-          nome: colab.nome,
-          avatar: colab.avatar,
-          agendamentos: agendamentosColab,
-          valorReceber: valorReceber,
-          status: 'online' // Mock - pode ser baseado em último login
-        };
-      });
-      
-      setColaboradoresStats(colaboradoresStatsData);
+      // Guardar lista de colaboradores para recalcular em efeito dedicado
+      setColaboradores(colaboradoresData);
     });
 
     // Buscar vendas
@@ -349,6 +329,39 @@ export default function DashboardUser() {
       unsubscribeClientes();
     };
   }, [uid, estabelecimentoNome]);
+
+  // Recalcular estatísticas por colaborador sempre que agendamentos ou colaboradores mudarem
+  useEffect(() => {
+    if (!colaboradores.length) {
+      setColaboradoresStats([])
+      return
+    }
+
+    const hojeISO = formatLocalISODate(new Date())
+
+    const colaboradoresStatsData = colaboradores.map((colab: any) => {
+      const nomeColab = (colab.nome || '').toString().trim().toLowerCase()
+
+      const agendamentosColabHoje = agendamentos.filter((ag: any) => {
+        const nomeProf = (ag.professional || ag.colaborador || '').toString().trim().toLowerCase()
+        return ag.date === hojeISO && nomeProf === nomeColab
+      })
+
+      const qtdAgendamentos = agendamentosColabHoje.length
+      const valorReceber = qtdAgendamentos * 50 // placeholder: R$50 por agendamento
+
+      return {
+        id: colab.id,
+        nome: colab.nome,
+        avatar: colab.avatar,
+        agendamentos: qtdAgendamentos,
+        valorReceber,
+        status: 'online'
+      }
+    })
+
+    setColaboradoresStats(colaboradoresStatsData)
+  }, [agendamentos, colaboradores])
 
   // Buscar dados de vendas do mês atual
   useEffect(() => {

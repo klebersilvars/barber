@@ -23,9 +23,11 @@ import {
   User,
   ToggleLeft,
   ToggleRight,
+  PlusCircle,
+  Trash,
 } from "lucide-react"
 import './servicos.css'
-import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firebase'
 import { getAuth } from "firebase/auth"
 import {
@@ -81,6 +83,14 @@ interface Colaborador {
   cargos: string[]
 }
 
+interface Categoria {
+  id: string
+  nome: string
+  icon?: any
+  iconKey?: string
+  color: string
+}
+
 const Servicos = () => {
   const auth = getAuth()
   const [nomeEstabelecimento, setNomeEstabelecimento] = useState("")
@@ -101,6 +111,17 @@ const Servicos = () => {
   const [filterProfissional, setFilterProfissional] = useState("all")
   const [servicos, setServicos] = useState<Servico[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  // Categorias (agora editáveis)
+  const [categorias, setCategorias] = useState<Categoria[]>([
+    { id: "cabelo", nome: "Cabelo", icon: Scissors, iconKey: "Scissors", color: "#8b5cf6" },
+    { id: "unha", nome: "Unhas", icon: Sparkles, iconKey: "Sparkles", color: "#ec4899" },
+    { id: "estetica", nome: "Estética", icon: Palette, iconKey: "Palette", color: "#06b6d4" },
+    { id: "barba", nome: "Barba", icon: User, iconKey: "User", color: "#f59e0b" },
+  ])
+  const [categoriasModalOpen, setCategoriasModalOpen] = useState(false)
+  const [novaCategoriaNome, setNovaCategoriaNome] = useState("")
+  const [novaCategoriaIcon, setNovaCategoriaIcon] = useState("Scissors")
+  const [novaCategoriaCor, setNovaCategoriaCor] = useState("#8b5cf6")
 
   // Chakra UI color tokens
   const colorBg = useColorModeValue('white','gray.800')
@@ -116,12 +137,76 @@ const Servicos = () => {
   const [profissionaisSelecionados, setProfissionaisSelecionados] = useState<string[]>([])
   const [servicoAtivo, setServicoAtivo] = useState(true)
 
-  const categorias = [
-    { id: "cabelo", nome: "Cabelo", icon: Scissors, color: "#8b5cf6" },
-    { id: "unha", nome: "Unhas", icon: Sparkles, color: "#ec4899" },
-    { id: "estetica", nome: "Estética", icon: Palette, color: "#06b6d4" },
-    { id: "barba", nome: "Barba", icon: User, color: "#f59e0b" },
-  ]
+  const mapIcon = (key: string) => {
+    switch (key) {
+      case "Sparkles":
+        return Sparkles
+      case "Palette":
+        return Palette
+      case "User":
+        return User
+      case "Scissors":
+      default:
+        return Scissors
+    }
+  }
+
+  // Persistir categorias no documento da conta (campo 'category')
+  const persistCategorias = async (items: Categoria[]) => {
+    const user = auth.currentUser
+    if (!user?.uid) return
+    const docRef = doc(firestore, 'contas', user.uid)
+    const serializado = items.map(c => ({ id: c.id, nome: c.nome, iconKey: c.iconKey || 'Scissors', color: c.color }))
+    try {
+      await updateDoc(docRef, { category: serializado })
+    } catch (e) {
+      // caso campo ainda não exista
+      await setDoc(docRef, { category: serializado }, { merge: true })
+    }
+  }
+
+  const handleAddCategoria = async () => {
+    const nome = novaCategoriaNome.trim()
+    if (!nome) return
+    const id = nome.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')
+    if (categorias.some(c => c.id === id)) {
+      alert('Já existe uma categoria com esse nome.')
+      return
+    }
+    const nova: Categoria = { id, nome, icon: mapIcon(novaCategoriaIcon), iconKey: novaCategoriaIcon, color: novaCategoriaCor }
+    const atualizadas = [...categorias, nova]
+    setCategorias(atualizadas)
+    await persistCategorias(atualizadas)
+    setNovaCategoriaNome("")
+  }
+
+  const handleRemoveCategoria = async (id: string) => {
+    const atualizadas = categorias.filter(c => c.id !== id)
+    setCategorias(atualizadas)
+    await persistCategorias(atualizadas)
+  }
+
+  // Carregar categorias do Firestore (tempo real)
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user?.uid) return
+    const ref = doc(firestore, 'contas', user.uid)
+    const unsub = onSnapshot(ref, async (snap) => {
+      if (!snap.exists()) return
+      const data: any = snap.data()
+      if (Array.isArray(data.category) && data.category.length > 0) {
+        const loaded: Categoria[] = data.category.map((c: any) => ({
+          id: c.id,
+          nome: c.nome,
+          iconKey: c.iconKey || 'Scissors',
+          icon: mapIcon(c.iconKey || 'Scissors'),
+          color: c.color || '#8b5cf6'
+        }))
+        setCategorias(loaded)
+      }
+    })
+    return () => unsub()
+  }, [auth.currentUser])
 
   // Buscar nome do estabelecimento do admin logado
   useEffect(() => {
@@ -457,7 +542,10 @@ const Servicos = () => {
                 <Text fontSize="sm" color={colorTextSecondary}>Categorias</Text>
                 <Heading size="md">{categorias.length}</Heading>
               </Box>
-              <Scissors size={28} />
+              <HStack spacing={2}>
+                <Button size="xs" variant="outline" onClick={()=>setCategoriasModalOpen(true)}>Editar Categorias</Button>
+                <Scissors size={28} />
+              </HStack>
             </Flex>
           </Box>
         </SimpleGrid>
@@ -886,6 +974,64 @@ const Servicos = () => {
               )}
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal de Edição de Categorias */}
+      <Modal isOpen={categoriasModalOpen} onClose={()=>setCategoriasModalOpen(false)} size={{ base: 'full', md: 'lg' }}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Heading size="md">Editar Categorias</Heading>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+                <FormControl isRequired>
+                  <FormLabel>Nome da Categoria</FormLabel>
+                  <Input placeholder="Ex: Sobrancelha" value={novaCategoriaNome} onChange={(e)=>setNovaCategoriaNome(e.target.value)} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Ícone</FormLabel>
+                  <Select value={novaCategoriaIcon} onChange={(e)=>setNovaCategoriaIcon(e.target.value)}>
+                    <option value="Scissors">Tesoura</option>
+                    <option value="Sparkles">Unhas</option>
+                    <option value="Palette">Estética</option>
+                    <option value="User">Barba</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Cor</FormLabel>
+                  <Input type="color" value={novaCategoriaCor} onChange={(e)=>setNovaCategoriaCor(e.target.value)} />
+                </FormControl>
+              </SimpleGrid>
+              <HStack>
+                <Button leftIcon={<PlusCircle size={16}/>} colorScheme="purple" onClick={handleAddCategoria}>Adicionar</Button>
+              </HStack>
+
+              <Box>
+                <Heading size="sm" mb={2}>Categorias Atuais</Heading>
+                <Wrap>
+                  {categorias.map(cat => (
+                    <WrapItem key={cat.id}>
+                      <HStack borderWidth="1px" borderColor={colorBorder} borderRadius="md" p={2} spacing={2}>
+                        {cat.icon ? <cat.icon size={16} /> : null}
+                        <Text>{cat.nome}</Text>
+                        <Box w="14px" h="14px" borderRadius="sm" bg={cat.color} border="1px" borderColor={colorBorder} />
+                        <Button size="xs" variant="outline" colorScheme="red" leftIcon={<Trash size={12}/>} onClick={()=>handleRemoveCategoria(cat.id)}>Remover</Button>
+                      </HStack>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack w="100%" justify="flex-end">
+              <Button variant="ghost" onClick={()=>setCategoriasModalOpen(false)}>Fechar</Button>
+            </HStack>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </Box>
