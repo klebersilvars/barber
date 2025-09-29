@@ -41,7 +41,7 @@ import {
   Trash,
 } from "lucide-react"
 import './servicos.css'
-import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firebase'
 import { getAuth } from "firebase/auth"
 import {
@@ -228,7 +228,7 @@ const Servicos = () => {
     const user = auth.currentUser
     if (!user?.uid) return
     const docRef = doc(firestore, 'contas', user.uid)
-    const ordenadas = [...items].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+    const ordenadas = [...items].sort((a: Categoria, b: Categoria)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
     const serializado = ordenadas.map(c => ({ id: c.id, nome: c.nome, iconKey: c.iconKey || 'Scissors', color: c.color }))
     try {
       await updateDoc(docRef, { category: serializado })
@@ -247,14 +247,14 @@ const Servicos = () => {
       return
     }
     const nova: Categoria = { id, nome, icon: mapIcon(novaCategoriaIcon), iconKey: novaCategoriaIcon, color: novaCategoriaCor }
-    const atualizadas = [...categorias, nova].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+    const atualizadas = [...categorias, nova].sort((a: Categoria, b: Categoria)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
     setCategorias(atualizadas)
     await persistCategorias(atualizadas)
     setNovaCategoriaNome("")
   }
 
   const handleRemoveCategoria = async (id: string) => {
-    const atualizadas = categorias.filter(c => c.id !== id).sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+    const atualizadas = categorias.filter(c => c.id !== id).sort((a: Categoria, b: Categoria)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
     setCategorias(atualizadas)
     await persistCategorias(atualizadas)
   }
@@ -276,7 +276,7 @@ const Servicos = () => {
             icon: mapIcon(c.iconKey || 'Scissors'),
             color: c.color || '#8b5cf6'
           }))
-          .sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+          .sort((a: Categoria, b: Categoria)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
         setCategorias(loaded)
       } else {
         setCategorias([])
