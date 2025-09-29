@@ -21,6 +21,20 @@ import {
   Palette,
   Sparkles,
   User,
+  Hammer,
+  Wrench,
+  Paintbrush,
+  PawPrint,
+  Car,
+  Bike,
+  Dumbbell,
+  Camera,
+  Home,
+  Building2,
+  Stethoscope,
+  UtensilsCrossed,
+  Monitor,
+  ShoppingBag,
   ToggleLeft,
   ToggleRight,
   PlusCircle,
@@ -111,13 +125,9 @@ const Servicos = () => {
   const [filterProfissional, setFilterProfissional] = useState("all")
   const [servicos, setServicos] = useState<Servico[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  // Categorias (agora editáveis)
-  const [categorias, setCategorias] = useState<Categoria[]>([
-    { id: "cabelo", nome: "Cabelo", icon: Scissors, iconKey: "Scissors", color: "#8b5cf6" },
-    { id: "unha", nome: "Unhas", icon: Sparkles, iconKey: "Sparkles", color: "#ec4899" },
-    { id: "estetica", nome: "Estética", icon: Palette, iconKey: "Palette", color: "#06b6d4" },
-    { id: "barba", nome: "Barba", icon: User, iconKey: "User", color: "#f59e0b" },
-  ])
+  // Categoria padrão e estado (dados vêm do Firestore)
+  const defaultCategoria: Categoria = { id: 'geral', nome: 'Geral', icon: Scissors, iconKey: 'Scissors', color: '#8b5cf6' }
+  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [categoriasModalOpen, setCategoriasModalOpen] = useState(false)
   const [novaCategoriaNome, setNovaCategoriaNome] = useState("")
   const [novaCategoriaIcon, setNovaCategoriaIcon] = useState("Scissors")
@@ -127,6 +137,40 @@ const Servicos = () => {
   const colorBg = useColorModeValue('white','gray.800')
   const colorBorder = useColorModeValue('gray.200','gray.700')
   const colorTextSecondary = useColorModeValue('gray.600','gray.300')
+  const colorChipBg = useColorModeValue('white','gray.700')
+
+  // UI helpers for modal de categorias
+  const colorPresets = [
+    '#8b5cf6', // roxo
+    '#ec4899', // rosa
+    '#06b6d4', // ciano
+    '#f59e0b', // laranja
+    '#10b981', // verde
+    '#ef4444', // vermelho
+    '#0ea5e9', // azul
+    '#a855f7', // violeta
+  ]
+
+  const iconOptions = [
+    { key: 'Scissors', label: 'Tesoura (Beleza)', icon: Scissors },
+    { key: 'Sparkles', label: 'Unhas/Estética', icon: Sparkles },
+    { key: 'Palette', label: 'Maquiagem/Estética', icon: Palette },
+    { key: 'User', label: 'Barba/Barbeiro', icon: User },
+    { key: 'PawPrint', label: 'Pet Shop/Veterinário', icon: PawPrint },
+    { key: 'Hammer', label: 'Obras/Pedreiro', icon: Hammer },
+    { key: 'Wrench', label: 'Mecânico/Manutenção', icon: Wrench },
+    { key: 'Paintbrush', label: 'Pintor/Decoração', icon: Paintbrush },
+    { key: 'Car', label: 'Auto/Cuidados com Carro', icon: Car },
+    { key: 'Bike', label: 'Bike/Entrega', icon: Bike },
+    { key: 'Dumbbell', label: 'Academia/Personal', icon: Dumbbell },
+    { key: 'Camera', label: 'Fotógrafo', icon: Camera },
+    { key: 'Home', label: 'Casa/Limpeza', icon: Home },
+    { key: 'Building2', label: 'Imóveis/Condomínio', icon: Building2 },
+    { key: 'Stethoscope', label: 'Saúde/Consultas', icon: Stethoscope },
+    { key: 'UtensilsCrossed', label: 'Culinária/Chefe', icon: UtensilsCrossed },
+    { key: 'Monitor', label: 'Tecnologia/Suporte', icon: Monitor },
+    { key: 'ShoppingBag', label: 'Moda/Vendas', icon: ShoppingBag },
+  ]
 
   // Form states
   const [nomeServico, setNomeServico] = useState("")
@@ -145,6 +189,34 @@ const Servicos = () => {
         return Palette
       case "User":
         return User
+      case "Hammer":
+        return Hammer
+      case "Wrench":
+        return Wrench
+      case "Paintbrush":
+        return Paintbrush
+      case "PawPrint":
+        return PawPrint
+      case "Car":
+        return Car
+      case "Bike":
+        return Bike
+      case "Dumbbell":
+        return Dumbbell
+      case "Camera":
+        return Camera
+      case "Home":
+        return Home
+      case "Building2":
+        return Building2
+      case "Stethoscope":
+        return Stethoscope
+      case "UtensilsCrossed":
+        return UtensilsCrossed
+      case "Monitor":
+        return Monitor
+      case "ShoppingBag":
+        return ShoppingBag
       case "Scissors":
       default:
         return Scissors
@@ -156,7 +228,8 @@ const Servicos = () => {
     const user = auth.currentUser
     if (!user?.uid) return
     const docRef = doc(firestore, 'contas', user.uid)
-    const serializado = items.map(c => ({ id: c.id, nome: c.nome, iconKey: c.iconKey || 'Scissors', color: c.color }))
+    const ordenadas = [...items].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+    const serializado = ordenadas.map(c => ({ id: c.id, nome: c.nome, iconKey: c.iconKey || 'Scissors', color: c.color }))
     try {
       await updateDoc(docRef, { category: serializado })
     } catch (e) {
@@ -174,14 +247,14 @@ const Servicos = () => {
       return
     }
     const nova: Categoria = { id, nome, icon: mapIcon(novaCategoriaIcon), iconKey: novaCategoriaIcon, color: novaCategoriaCor }
-    const atualizadas = [...categorias, nova]
+    const atualizadas = [...categorias, nova].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
     setCategorias(atualizadas)
     await persistCategorias(atualizadas)
     setNovaCategoriaNome("")
   }
 
   const handleRemoveCategoria = async (id: string) => {
-    const atualizadas = categorias.filter(c => c.id !== id)
+    const atualizadas = categorias.filter(c => c.id !== id).sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
     setCategorias(atualizadas)
     await persistCategorias(atualizadas)
   }
@@ -192,17 +265,21 @@ const Servicos = () => {
     if (!user?.uid) return
     const ref = doc(firestore, 'contas', user.uid)
     const unsub = onSnapshot(ref, async (snap) => {
-      if (!snap.exists()) return
+      if (!snap.exists()) { setCategorias([]); return }
       const data: any = snap.data()
-      if (Array.isArray(data.category) && data.category.length > 0) {
-        const loaded: Categoria[] = data.category.map((c: any) => ({
-          id: c.id,
-          nome: c.nome,
-          iconKey: c.iconKey || 'Scissors',
-          icon: mapIcon(c.iconKey || 'Scissors'),
-          color: c.color || '#8b5cf6'
-        }))
+      if (Array.isArray(data.category)) {
+        const loaded: Categoria[] = data.category
+          .map((c: any) => ({
+            id: c.id,
+            nome: c.nome,
+            iconKey: c.iconKey || 'Scissors',
+            icon: mapIcon(c.iconKey || 'Scissors'),
+            color: c.color || '#8b5cf6'
+          }))
+          .sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
         setCategorias(loaded)
+      } else {
+        setCategorias([])
       }
     })
     return () => unsub()
@@ -467,7 +544,8 @@ const Servicos = () => {
   }
 
   const getCategoriaInfo = (categoriaId: string) => {
-    return categorias.find((cat) => cat.id === categoriaId) || categorias[0]
+    const found = categorias.find((cat) => cat.id === categoriaId)
+    return found || defaultCategoria
   }
 
   // Statistics
@@ -977,8 +1055,8 @@ const Servicos = () => {
         </ModalContent>
       </Modal>
 
-      {/* Modal de Edição de Categorias */}
-      <Modal isOpen={categoriasModalOpen} onClose={()=>setCategoriasModalOpen(false)} size={{ base: 'full', md: 'lg' }}>
+      {/* Modal de Edição de Categorias - UI aprimorada e responsiva */}
+      <Modal isOpen={categoriasModalOpen} onClose={()=>setCategoriasModalOpen(false)} size={{ base: 'full', md: 'xl' }}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
@@ -986,39 +1064,69 @@ const Servicos = () => {
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack align="stretch" spacing={4}>
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-                <FormControl isRequired>
-                  <FormLabel>Nome da Categoria</FormLabel>
-                  <Input placeholder="Ex: Sobrancelha" value={novaCategoriaNome} onChange={(e)=>setNovaCategoriaNome(e.target.value)} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Ícone</FormLabel>
-                  <Select value={novaCategoriaIcon} onChange={(e)=>setNovaCategoriaIcon(e.target.value)}>
-                    <option value="Scissors">Tesoura</option>
-                    <option value="Sparkles">Unhas</option>
-                    <option value="Palette">Estética</option>
-                    <option value="User">Barba</option>
-                  </Select>
-                </FormControl>
-                <FormControl>
-                  <FormLabel>Cor</FormLabel>
-                  <Input type="color" value={novaCategoriaCor} onChange={(e)=>setNovaCategoriaCor(e.target.value)} />
-                </FormControl>
-              </SimpleGrid>
-              <HStack>
-                <Button leftIcon={<PlusCircle size={16}/>} colorScheme="purple" onClick={handleAddCategoria}>Adicionar</Button>
-              </HStack>
+            <VStack align="stretch" spacing={5}>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+                {/* Formulário */}
+                <VStack align="stretch" spacing={4} border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} alignItems="end">
+                    <FormControl isRequired>
+                      <FormLabel whiteSpace="nowrap" noOfLines={1}>Categoria</FormLabel>
+                      <Input placeholder="Ex: Sobrancelha" value={novaCategoriaNome} onChange={(e)=>setNovaCategoriaNome(e.target.value)} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel whiteSpace="nowrap" noOfLines={1}>Ícone</FormLabel>
+                      <Select value={novaCategoriaIcon} onChange={(e)=>setNovaCategoriaIcon(e.target.value)}>
+                        {iconOptions.map((opt)=> (
+                          <option key={opt.key} value={opt.key}>{opt.label}</option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </SimpleGrid>
+                  <Box>
+                    <FormLabel>Cor</FormLabel>
+                    <HStack spacing={2} flexWrap="wrap">
+                      {colorPresets.map((c)=> (
+                        <Box key={c} as="button" onClick={()=>setNovaCategoriaCor(c)} w="28px" h="28px" borderRadius="md" borderWidth={novaCategoriaCor===c? '2px':'1px'} borderColor={novaCategoriaCor===c? 'purple.500': colorBorder} bg={c} aria-label={`Selecionar cor ${c}`} />
+                      ))}
+                      <Input type="color" value={novaCategoriaCor} onChange={(e)=>setNovaCategoriaCor(e.target.value)} w="48px" p={0} h="28px" border="1px" borderColor={colorBorder} borderRadius="md" />
+                    </HStack>
+                  </Box>
+                  <HStack>
+                    <Button leftIcon={<PlusCircle size={16}/>} colorScheme="purple" onClick={handleAddCategoria} isDisabled={!novaCategoriaNome.trim()}>Adicionar</Button>
+                  </HStack>
+                </VStack>
 
+                {/* Preview */}
+                <VStack align="stretch" spacing={3} border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+                  <Text color={colorTextSecondary} fontSize="sm">Pré-visualização</Text>
+                  <Box border="1px" borderColor={colorBorder} borderRadius="md" p={4}>
+                    <HStack spacing={3}>
+                      <Box w="40px" h="40px" borderRadius="md" bg={novaCategoriaCor} display="flex" alignItems="center" justifyContent="center">
+                        {(() => { const IconComp = mapIcon(novaCategoriaIcon); return IconComp ? <IconComp size={20} color="#fff"/> : null })()}
+                      </Box>
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="semibold">{novaCategoriaNome || 'Nova categoria'}</Text>
+                        <HStack>
+                          <Text color={colorTextSecondary} fontSize="sm">Ícone:</Text>
+                          <Text fontSize="sm">{novaCategoriaIcon}</Text>
+                        </HStack>
+                      </VStack>
+                    </HStack>
+                  </Box>
+                </VStack>
+              </SimpleGrid>
+
+              {/* Lista de categorias atuais */}
               <Box>
-                <Heading size="sm" mb={2}>Categorias Atuais</Heading>
+                <Heading size="sm" mb={3}>Categorias Atuais</Heading>
                 <Wrap>
                   {categorias.map(cat => (
                     <WrapItem key={cat.id}>
-                      <HStack borderWidth="1px" borderColor={colorBorder} borderRadius="md" p={2} spacing={2}>
-                        {cat.icon ? <cat.icon size={16} /> : null}
+                      <HStack borderWidth="1px" borderColor={colorBorder} borderRadius="md" p={2} spacing={2} bg={colorChipBg}>
+                        <Box w="20px" h="20px" borderRadius="md" bg={cat.color} display="flex" alignItems="center" justifyContent="center">
+                          {cat.icon ? <cat.icon size={12} color="#fff" /> : null}
+                        </Box>
                         <Text>{cat.nome}</Text>
-                        <Box w="14px" h="14px" borderRadius="sm" bg={cat.color} border="1px" borderColor={colorBorder} />
                         <Button size="xs" variant="outline" colorScheme="red" leftIcon={<Trash size={12}/>} onClick={()=>handleRemoveCategoria(cat.id)}>Remover</Button>
                       </HStack>
                     </WrapItem>

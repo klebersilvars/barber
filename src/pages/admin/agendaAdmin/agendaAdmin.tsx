@@ -67,7 +67,7 @@ const AgendaAdmin = () => {
   const [showFilters, setShowFilters] = useState(false)
 
   // Modal states
-  const { onOpen: onDayModalOpen } = useDisclosure()
+  const { isOpen: isDayModalOpen, onOpen: onDayModalOpen, onClose: onDayModalClose } = useDisclosure()
   const {
     isOpen: isDetailsOpen,
     onOpen: onDetailsOpen,
@@ -173,7 +173,9 @@ const AgendaAdmin = () => {
   }, [tipoPlano, isPremium, navigate, auth.currentUser]);
 
   // Função para abrir modal do dia
-  const handleDayClick = () => {
+  const [selectedDayISO, setSelectedDayISO] = useState<string | null>(null)
+  const handleDayClick = (dayISO: string) => {
+    setSelectedDayISO(dayISO)
     onDayModalOpen()
   }
 
@@ -280,6 +282,7 @@ const AgendaAdmin = () => {
   }, {} as Record<string, any[]>)
 
   const dayHours = Array.from({ length: 12 }).map((_, i) => `${String(i + 8).padStart(2, '0')}:00`)
+  const dayMinHeightPx = `${dayHours.length * 62}px`
   const dayAppointmentsByHour: Record<string, any[]> = dayHours.reduce((acc, h) => {
     acc[h] = todayAppointments.filter(a => (a.time || '').startsWith(h.slice(0,2)))
     return acc
@@ -458,7 +461,7 @@ const AgendaAdmin = () => {
           <VStack spacing={6} align="stretch" minH="calc(100vh - 200px)" h="full">
             {/* Stats Cards */}
             <SimpleGrid columns={statsColumns} spacing={4}>
-              <Card>
+            <Card minH={calendarGranularity==='day' ? dayMinHeightPx : undefined}>
                 <CardBody>
                   <Flex justify="space-between" align="center" mb={2}>
                     <Icon as={Calendar} boxSize={6} color="blue.500" />
@@ -774,7 +777,7 @@ const AgendaAdmin = () => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
                       const hasAppointments = agendamentos.some(a => a.date === dayISO);
                       return (
-                        <Box key={idx} p={{ base: 1, md: 2 }} textAlign="center" cursor="pointer" border={hasAppointments ? '2px solid' : '1px solid'} borderColor={hasAppointments ? 'blue.500' : 'gray.200'} bg={isToday ? 'blue.50' : 'white'} color={!isCurrentMonth ? 'gray.400' : 'gray.700'} borderRadius="md" onClick={() => handleDayClick()} _hover={{ bg: 'gray.50' }} minH={{ base: '40px', md: '60px' }} display="flex" flexDirection="column" justifyContent="center" alignItems="center">
+                        <Box key={idx} p={{ base: 1, md: 2 }} textAlign="center" cursor="pointer" border={hasAppointments ? '2px solid' : '1px solid'} borderColor={hasAppointments ? 'blue.500' : 'gray.200'} bg={isToday ? 'blue.50' : 'white'} color={!isCurrentMonth ? 'gray.400' : 'gray.700'} borderRadius="md" onClick={() => handleDayClick(dayISO)} _hover={{ bg: 'gray.50' }} minH={{ base: '40px', md: '60px' }} display="flex" flexDirection="column" justifyContent="center" alignItems="center">
                           <Text fontSize={{ base: 'xs', md: 'sm' }}>{day.getDate()}</Text>
                           {hasAppointments && (<Box w="3px" h="3px" bg="blue.500" borderRadius="full" mx="auto" mt={0.5} />)}
                         </Box>
@@ -791,7 +794,7 @@ const AgendaAdmin = () => {
                       const key = formatLocalISODate(day)
                       const items = weekAppointmentsByDay[key]
                       return (
-                        <VStack key={i} align="stretch" p={2} border="1px" borderColor="gray.200" borderRadius="md" minH="100px" bg="white" spacing={1}>
+                        <VStack key={i} align="stretch" p={2} border="1px" borderColor="gray.200" borderRadius="md" minH="100px" bg="white" spacing={1} onClick={()=> handleDayClick(key)} cursor="pointer">
                           {items.length === 0 && (
                             <Text fontSize="xs" color="gray.400">Sem agendamentos</Text>
                           )}
@@ -810,22 +813,62 @@ const AgendaAdmin = () => {
                   </SimpleGrid>
                 )}
                 {calendarGranularity === 'day' && (
-                  <VStack align="stretch" spacing={2}>
-                    {dayHours.map((h) => (
-                      <Button key={h} variant="outline" justifyContent="space-between" onClick={()=> onDayModalOpen()}>
-                        <HStack spacing={2}>
-                          <Text>{h}</Text>
-                        </HStack>
-                        <Badge colorScheme={dayAppointmentsByHour[h].length>0? 'blue':'gray'}>{dayAppointmentsByHour[h].length}</Badge>
-                      </Button>
-                    ))}
-                  </VStack>
+                  <Box maxH={{ base: '60vh', md: '70vh' }} overflowY="auto" pr={1} sx={{ WebkitOverflowScrolling: 'touch' }}>
+                    <VStack align="stretch" spacing={2}>
+                      {dayHours.map((h) => (
+                        <Button key={h} variant="outline" justifyContent="space-between" onClick={()=> handleDayClick(formatLocalISODate(selectedDate))}>
+                          <HStack spacing={2}>
+                            <Text>{h}</Text>
+                          </HStack>
+                          <Badge colorScheme={dayAppointmentsByHour[h].length>0? 'blue':'gray'}>{dayAppointmentsByHour[h].length}</Badge>
+                        </Button>
+                      ))}
+                    </VStack>
+                  </Box>
                 )}
               </Box>
             </CardBody>
           </Card>
         )}
       </Container>
+      {/* Modal Agendamentos do Dia */}
+      <Modal isOpen={isDayModalOpen} onClose={onDayModalClose} size={{ base: 'full', md: 'lg' }} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Agendamentos do dia {selectedDayISO || ''}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={3} align="stretch">
+              {(() => {
+                const items = (selectedDayISO ? agendamentos.filter(a => a.date === selectedDayISO) : [])
+                if (items.length === 0) return <Text color="gray.500">Nenhum agendamento para este dia.</Text>
+                return items
+                  .sort((a:any,b:any)=> String(a.time||'').localeCompare(String(b.time||'')))
+                  .map((a:any) => (
+                    <Box key={a.id} p={3} border="1px" borderColor="gray.200" borderRadius="md" bg="white">
+                      <Flex justify="space-between" align="center" mb={1}>
+                        <HStack>
+                          <Icon as={Clock} boxSize={4} color="gray.600" />
+                          <Text fontWeight="semibold">{a.time || '--:--'}</Text>
+                        </HStack>
+                        <Badge colorScheme={a.status==='confirmado'?'green': a.status==='finalizado'?'blue': a.status==='em_andamento'?'yellow':'gray'}>{a.status || 'agendado'}</Badge>
+                      </Flex>
+                      <Text fontWeight="medium">{a.clientName || 'Cliente'}</Text>
+                      <Text color="gray.600">{a.service || 'Serviço'}</Text>
+                      <HStack spacing={3} mt={1} color="gray.500" fontSize="sm">
+                        <HStack><Icon as={User} boxSize={3} /><Text>{a.professional || '-'}</Text></HStack>
+                        <HStack><Icon as={DollarSign} boxSize={3} /><Text>{typeof a.price==='number'? formatCurrency(a.price): '-'}</Text></HStack>
+                      </HStack>
+                    </Box>
+                  ))
+              })()}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onDayModalClose}>Fechar</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
       {/* Modal Detalhes do Agendamento */}
       <Modal isOpen={isDetailsOpen} onClose={onDetailsClose} size="xl">
         <ModalOverlay />
