@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, Stack } from "@chakra-ui/react"
+import { Box, Button, Text, Badge, VStack, HStack, useColorModeValue, Icon, SimpleGrid, Stack } from "@chakra-ui/react"
 import "./plano.css"
 import { Check, X, Star, Crown, CreditCard, Smartphone, HeadphonesIcon, ChevronRight } from "lucide-react"
 import { auth } from '../../../firebase/firebase'
@@ -17,16 +17,22 @@ export default function Plano() {
   const [jaPegouPremiumGratis, setJaPegouPremiumGratis] = useState<boolean | null>(null);
   const [loadingConta, setLoadingConta] = useState(true);
   const [dataTerminoPlano, setDataTerminoPlano] = useState<string | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly')
 
   const navigate = useNavigate();
 
-  // Função para calcular a data de término do plano
-  const calcularDataTermino = (diasRestantes: number) => {
-    const hoje = new Date();
-    const dataTermino = new Date(hoje);
-    dataTermino.setDate(hoje.getDate() + diasRestantes);
-    
-    return dataTermino.toISOString();
+  // Função para calcular a data de término do plano por período exato (mês/3 meses/1 ano cravado)
+  const calcularDataTerminoPorPeriodo = (period: 'monthly' | 'quarterly' | 'yearly') => {
+    const inicio = new Date()
+    const termino = new Date(inicio)
+    if (period === 'yearly') {
+      termino.setFullYear(termino.getFullYear() + 1)
+    } else if (period === 'quarterly') {
+      termino.setMonth(termino.getMonth() + 3)
+    } else {
+      termino.setMonth(termino.getMonth() + 1)
+    }
+    return termino.toISOString()
   };
 
   // Função para formatar a data de término
@@ -88,10 +94,11 @@ export default function Plano() {
   const plans = [
     {
       id: "individual",
-      name: "Individual",
+      name: "Básico",
       description: "Para profissionais autônomos ou pequenos negócios",
       monthlyPrice: 28.90,
-      yearlyPrice: 289.00,
+      quarterlyPrice: 79.90,
+      yearlyPrice: 299.00,
       popular: false,
       features: [
         "1 colaborador (você)",
@@ -114,7 +121,8 @@ export default function Plano() {
       name: "Empresa",
       description: "Para estabelecimentos em crescimento",
       monthlyPrice: 58.00,
-      yearlyPrice: 580.00,
+      quarterlyPrice: 164.90,
+      yearlyPrice: 599.00,
       popular: true,
       features: [
         "Colaboradores ilimitados",
@@ -138,7 +146,26 @@ export default function Plano() {
     "Suporte especializado",
   ]
 
-  const getPrice = (plan: any) => plan.monthlyPrice
+  const getTotalPriceByPeriod = (plan: any, period: 'monthly' | 'quarterly' | 'yearly') => {
+    if (period === 'quarterly') return plan.quarterlyPrice
+    if (period === 'yearly') return plan.yearlyPrice
+    return plan.monthlyPrice
+  }
+
+  const getMonthlyEquivalent = (plan: any, period: 'monthly' | 'quarterly' | 'yearly') => {
+    const total = getTotalPriceByPeriod(plan, period)
+    if (period === 'quarterly') return total / 3
+    if (period === 'yearly') return total / 12
+    return total
+  }
+
+  const getCycleLabel = (period: 'monthly' | 'quarterly' | 'yearly') => {
+    if (period === 'quarterly') return '/trimestre'
+    if (period === 'yearly') return '/ano'
+    return '/mês'
+  }
+
+  // Removido cálculo por dias; usamos meses/ano exatos
 
   const handleWhatsAppClick = () => {
     const phoneNumber = "5521982410516"
@@ -162,8 +189,8 @@ export default function Plano() {
         return;
       }
 
-      // Calcular data de término do plano (30 dias)
-      const dataTermino = calcularDataTermino(30);
+      // Calcular data de término conforme período (mês/3 meses/1 ano cravado)
+      const dataTermino = calcularDataTerminoPorPeriodo(billingPeriod);
       setDataTerminoPlano(dataTermino);
 
       setPaymentMessage("Redirecionando para o Mercado Pago. Aguarde...");
@@ -173,9 +200,10 @@ export default function Plano() {
         body: JSON.stringify({
           planId: plan.id,
           planName: plan.name,
-          price: getPrice(plan),
+          price: getTotalPriceByPeriod(plan, billingPeriod),
           email: userEmail,
-          dataTermino: dataTermino // Enviar data de término para o backend
+          dataTermino: dataTermino, // Enviar data de término para o backend
+          billingPeriod: billingPeriod // Enviar período para o backend (mensal/trimestral/anual)
         }),
       });
       const data = await response.json();
@@ -193,28 +221,42 @@ export default function Plano() {
   };
 
   return (
-    <div className="plano-container">
-      {/* Plans Section */}
-      <section className="plans-section">
-        <div className="plans-header">
-          <p>Escolha o plano ideal para o seu negócio e comece a transformar sua gestão hoje mesmo!</p>
+    <Box width="100%" maxW="100%" bg={useColorModeValue('gray.50','gray.900')}  h={{ base: '100dvh', md: '100dvh' }} overflowY="scroll" pb={{ base: 20, md: 28 }} sx={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+      {/* Hero + Billing Toggle */}
+      <Box w="100%" maxW="100%"  bgGradient={useColorModeValue('linear(to-r, purple.50, white)','linear(to-r, gray.800, gray.900)')} borderBottomWidth="1px" borderColor={useColorModeValue('gray.200','gray.700')}>
+        <Box w="100%" maxW="1600px" mx="auto" px={{ base: 4, md: 8 }} py={{ base: 8, md: 10 }}>
+          <VStack align="start" spacing={4} w="100%">
+            <Text fontSize={{ base: '2xl', md: '3xl' }} fontWeight={800} color={useColorModeValue('gray.800','white')}>
+              Escolha o plano ideal para o seu negócio
+            </Text>
+            <Text color={useColorModeValue('gray.600','gray.300')}>
+              Comece a transformar sua gestão hoje mesmo com os recursos certos para você.
+            </Text>
+            <HStack spacing={2} pt={2}>
+              <Button size="sm" variant={billingPeriod==='monthly'?'solid':'outline'} colorScheme="purple" onClick={()=>setBillingPeriod('monthly')}>Mensal</Button>
+              <Button size="sm" variant={billingPeriod==='quarterly'?'solid':'outline'} colorScheme="purple" onClick={()=>setBillingPeriod('quarterly')}>Trimestral</Button>
+              <Button size="sm" variant={billingPeriod==='yearly'?'solid':'outline'} colorScheme="purple" onClick={()=>setBillingPeriod('yearly')}>Anual</Button>
+            </HStack>
+          </VStack>
+        </Box>
+      </Box>
 
-          {/* Billing Toggle removido: só mensal */}
-        </div>
-
-        {/* Benefits List */}
-        <div className="benefits-list">
+      {/* Benefits List */}
+      <Box w="100%" maxW="1500px" mx="auto" px={{ base: 4, md: 8 }} pt={{ base: 6, md: 8 }} pb={{ base: 2, md: 4 }}>
+        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={3} w="100%">
           {benefits.map((benefit, index) => (
-            <div key={index} className="benefit-item">
-              <Check className="benefit-icon" />
-              <span>{benefit}</span>
-            </div>
+            <HStack key={index} spacing={3} bg={useColorModeValue('white','gray.800')} borderWidth="1px" borderColor={useColorModeValue('gray.200','gray.700')} borderRadius="lg" px={4} py={3} boxShadow={useColorModeValue('sm','none')}>
+              <Icon as={Check} color={useColorModeValue('green.500','green.300')} />
+              <Text color={useColorModeValue('gray.700','gray.200')} fontWeight={600} fontSize="sm">{benefit}</Text>
+            </HStack>
           ))}
-        </div>
+        </SimpleGrid>
+      </Box>
 
-        {/* Plans Grid */}
-        <div className="plans-grid-two" style={{ overflowX: 'auto', paddingBottom: 16 }}>
-          <Stack direction={{ base: "column", md: "row" }} spacing={8} width="100%" wrap="wrap">
+      {/* Plans Grid */}
+      <Box w="100%" maxW="100%" py={{ base: 6, md: 10 }}>
+        <Box w="100%" maxW="1600px" mx="auto" px={{ base: 4, md: 8 }}>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={{ base: 4, md: 6, lg: 8 }} w="100%">
             {loadingConta ? (
               <div style={{width: '100%', display: 'flex', justifyContent: 'center', margin: '32px 0'}}>
                 <span>Carregando...</span>
@@ -229,14 +271,11 @@ export default function Plano() {
                   boxShadow="0 0 0 3px #22c55e33"
                   bg={useColorModeValue("green.50", "green.900")}
                   p={6}
-                  flex="1 1 400px"
-                  minW={{ base: "100%", md: 340 }}
-                  maxW={400}
-                  w={{ base: "100%", md: "100%" }}
+                  w="100%"
+                  h="100%"
                   position="relative"
                   transition="all 0.2s"
                   _hover={{ boxShadow: "lg", borderColor: "green.600" }}
-                  mb={{ base: 6, md: 0 }}
                 >
                   <Badge colorScheme="green" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
                     🎁 GRÁTIS
@@ -288,8 +327,11 @@ export default function Plano() {
                 </Box>
               )
             )}
-            
-            {plans.map((plan) => (
+            {/* Ordem dos cards: Free (se existir), Básico (meio), Empresa (direita) */}
+            {['individual','empresa'].map((planId) => {
+              const plan = plans.find(p => p.id === planId)
+              if (!plan) return null
+              return (
               <Box
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
@@ -300,15 +342,12 @@ export default function Plano() {
                 boxShadow={plan.popular ? "0 0 0 3px #2563eb33" : "sm"}
                 bg={plan.id === "individual" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
                 p={6}
-                flex="1 1 400px"
-                minW={{ base: "100%", md: 340 }}
-                maxW={400}
-                w={{ base: "100%", md: "100%" }}
+                w="100%"
+                h="100%"
                 position="relative"
                 transition="all 0.2s"
                 _hover={{ boxShadow: "lg", borderColor: plan.popular ? "blue.500" : "purple.400" }}
                 cursor="pointer"
-                mb={{ base: 6, md: 0 }}
               >
                 {plan.popular && (
                   <Badge colorScheme="blue" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
@@ -317,7 +356,7 @@ export default function Plano() {
                 )}
                 {plan.id === "individual" && (
                   <Badge colorScheme="purple" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
-                    Individual
+                    Básico
                   </Badge>
                 )}
                 <VStack spacing={3} align="start">
@@ -330,8 +369,11 @@ export default function Plano() {
                   <Text color="gray.600" fontSize="md">{plan.description}</Text>
                   <Box mt={2} mb={2}>
                     <Text fontSize="3xl" fontWeight={800} color={plan.id === "individual" ? "purple.700" : "blue.700"}>
-                      R$ {getPrice(plan).toFixed(2).replace(".", ",")}
-                      <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>/mês</Text>
+                      R$ {getTotalPriceByPeriod(plan, billingPeriod).toFixed(2).replace(".", ",")}
+                      <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>{getCycleLabel(billingPeriod)}</Text>
+                    </Text>
+                    <Text fontSize="sm" color="gray.600">
+                      Equivale a R$ {getMonthlyEquivalent(plan, billingPeriod).toFixed(2).replace(".", ",")}/mês
                     </Text>
                     {dataTerminoPlano && selectedPlan === plan.id && (
                       <Text fontSize="sm" color="gray.600" mt={1}>
@@ -376,37 +418,50 @@ export default function Plano() {
                   )}
                 </VStack>
               </Box>
-            ))}
-          </Stack>
-        </div>
-      </section>
+              )
+            })}
+          </SimpleGrid>
+        </Box>
+      </Box>
 
       {/* Payment Methods */}
-      <section className="payment-section">
-        <h3>Métodos de pagamento aceitos</h3>
-        <div className="payment-methods">
-          <div className="payment-method">
-            <CreditCard size={24} />
-            <span>Cartão de Crédito</span>
-          </div>
-          <div className="payment-method">
-            <Smartphone size={24} />
-            <span>PIX</span>
-          </div>
-        </div>
-      </section>
+      <Box w="100%" maxW="100%" bg={useColorModeValue('white','gray.800')} borderTopWidth="1px" borderBottomWidth="1px" borderColor={useColorModeValue('gray.200','gray.700')} py={{ base: 8, md: 12 }}>
+        <Box w="100%" maxW="1200px" mx="auto" px={{ base: 4, md: 8 }}>
+          <VStack align="stretch" spacing={4}>
+            <Text fontWeight={800} fontSize={{ base: 'lg', md: 'xl' }} color={useColorModeValue('gray.800','gray.100')}>
+              Métodos de pagamento aceitos
+            </Text>
+            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+              <HStack spacing={3} bg={useColorModeValue('gray.50','gray.700')} borderWidth="1px" borderColor={useColorModeValue('gray.200','gray.600')} borderRadius="md" px={4} py={3}>
+                <CreditCard size={22} />
+                <Text fontWeight={600}>Cartão de Crédito</Text>
+              </HStack>
+              <HStack spacing={3} bg={useColorModeValue('gray.50','gray.700')} borderWidth="1px" borderColor={useColorModeValue('gray.200','gray.600')} borderRadius="md" px={4} py={3}>
+                <Smartphone size={22} />
+                <Text fontWeight={600}>PIX</Text>
+              </HStack>
+            </SimpleGrid>
+          </VStack>
+        </Box>
+      </Box>
 
       {/* Support */}
-      <section className="support-section">
-        <div className="support-content">
-          <HeadphonesIcon size={32} />
-          <h3>Precisa de ajuda para escolher?</h3>
-          <p>Nossa equipe está pronta para te ajudar a encontrar o plano ideal para o seu negócio.</p>
-          <button className="support-button" onClick={handleWhatsAppClick}>
-            Falar com Especialista
-          </button>
-        </div>
-      </section>
-    </div>
+      <Box w="100%" maxW="100%" bgGradient={useColorModeValue('linear(to-r, purple.50, purple.100)','linear(to-r, gray.800, gray.700)')} py={{ base: 10, md: 14 }}>
+        <Box w="100%" maxW="1200px" mx="auto" px={{ base: 4, md: 8 }}>
+          <Box bg={useColorModeValue('white','gray.800')} borderWidth="1px" borderColor={useColorModeValue('purple.200','gray.600')} borderRadius="xl" boxShadow={useColorModeValue('md','none')} px={{ base: 4, md: 8 }} py={{ base: 6, md: 8 }}>
+            <Stack direction={{ base: 'column', md: 'row' }} align={{ base: 'flex-start', md: 'center' }} spacing={{ base: 4, md: 6 }} w="100%">
+              <HeadphonesIcon size={32} />
+              <VStack align="start" spacing={1} flex={1}>
+                <Text fontSize={{ base: 'lg', md: 'xl' }} fontWeight={800}>Precisa de ajuda para escolher?</Text>
+                <Text color={useColorModeValue('gray.700','gray.300')}>Nossa equipe está pronta para te ajudar a encontrar o plano ideal para o seu negócio.</Text>
+              </VStack>
+              <Button colorScheme="purple" variant="solid" size={{ base: 'md', md: 'lg' }} onClick={handleWhatsAppClick} w={{ base: '100%', md: 'auto' }}>
+                Falar com Especialista
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   )
 }
