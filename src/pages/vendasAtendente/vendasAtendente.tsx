@@ -2,6 +2,21 @@
 
 import type React from "react"
 import './vendas.css'
+import {
+  Box,
+  Flex,
+  Heading,
+  Text,
+  Button,
+  SimpleGrid,
+  HStack,
+  Spacer,
+  IconButton,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
+} from '@chakra-ui/react'
 import { useState, useEffect } from "react"
 import {
   Search,
@@ -343,219 +358,173 @@ const VendasAtendente: React.FC = () => {
   const totalVendas = filteredSales.reduce((sum, sale) => sum + sale.precoTotal, 0)
 
   return (
-    <div className="cliente-container">
+    <Box px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }} height='100vh' overflowY="auto">
       {/* Header */}
-      <div className="cliente-header">
-        <div className="header-title">
-          <h1>Vendas</h1>
-          <p>Gerencie suas vendas e acompanhe o faturamento</p>
-        </div>
-        <div className="header-actions">
-          <button className="btn-secondary" onClick={() => setShowFilters(!showFilters)}>
-            <Filter size={18} />
+      <Flex direction={{ base: 'column', md: 'row' }} align={{ base: 'flex-start', md: 'center' }} gap={4} mb={6}>
+        <Box>
+          <Heading size="lg">Vendas</Heading>
+          <Text color="gray.600">Gerencie suas vendas e acompanhe o faturamento</Text>
+        </Box>
+        <Spacer display={{ base: 'none', md: 'block' }} />
+        <HStack spacing={3} w={{ base: 'full', md: 'auto' }}>
+          <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => setShowFilters(!showFilters)} w={{ base: 'full', md: 'auto' }}>
             Filtros
-          </button>
-          <button className="btn-secondary">
-            <Download size={18} />
+          </Button>
+          <Button variant="outline" leftIcon={<Download size={18} />} w={{ base: 'full', md: 'auto' }}>
             Exportar
-          </button>
-          <button className="btn-primary" onClick={handleOpenModal}>
-            <Plus size={18} />
+          </Button>
+          <Button colorScheme="purple" leftIcon={<Plus size={18} />} onClick={handleOpenModal} w={{ base: 'full', md: 'auto' }}>
             Nova Venda
-          </button>
-        </div>
-      </div>
+          </Button>
+        </HStack>
+      </Flex>
 
       {/* Stats */}
-      <div
-        className="stats-container"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "16px",
-          marginBottom: "24px",
-          padding: "20px",
-          background: "white",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--border)",
-        }}
-      >
-        <div className="stat-item" style={{ textAlign: "center" }}>
-          <div style={{ color: "var(--primary)", fontSize: "24px", fontWeight: "700" }}>{filteredSales.length}</div>
-          <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Total de Vendas</div>
-        </div>
-        <div className="stat-item" style={{ textAlign: "center" }}>
-          <div style={{ color: "var(--success)", fontSize: "24px", fontWeight: "700" }}>
-            {formatCurrency(totalVendas)}
-          </div>
-          <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Faturamento Total</div>
-        </div>
-        <div className="stat-item" style={{ textAlign: "center" }}>
-          <div style={{ color: "var(--warning)", fontSize: "24px", fontWeight: "700" }}>
-            {formatCurrency(totalVendas / (filteredSales.length || 1))}
-          </div>
-          <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Ticket Médio</div>
-        </div>
-      </div>
+      <Box bg="white" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 5 }} mb={6}>
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4}>
+          <Flex direction="column" align="center">
+            <Text color="purple.600" fontSize="2xl" fontWeight="bold">{filteredSales.length}</Text>
+            <Text color="gray.500" fontSize="sm">Total de Vendas</Text>
+          </Flex>
+          <Flex direction="column" align="center">
+            <Text color="green.600" fontSize="2xl" fontWeight="bold">{formatCurrency(totalVendas)}</Text>
+            <Text color="gray.500" fontSize="sm">Faturamento Total</Text>
+          </Flex>
+          <Flex direction="column" align="center">
+            <Text color="orange.500" fontSize="2xl" fontWeight="bold">{formatCurrency(totalVendas / (filteredSales.length || 1))}</Text>
+            <Text color="gray.500" fontSize="sm">Ticket Médio</Text>
+          </Flex>
+        </SimpleGrid>
+      </Box>
 
       {/* Filters */}
       {showFilters && (
-        <div className="filters-container">
-          <div className="filter-group">
-            <label>Status</label>
-            <div className="filter-options">
-              <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
-                Todos
-              </button>
-              <button
-                className={filterStatus === "concluida" ? "active" : ""}
-                onClick={() => setFilterStatus("concluida")}
-              >
-                Concluídas
-              </button>
-              <button
-                className={filterStatus === "pendente" ? "active" : ""}
-                onClick={() => setFilterStatus("pendente")}
-              >
-                Pendentes
-              </button>
-              <button
-                className={filterStatus === "cancelada" ? "active" : ""}
-                onClick={() => setFilterStatus("cancelada")}
-              >
-                Canceladas
-              </button>
-            </div>
-          </div>
-          <div className="filter-group">
-            <label>Forma de Pagamento</label>
-            <div className="filter-options">
-              <button className={filterPayment === "all" ? "active" : ""} onClick={() => setFilterPayment("all")}>
-                Todas
-              </button>
-              <button
-                className={filterPayment === "Dinheiro" ? "active" : ""}
-                onClick={() => setFilterPayment("Dinheiro")}
-              >
-                Dinheiro
-              </button>
-              <button className={filterPayment === "PIX" ? "active" : ""} onClick={() => setFilterPayment("PIX")}>
-                PIX
-              </button>
-              <button
-                className={filterPayment === "Cartão de Crédito" ? "active" : ""}
-                onClick={() => setFilterPayment("Cartão de Crédito")}
-              >
-                Cartão
-              </button>
-            </div>
-          </div>
-        </div>
+        <Box borderWidth="1px" borderRadius="lg" p={4} mb={6} bg="white">
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <Box>
+              <Text fontWeight="semibold" mb={2}>Status</Text>
+              <HStack spacing={2} wrap="wrap">
+                <Button size="sm" variant={filterStatus === 'all' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('all')}>Todos</Button>
+                <Button size="sm" variant={filterStatus === 'concluida' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('concluida')}>Concluídas</Button>
+                <Button size="sm" variant={filterStatus === 'pendente' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('pendente')}>Pendentes</Button>
+                <Button size="sm" variant={filterStatus === 'cancelada' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterStatus('cancelada')}>Canceladas</Button>
+              </HStack>
+            </Box>
+            <Box>
+              <Text fontWeight="semibold" mb={2}>Forma de Pagamento</Text>
+              <HStack spacing={2} wrap="wrap">
+                <Button size="sm" variant={filterPayment === 'all' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('all')}>Todas</Button>
+                <Button size="sm" variant={filterPayment === 'Dinheiro' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('Dinheiro')}>Dinheiro</Button>
+                <Button size="sm" variant={filterPayment === 'PIX' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('PIX')}>PIX</Button>
+                <Button size="sm" variant={filterPayment === 'Cartão de Crédito' ? 'solid' : 'outline'} colorScheme="purple" onClick={() => setFilterPayment('Cartão de Crédito')}>Cartão</Button>
+              </HStack>
+            </Box>
+          </SimpleGrid>
+        </Box>
       )}
 
       {/* Search */}
-      <div className="search-container">
-        <div className="search-input">
-          <Search size={20} className="search-icon" />
-          <input
-            type="text"
+      <Box mb={6}>
+        <InputGroup>
+          <InputLeftElement pointerEvents="none">
+            <Search size={18} />
+          </InputLeftElement>
+          <Input
             placeholder="Buscar por produto, cliente ou vendedor..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            bg="white"
           />
           {searchQuery && (
-            <button className="clear-search" onClick={() => setSearchQuery("")}>
-              <X size={16} />
-            </button>
+            <InputRightElement>
+              <IconButton aria-label="Limpar busca" size="sm" variant="ghost" icon={<X size={16} />} onClick={() => setSearchQuery("")} />
+            </InputRightElement>
           )}
-        </div>
-        <div className="search-results">
+        </InputGroup>
+        <Box mt={3}>
           {filteredSales.length > 0 ? (
-            <div className="results-count">
-              <span>{filteredSales.length} venda(s) encontrada(s)</span>
-            </div>
+            <Text fontSize="sm" color="gray.600">{filteredSales.length} venda(s) encontrada(s)</Text>
           ) : (
-            <div className="empty-state">
+            <Flex direction="column" align="center" justify="center" gap={2} py={8} bg="white" borderWidth="1px" borderRadius="lg">
               <ShoppingCart size={48} />
-              <h3>Nenhuma venda encontrada</h3>
-              <p>Cadastre sua primeira venda para começar!</p>
-              <button className="btn-primary" onClick={handleOpenModal}>
-                <Plus size={18} />
-                Nova Venda
-              </button>
-            </div>
+              <Heading as="h3" size="sm">Nenhuma venda encontrada</Heading>
+              <Text color="gray.600">Cadastre sua primeira venda para começar!</Text>
+              <Button colorScheme="purple" leftIcon={<Plus size={18} />} onClick={handleOpenModal}>Nova Venda</Button>
+            </Flex>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Sales List */}
       {filteredSales.length > 0 && (
-        <div className="client-list">
+        <Box>
           {filteredSales.map((sale) => (
-            <div key={sale.id} className="client-card">
-              <div className="client-info-principal">
-                <h3>{sale.produto}</h3>
+            <Box key={sale.id} bg="white" borderRadius="lg" borderWidth="1px" p={4} mb={3} boxShadow="sm">
+              <Flex justify="space-between" align="flex-start">
+                <Box flex="1">
+                  <Heading size="sm" mb={3} color="purple.600">{sale.produto}</Heading>
+                  
+                  <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} mb={3}>
+                    <Text fontSize="sm" color="gray.600">
+                      <User size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Cliente:</strong> {clientesMap[sale.clienteUid || ''] || "Cliente não encontrado"}
+                    </Text>
+                    
+                    <Text fontSize="sm" color="gray.600">
+                      <Package size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Qtd:</strong> {sale.quantidade} un.
+                    </Text>
+                    
+                    <Text fontSize="sm" color="gray.600">
+                      <DollarSign size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Unit.:</strong> {formatCurrency(sale.precoUnitario)}
+                    </Text>
+                    
+                    <Text fontSize="sm" color="green.600" fontWeight="bold">
+                      <DollarSign size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Total:</strong> {formatCurrency(sale.precoTotal)}
+                    </Text>
+                    
+                    <Text fontSize="sm" color="gray.600">
+                      <CreditCard size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Pagamento:</strong> {sale.formaPagamento}
+                    </Text>
+                    
+                    <Text fontSize="sm" color="gray.600">
+                      <Clock size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      <strong>Data:</strong> {formatDate(sale.dataVenda)}
+                    </Text>
+                  </SimpleGrid>
 
-                <p>
-                  <strong>Cliente:</strong>
-                  <User size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {clientesMap[sale.clienteUid || ''] || "Cliente não encontrado"}
-                </p>
+                  <HStack spacing={2} mb={3}>
+                    <Box
+                      bg={sale.status === "concluida" ? "green.100" : sale.status === "pendente" ? "yellow.100" : "red.100"}
+                      color={sale.status === "concluida" ? "green.700" : sale.status === "pendente" ? "yellow.700" : "red.700"}
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                      fontSize="xs"
+                      fontWeight="bold"
+                    >
+                      {sale.status === "concluida" ? "Concluída" : sale.status === "pendente" ? "Pendente" : "Cancelada"}
+                    </Box>
+                    {sale.categoria && (
+                      <Box bg="purple.100" color="purple.700" px={2} py={1} borderRadius="md" fontSize="xs" fontWeight="bold">
+                        {sale.categoria}
+                      </Box>
+                    )}
+                  </HStack>
+                </Box>
 
-                <p>
-                  <strong>Quantidade:</strong>
-                  <Package size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {sale.quantidade} un.
-                </p>
-
-                <p>
-                  <strong>Valor Unit.:</strong>
-                  <DollarSign size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {formatCurrency(sale.precoUnitario)}
-                </p>
-
-                <p>
-                  <strong>Total:</strong>
-                  <DollarSign size={16} style={{ marginRight: "6px", color: "var(--success)" }} />
-                  <span style={{ color: "var(--success)", fontWeight: "700" }}>{formatCurrency(sale.precoTotal)}</span>
-                </p>
-
-                <p>
-                  <strong>Pagamento:</strong>
-                  <CreditCard size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {sale.formaPagamento}
-                </p>
-
-                <p>
-                  <strong>Data:</strong>
-                  <Clock size={16} style={{ marginRight: "6px", color: "var(--primary)" }} />
-                  {formatDate(sale.dataVenda)}
-                </p>
-
-                <div className="client-tags">
-                  <span
-                    className={`tag ${sale.status === "concluida" ? "success" : sale.status === "pendente" ? "warning" : "error"}`}
-                  >
-                    {sale.status === "concluida" ? "Concluída" : sale.status === "pendente" ? "Pendente" : "Cancelada"}
-                  </span>
-                  {sale.categoria && <span className="tag">{sale.categoria}</span>}
-                </div>
-              </div>
-
-              <div className="client-actions">
-                <button className="btn-icon" onClick={() => handleDeleteSale(sale.id)}>
-                  <Trash2 size={18} color="#ef4444" />
-                </button>
-                <button className="btn-icon" onClick={() => handleEditSale(sale)}>
-                  <Edit size={18} />
-                </button>
-                <button className="btn-icon" onClick={() => handleViewSale(sale)}>
-                  <Eye size={18} />
-                </button>
-              </div>
-            </div>
+                <HStack spacing={2}>
+                  <IconButton aria-label="Excluir" size="sm" variant="ghost" colorScheme="red" icon={<Trash2 size={16} />} onClick={() => handleDeleteSale(sale.id)} />
+                  <IconButton aria-label="Editar" size="sm" variant="ghost" colorScheme="blue" icon={<Edit size={16} />} onClick={() => handleEditSale(sale)} />
+                  <IconButton aria-label="Visualizar" size="sm" variant="ghost" colorScheme="green" icon={<Eye size={16} />} onClick={() => handleViewSale(sale)} />
+                </HStack>
+              </Flex>
+            </Box>
           ))}
-        </div>
+        </Box>
       )}
 
       {/* View Sale Modal */}
@@ -991,7 +960,7 @@ const VendasAtendente: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </Box>
   )
 }
 

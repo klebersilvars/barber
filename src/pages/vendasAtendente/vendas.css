@@ -42,8 +42,6 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px;
-  height: 100vh;
-  overflow-y: auto;
 }
 
 /* Scrollbar da página inteira */
@@ -861,8 +859,6 @@ body {
 @media (max-width: 768px) {
   .cliente-container {
     padding: 16px;
-    height: 100vh;
-    overflow-y: auto; /* Mantém scroll da página */
     display: flex;
     flex-direction: column;
   }

@@ -156,22 +156,6 @@ const DashboardAtendente: React.FC = () => {
         </div>
       </div>
 
-      {/* Promotion Banner */}
-      {showPromotion && (
-        <div className="promotion-banner">
-          <div className="promotion-content">
-            <Gift className="promotion-icon" />
-            <span>
-              🎉 Você tem acesso ao <strong>Painel de Atendente Premium</strong>! Aproveite todas as funcionalidades!
-            </span>
-            <button className="promotion-btn">Explorar Agora</button>
-          </div>
-          <button className="promotion-close" onClick={() => setShowPromotion(false)}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       {/* Main Layout */}
       <div className="main-layout">
         {/* Sidebar */} 
