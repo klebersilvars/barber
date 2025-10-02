@@ -16,6 +16,24 @@ import {
   InputGroup,
   InputLeftElement,
   InputRightElement,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Select,
+  Textarea,
+  VStack,
+  Badge,
+  useColorModeValue,
+  Icon,
+  Divider,
+  Progress,
+  Stack,
 } from '@chakra-ui/react'
 import { useState, useEffect } from "react"
 import {
@@ -528,438 +546,682 @@ const VendasAtendente: React.FC = () => {
       )}
 
       {/* View Sale Modal */}
-      {showViewModal && selectedSale && (
-        <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Detalhes da Venda</h2>
-              <button className="modal-close" onClick={() => setShowViewModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="sale-details">
-                <div className="detail-group">
-                  <h3>Informações do Produto</h3>
-                  <p><strong>Produto:</strong> {selectedSale.produto}</p>
-                  <p><strong>Quantidade:</strong> {selectedSale.quantidade} un.</p>
-                  <p><strong>Preço Unitário:</strong> {formatCurrency(selectedSale.precoUnitario)}</p>
-                  <p><strong>Total:</strong> {formatCurrency(selectedSale.precoTotal)}</p>
-                  <p><strong>Categoria:</strong> {selectedSale.categoria || 'Não especificada'}</p>
-                </div>
+      <Modal isOpen={showViewModal && !!selectedSale} onClose={() => setShowViewModal(false)} size="xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" />
+        <ModalContent maxW={{ base: '95vw', md: '700px' }} mx={4}>
+          <ModalHeader>
+            <HStack spacing={3} align="center">
+              <Icon as={Eye} color="green.500" />
+              <Heading size="md" color={useColorModeValue('gray.800', 'white')}>
+                Detalhes da Venda
+              </Heading>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
 
-                <div className="detail-group">
-                  <h3>Informações da Venda</h3>
-                  <p><strong>Cliente:</strong> {clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado'}</p>
-                  <p><strong>Vendedor:</strong> {vendedoresMap[selectedSale.vendedorUid || ''] || 'Vendedor não encontrado'}</p>
-                  <p><strong>Forma de Pagamento:</strong> {selectedSale.formaPagamento}</p>
-                  <p><strong>Status:</strong> {selectedSale.status}</p>
-                  <p><strong>Data:</strong> {formatDate(selectedSale.dataVenda)}</p>
-                </div>
+          {selectedSale && (
+            <>
+              <ModalBody py={4}>
+                <VStack spacing={6} align="stretch">
+                  {/* Informações da Venda - Header */}
+                  <Box bg="green.50" borderWidth="1px" borderColor="green.200" borderRadius="md" p={4}>
+                    <Heading size="sm" mb={3} color="green.700">Resumo da Venda</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Text fontSize="sm" color="green.600">
+                        <strong>ID:</strong> #{selectedSale.id.slice(-6)}
+                      </Text>
+                      <Text fontSize="sm" color="green.600">
+                        <strong>Data:</strong> {formatDate(selectedSale.dataVenda)}
+                      </Text>
+                    </SimpleGrid>
+                  </Box>
 
-                {selectedSale.observacoes && (
-                  <div className="detail-group">
-                    <h3>Observações</h3>
-                    <p>{selectedSale.observacoes}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+                  {/* Informações do Produto */}
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Package} />
+                      Informações do Produto
+                    </Heading>
+                    <Divider mb={4} />
+                    
+                    <Box bg="gray.50" borderWidth="1px" borderColor="gray.200" borderRadius="md" p={4}>
+                      <VStack spacing={3} align="stretch">
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Produto:</Text>
+                          <Text fontWeight="600" color="gray.800">{selectedSale.produto}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Quantidade:</Text>
+                          <Text fontWeight="600" color="gray.800">{selectedSale.quantidade} un.</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Preço Unitário:</Text>
+                          <Text fontWeight="600" color="gray.800">{formatCurrency(selectedSale.precoUnitario)}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Categoria:</Text>
+                          <Text fontWeight="600" color="gray.800">{selectedSale.categoria || 'Não especificada'}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="700" color="green.600" fontSize="lg">Total:</Text>
+                          <Text fontWeight="bold" color="green.600" fontSize="lg">{formatCurrency(selectedSale.precoTotal)}</Text>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  </Box>
+
+                  {/* Informações da Venda */}
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={User} />
+                      Informações da Venda
+                    </Heading>
+                    <Divider mb={4} />
+                    
+                    <Box bg="gray.50" borderWidth="1px" borderColor="gray.200" borderRadius="md" p={4}>
+                      <VStack spacing={3} align="stretch">
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Cliente:</Text>
+                          <Text fontWeight="600" color="gray.800">{clientesMap[selectedSale.clienteUid || ''] || 'Cliente não encontrado'}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Vendedor:</Text>
+                          <Text fontWeight="600" color="gray.800">{selectedSale.vendedor || 'Vendedor não encontrado'}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Forma de Pagamento:</Text>
+                          <Text fontWeight="600" color="gray.800">{selectedSale.formaPagamento}</Text>
+                        </HStack>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontWeight="500" color="gray.600">Status:</Text>
+                          <Badge
+                            colorScheme={
+                              selectedSale.status === "concluida" ? "green" : 
+                              selectedSale.status === "pendente" ? "yellow" : "red"
+                            }
+                            px={2}
+                            py={1}
+                            borderRadius="md"
+                            fontSize="xs"
+                            fontWeight="bold"
+                          >
+                            {selectedSale.status === "concluida" ? "Concluída" : 
+                             selectedSale.status === "pendente" ? "Pendente" : "Cancelada"}
+                          </Badge>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  </Box>
+
+                  {/* Observações */}
+                  {selectedSale.observacoes && (
+                    <Box>
+                      <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                        <Icon as={Eye} />
+                        Observações
+                      </Heading>
+                      <Divider mb={4} />
+                      
+                      <Box bg="blue.50" borderWidth="1px" borderColor="blue.200" borderRadius="md" p={4}>
+                        <Text color="blue.800" whiteSpace="pre-wrap">{selectedSale.observacoes}</Text>
+                      </Box>
+                    </Box>
+                  )}
+                </VStack>
+              </ModalBody>
+
+              <ModalFooter>
+                <Stack direction={{ base: 'column', md: 'row' }} spacing={3} w="full">
+                  <Button
+                    variant="outline"
+                    colorScheme="blue"
+                    leftIcon={<Edit size={16} />}
+                    onClick={() => {
+                      setShowViewModal(false);
+                      handleEditSale(selectedSale);
+                    }}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Editar Venda
+                  </Button>
+                  <Button
+                    colorScheme="gray"
+                    onClick={() => setShowViewModal(false)}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Fechar
+                  </Button>
+                </Stack>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Edit Sale Modal */}
-      {showEditModal && selectedSale && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Editar Venda</h2>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      <Modal isOpen={showEditModal && !!selectedSale} onClose={() => setShowEditModal(false)} size="xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" />
+        <ModalContent maxW={{ base: '95vw', md: '700px' }} mx={4}>
+          <ModalHeader>
+            <HStack spacing={3} align="center">
+              <Icon as={Edit} color="blue.500" />
+              <Heading size="md" color={useColorModeValue('gray.800', 'white')}>
+                Editar Venda
+              </Heading>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+
+          {selectedSale && (
             <form onSubmit={handleUpdateSale}>
-              <div className="modal-body">
-                <div className="form-section">
-                  <div className="form-group">
-                    <label htmlFor="produto">Produto</label>
-                    <input
-                      type="text"
-                      id="produto"
+              <ModalBody py={4}>
+                <VStack spacing={6} align="stretch">
+                  {/* Informações da Venda Original */}
+                  <Box bg="blue.50" borderWidth="1px" borderColor="blue.200" borderRadius="md" p={4}>
+                    <Heading size="sm" mb={3} color="blue.700">Venda Original</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Text fontSize="sm" color="blue.600">
+                        <strong>Data:</strong> {formatDate(selectedSale.dataVenda)}
+                      </Text>
+                      <Text fontSize="sm" color="blue.600">
+                        <strong>ID:</strong> #{selectedSale.id.slice(-6)}
+                      </Text>
+                    </SimpleGrid>
+                  </Box>
+
+                  {/* Informações do Produto */}
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Package} />
+                      Informações do Produto
+                    </Heading>
+                    <Divider mb={4} />
+                  </Box>
+
+                  <FormControl isRequired>
+                    <FormLabel fontWeight="600">Produto</FormLabel>
+                    <Input
                       value={produto}
                       onChange={(e) => setProduto(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
                     />
-                  </div>
+                  </FormControl>
 
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="quantidade">Quantidade</label>
-                      <input
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Quantidade</FormLabel>
+                      <Input
                         type="number"
-                        id="quantidade"
                         min="1"
                         value={quantidade}
                         onChange={(e) => setQuantidade(Number.parseInt(e.target.value) || 1)}
+                        size="lg"
+                        borderRadius="md"
                       />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="precoUnitario">Preço Unitário</label>
-                      <input
+                    </FormControl>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Preço Unitário</FormLabel>
+                      <Input
                         type="number"
-                        id="precoUnitario"
                         step="0.01"
                         min="0"
                         value={precoUnitario}
                         onChange={(e) => setPrecoUnitario(e.target.value)}
+                        size="lg"
+                        borderRadius="md"
                       />
-                    </div>
-                  </div>
+                    </FormControl>
+                  </SimpleGrid>
 
-                  <div className="form-group">
-                    <label htmlFor="categoria">Categoria</label>
-                    <div className="select-wrapper">
-                      <select id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-                        <option value="">Selecione uma categoria</option>
-                        <option value="Cabelo">Cabelo</option>
-                        <option value="Unhas">Unhas</option>
-                        <option value="Barba">Barba</option>
-                        <option value="Pele">Pele</option>
-                        <option value="Acessórios">Acessórios</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
+                  <FormControl>
+                    <FormLabel fontWeight="600">Categoria</FormLabel>
+                    <Select
+                      placeholder="Selecione uma categoria"
+                      value={categoria}
+                      onChange={(e) => setCategoria(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      <option value="Cabelo">Cabelo</option>
+                      <option value="Unhas">Unhas</option>
+                      <option value="Barba">Barba</option>
+                      <option value="Pele">Pele</option>
+                      <option value="Acessórios">Acessórios</option>
+                    </Select>
+                  </FormControl>
 
-                  <div className="form-group">
-                    <label htmlFor="cliente">Cliente</label>
-                    <div className="select-wrapper">
-                      <select id="cliente" value={clienteUid} onChange={handleClienteChange}>
-                        <option value="">Selecione o cliente</option>
-                        {clientes.map(c => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
+                  {/* Informações da Venda */}
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={User} />
+                      Informações da Venda
+                    </Heading>
+                    <Divider mb={4} />
+                  </Box>
 
-                  <div className="form-group">
-                    <label htmlFor="vendedor">Vendedor</label>
-                    <div className="select-wrapper">
-                      <input
-                        type="text"
-                        id="vendedor"
-                        value={vendedor}
-                        disabled
-                        className="disabled-input"
-                      />
-                    </div>
-                  </div>
+                  <FormControl isRequired>
+                    <FormLabel fontWeight="600">Cliente</FormLabel>
+                    <Select
+                      placeholder="Selecione o cliente"
+                      value={clienteUid}
+                      onChange={handleClienteChange}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      {clientes.map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                  <div className="form-group">
-                    <label htmlFor="formaPagamento">Forma de Pagamento</label>
-                    <div className="select-wrapper">
-                      <select
-                        id="formaPagamento"
+                  <FormControl>
+                    <FormLabel fontWeight="600">Vendedor</FormLabel>
+                    <Input
+                      value={vendedor}
+                      isDisabled
+                      size="lg"
+                      borderRadius="md"
+                      bg="gray.50"
+                      color="gray.600"
+                    />
+                  </FormControl>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Forma de Pagamento</FormLabel>
+                      <Select
+                        placeholder="Selecione a forma de pagamento"
                         value={formaPagamento}
                         onChange={(e) => setFormaPagamento(e.target.value)}
+                        size="lg"
+                        borderRadius="md"
                       >
-                        <option value="">Selecione a forma de pagamento</option>
                         <option value="Dinheiro">Dinheiro</option>
                         <option value="PIX">PIX</option>
                         <option value="Cartão de Débito">Cartão de Débito</option>
                         <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
+                      </Select>
+                    </FormControl>
 
-                  <div className="form-group">
-                    <label htmlFor="status">Status</label>
-                    <div className="select-wrapper">
-                      <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Status</FormLabel>
+                      <Select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        size="lg"
+                        borderRadius="md"
+                      >
                         <option value="concluida">Concluída</option>
                         <option value="pendente">Pendente</option>
                         <option value="cancelada">Cancelada</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
+                      </Select>
+                    </FormControl>
+                  </SimpleGrid>
 
-                  <div className="form-group">
-                    <label htmlFor="observacoes">Observações</label>
-                    <textarea
-                      id="observacoes"
+                  <FormControl>
+                    <FormLabel fontWeight="600">Observações</FormLabel>
+                    <Textarea
                       rows={4}
                       value={observacoes}
                       onChange={(e) => setObservacoes(e.target.value)}
+                      borderRadius="md"
+                      resize="vertical"
+                      placeholder="Adicione observações sobre a venda..."
                     />
-                  </div>
-                </div>
-              </div>
+                  </FormControl>
 
-              <div className="form-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={18} />
-                  Salvar Alterações
-                </button>
-              </div>
+                  {/* Preview do Total */}
+                  {precoUnitario && quantidade && (
+                    <Box bg="green.50" borderWidth="1px" borderColor="green.200" borderRadius="md" p={4}>
+                      <HStack justify="space-between" align="center">
+                        <Text fontWeight="600" color="green.700">Total Atualizado:</Text>
+                        <Text fontSize="xl" fontWeight="bold" color="green.600">
+                          {formatCurrency(quantidade * Number.parseFloat(precoUnitario || "0"))}
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
+                </VStack>
+              </ModalBody>
+
+              <ModalFooter>
+                <Stack direction={{ base: 'column', md: 'row' }} spacing={3} w="full">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowEditModal(false)}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    colorScheme="blue"
+                    leftIcon={<Check size={16} />}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Salvar Alterações
+                  </Button>
+                </Stack>
+              </ModalFooter>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Add Sale Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <button className="modal-back" onClick={formStep > 1 ? handlePrevStep : handleCloseModal}>
-                <ArrowLeft size={20} />
-              </button>
-              <h2>
-                {formStep === 1 && "Nova Venda"}
-                {formStep === 2 && "Detalhes da Venda"}
-                {formStep === 3 && "Finalizar Venda"}
-              </h2>
-              <div className="modal-steps">
-                <div className={`step ${formStep >= 1 ? "active" : ""}`}>1</div>
-                <div className="step-line"></div>
-                <div className={`step ${formStep >= 2 ? "active" : ""}`}>2</div>
-                <div className="step-line"></div>
-                <div className={`step ${formStep >= 3 ? "active" : ""}`}>3</div>
-              </div>
-              <button className="modal-close" onClick={handleCloseModal}>
-                <X size={20} />
-              </button>
-            </div>
+      <Modal isOpen={showModal} onClose={handleCloseModal} size="xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" />
+        <ModalContent maxW={{ base: '95vw', md: '600px' }} mx={4}>
+          <ModalHeader pb={2}>
+            <VStack spacing={3} align="stretch">
+              <HStack justify="space-between" align="center">
+                <HStack spacing={3}>
+                  {formStep > 1 && (
+                    <IconButton
+                      aria-label="Voltar"
+                      icon={<ArrowLeft size={18} />}
+                      variant="ghost"
+                      size="sm"
+                      onClick={handlePrevStep}
+                    />
+                  )}
+                  <Heading size="md" color={useColorModeValue('gray.800', 'white')}>
+                    {formStep === 1 && "Nova Venda"}
+                    {formStep === 2 && "Detalhes da Venda"}
+                    {formStep === 3 && "Finalizar Venda"}
+                  </Heading>
+                </HStack>
+                <Badge colorScheme="purple" variant="subtle" px={2} py={1}>
+                  {formStep}/3
+                </Badge>
+              </HStack>
+              
+              {/* Progress Bar */}
+              <Box>
+                <Progress value={(formStep / 3) * 100} colorScheme="purple" size="sm" borderRadius="md" />
+                <HStack justify="space-between" mt={2}>
+                  <Text fontSize="xs" color={formStep >= 1 ? 'purple.500' : 'gray.400'} fontWeight={formStep >= 1 ? 'bold' : 'normal'}>
+                    Produto
+                  </Text>
+                  <Text fontSize="xs" color={formStep >= 2 ? 'purple.500' : 'gray.400'} fontWeight={formStep >= 2 ? 'bold' : 'normal'}>
+                    Detalhes
+                  </Text>
+                  <Text fontSize="xs" color={formStep >= 3 ? 'purple.500' : 'gray.400'} fontWeight={formStep >= 3 ? 'bold' : 'normal'}>
+                    Finalizar
+                  </Text>
+                </HStack>
+              </Box>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
 
-            <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
+            <ModalBody py={4}>
               {/* Step 1: Product Information */}
               {formStep === 1 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Informações do Produto</h3>
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Package} />
+                      Informações do Produto
+                    </Heading>
+                    <Divider mb={4} />
+                  </Box>
 
-                    <div className="form-group">
-                      <label htmlFor="produto">Produto*</label>
-                      <input
-                        type="text"
-                        id="produto"
-                        placeholder="Nome do produto"
-                        value={produto}
-                        onChange={(e) => setProduto(e.target.value)}
+                  <FormControl isRequired>
+                    <FormLabel fontWeight="600">Produto</FormLabel>
+                    <Input
+                      placeholder="Nome do produto"
+                      value={produto}
+                      onChange={(e) => setProduto(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                    />
+                  </FormControl>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Quantidade</FormLabel>
+                      <Input
+                        type="number"
+                        placeholder="1"
+                        min="1"
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(Number.parseInt(e.target.value) || 1)}
+                        size="lg"
+                        borderRadius="md"
                       />
-                    </div>
+                    </FormControl>
+                    <FormControl isRequired>
+                      <FormLabel fontWeight="600">Preço Unitário</FormLabel>
+                      <Input
+                        type="number"
+                        placeholder="0,00"
+                        step="0.01"
+                        min="0"
+                        value={precoUnitario}
+                        onChange={(e) => setPrecoUnitario(e.target.value)}
+                        size="lg"
+                        borderRadius="md"
+                      />
+                    </FormControl>
+                  </SimpleGrid>
 
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="quantidade">Quantidade*</label>
-                        <input
-                          type="number"
-                          id="quantidade"
-                          placeholder="1"
-                          min="1"
-                          value={quantidade}
-                          onChange={(e) => setQuantidade(Number.parseInt(e.target.value) || 1)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="precoUnitario">Preço Unitário*</label>
-                        <input
-                          type="number"
-                          id="precoUnitario"
-                          placeholder="0,00"
-                          step="0.01"
-                          min="0"
-                          value={precoUnitario}
-                          onChange={(e) => setPrecoUnitario(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                  <FormControl>
+                    <FormLabel fontWeight="600">Categoria</FormLabel>
+                    <Select
+                      placeholder="Selecione uma categoria"
+                      value={categoria}
+                      onChange={(e) => setCategoria(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      <option value="Cabelo">Cabelo</option>
+                      <option value="Unhas">Unhas</option>
+                      <option value="Barba">Barba</option>
+                      <option value="Pele">Pele</option>
+                      <option value="Acessórios">Acessórios</option>
+                    </Select>
+                  </FormControl>
 
-                    <div className="form-group">
-                      <label htmlFor="categoria">Categoria</label>
-                      <div className="select-wrapper">
-                        <select id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-                          <option value="">Selecione uma categoria</option>
-                          <option value="Cabelo">Cabelo</option>
-                          <option value="Unhas">Unhas</option>
-                          <option value="Barba">Barba</option>
-                          <option value="Pele">Pele</option>
-                          <option value="Acessórios">Acessórios</option>
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
-
-                    {precoUnitario && quantidade && (
-                      <div className="info-display">
-                        <p>
-                          <strong>Total da Venda:</strong>{" "}
+                  {precoUnitario && quantidade && (
+                    <Box bg="purple.50" borderWidth="1px" borderColor="purple.200" borderRadius="md" p={4}>
+                      <HStack justify="space-between" align="center">
+                        <Text fontWeight="600" color="purple.700">Total da Venda:</Text>
+                        <Text fontSize="xl" fontWeight="bold" color="purple.600">
                           {formatCurrency(quantidade * Number.parseFloat(precoUnitario || "0"))}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handleCloseModal}>
-                      Cancelar
-                    </button>
-                    <button type="button" className="btn-primary" onClick={handleNextStep}>
-                      Próximo
-                      <ChevronDown size={18} className="rotate-270" />
-                    </button>
-                  </div>
-                </div>
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
+                </VStack>
               )}
 
               {/* Step 2: Customer and Seller Information */}
               {formStep === 2 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Informações da Venda</h3>
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={User} />
+                      Informações da Venda
+                    </Heading>
+                    <Divider mb={4} />
+                  </Box>
 
-                    <div className="form-group">
-                      <label htmlFor="cliente">Cliente*</label>
-                      <div className="select-wrapper">
-                        <select id="cliente" value={clienteUid} onChange={handleClienteChange} disabled={clientes.length === 0}>
-                          {clientes.length === 0 ? (
-                            <option value="">Nenhum cliente encontrado</option>
-                          ) : (
-                            <>
-                              <option value="">Selecione o cliente</option>
-                              {clientes.map(c => (
-                                <option key={c.id} value={c.id}>{c.nome}</option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
+                  <FormControl isRequired>
+                    <FormLabel fontWeight="600">Cliente</FormLabel>
+                    <Select
+                      placeholder={clientes.length === 0 ? "Nenhum cliente encontrado" : "Selecione o cliente"}
+                      value={clienteUid}
+                      onChange={handleClienteChange}
+                      isDisabled={clientes.length === 0}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      {clientes.map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                    <div className="form-group">
-                      <label htmlFor="vendedor">Vendedor</label>
-                      <div className="select-wrapper">
-                        <input
-                          type="text"
-                          id="vendedor"
-                          value={vendedor}
-                          disabled
-                          className="disabled-input"
-                        />
-                      </div>
-                    </div>
+                  <FormControl>
+                    <FormLabel fontWeight="600">Vendedor</FormLabel>
+                    <Input
+                      value={vendedor}
+                      isDisabled
+                      size="lg"
+                      borderRadius="md"
+                      bg="gray.50"
+                      color="gray.600"
+                    />
+                  </FormControl>
 
-                    <div className="form-group">
-                      <label htmlFor="formaPagamento">Forma de Pagamento*</label>
-                      <div className="select-wrapper">
-                        <select
-                          id="formaPagamento"
-                          value={formaPagamento}
-                          onChange={(e) => setFormaPagamento(e.target.value)}
-                        >
-                          <option value="">Selecione a forma de pagamento</option>
-                          <option value="Dinheiro">Dinheiro</option>
-                          <option value="PIX">PIX</option>
-                          <option value="Cartão de Débito">Cartão de Débito</option>
-                          <option value="Cartão de Crédito">Cartão de Crédito</option>
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
+                  <FormControl isRequired>
+                    <FormLabel fontWeight="600">Forma de Pagamento</FormLabel>
+                    <Select
+                      placeholder="Selecione a forma de pagamento"
+                      value={formaPagamento}
+                      onChange={(e) => setFormaPagamento(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="PIX">PIX</option>
+                      <option value="Cartão de Débito">Cartão de Débito</option>
+                      <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    </Select>
+                  </FormControl>
 
-                    <div className="form-group">
-                      <label htmlFor="status">Status da Venda</label>
-                      <div className="select-wrapper">
-                        <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                          <option value="concluida">Concluída</option>
-                          <option value="pendente">Pendente</option>
-                          <option value="cancelada">Cancelada</option>
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="rotate-90" />
-                      Voltar
-                    </button>
-                    <button type="button" className="btn-primary" onClick={handleNextStep}>
-                      Próximo
-                      <ChevronDown size={18} className="rotate-270" />
-                    </button>
-                  </div>
-                </div>
+                  <FormControl>
+                    <FormLabel fontWeight="600">Status da Venda</FormLabel>
+                    <Select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                    >
+                      <option value="concluida">Concluída</option>
+                      <option value="pendente">Pendente</option>
+                      <option value="cancelada">Cancelada</option>
+                    </Select>
+                  </FormControl>
+                </VStack>
               )}
 
               {/* Step 3: Final Details */}
               {formStep === 3 && (
-                <div className="modal-body">
-                  <div className="form-section">
-                    <h3>Finalizar Venda</h3>
-
-                    <div className="form-group">
-                      <label htmlFor="observacoes">Observações</label>
-                      <textarea
-                        id="observacoes"
-                        placeholder="Adicione observações sobre a venda..."
-                        rows={4}
-                        value={observacoes}
-                        onChange={(e) => setObservacoes(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="info-display">
-                      <h4 style={{ marginBottom: "12px", color: "var(--text-primary)" }}>Resumo da Venda</h4>
-                      <p>
-                        <strong>Produto:</strong> {produto}
-                      </p>
-                      <p>
-                        <strong>Quantidade:</strong> {quantidade} un.
-                      </p>
-                      <p>
-                        <strong>Preço Unitário:</strong> {formatCurrency(Number.parseFloat(precoUnitario || "0"))}
-                      </p>
-                      <p>
-                        <strong>Cliente:</strong> {clientesMap[clienteUid] || "Cliente não encontrado"}
-                      </p>
-                      <p>
-                        <strong>Vendedor:</strong> {vendedor}
-                      </p>
-                      <p>
-                        <strong>Forma de Pagamento:</strong> {formaPagamento}
-                      </p>
-                      <p style={{ fontSize: "18px", color: "var(--success)", fontWeight: "700", marginTop: "12px" }}>
-                        <strong>Total: {formatCurrency(quantidade * Number.parseFloat(precoUnitario || "0"))}</strong>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="form-footer">
-                    <button type="button" className="btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="rotate-90" />
-                      Voltar
-                    </button>
-                    <button type="submit" className="btn-primary">
-                      <Check size={18} />
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="sm" mb={4} color="purple.600" display="flex" alignItems="center" gap={2}>
+                      <Icon as={Check} />
                       Finalizar Venda
-                    </button>
-                  </div>
-                </div>
+                    </Heading>
+                    <Divider mb={4} />
+                  </Box>
+
+                  <FormControl>
+                    <FormLabel fontWeight="600">Observações</FormLabel>
+                    <Textarea
+                      placeholder="Adicione observações sobre a venda..."
+                      rows={4}
+                      value={observacoes}
+                      onChange={(e) => setObservacoes(e.target.value)}
+                      borderRadius="md"
+                      resize="vertical"
+                    />
+                  </FormControl>
+
+                  <Box bg="gray.50" borderWidth="1px" borderColor="gray.200" borderRadius="lg" p={6}>
+                    <Heading size="sm" mb={4} color="gray.700">Resumo da Venda</Heading>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Produto:</Text>
+                        <Text fontWeight="600">{produto}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Quantidade:</Text>
+                        <Text fontWeight="600">{quantidade} un.</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Preço Unitário:</Text>
+                        <Text fontWeight="600">{formatCurrency(Number.parseFloat(precoUnitario || "0"))}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Cliente:</Text>
+                        <Text fontWeight="600">{clientesMap[clienteUid] || "Cliente não encontrado"}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Vendedor:</Text>
+                        <Text fontWeight="600">{vendedor}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontWeight="500" color="gray.600">Forma de Pagamento:</Text>
+                        <Text fontWeight="600">{formaPagamento}</Text>
+                      </HStack>
+                      <Divider />
+                      <HStack justify="space-between">
+                        <Text fontSize="lg" fontWeight="700" color="green.600">Total:</Text>
+                        <Text fontSize="xl" fontWeight="bold" color="green.600">
+                          {formatCurrency(quantidade * Number.parseFloat(precoUnitario || "0"))}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                </VStack>
               )}
-            </form>
-          </div>
-        </div>
-      )}
+            </ModalBody>
+
+            <ModalFooter>
+              <Stack direction={{ base: 'column', md: 'row' }} spacing={3} w="full">
+                {formStep > 1 && (
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevStep}
+                    leftIcon={<ArrowLeft size={16} />}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Voltar
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  onClick={handleCloseModal}
+                  w={{ base: 'full', md: 'auto' }}
+                >
+                  Cancelar
+                </Button>
+                {formStep < 3 ? (
+                  <Button
+                    colorScheme="purple"
+                    onClick={handleNextStep}
+                    rightIcon={<ChevronDown size={16} style={{ transform: 'rotate(-90deg)' }} />}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Próximo
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    colorScheme="purple"
+                    leftIcon={<Check size={16} />}
+                    w={{ base: 'full', md: 'auto' }}
+                  >
+                    Finalizar Venda
+                  </Button>
+                )}
+              </Stack>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
     </Box>
   )
 }
