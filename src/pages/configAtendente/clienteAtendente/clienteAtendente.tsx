@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import "./clienteAtendente.css"
 import { useParams } from "react-router-dom"
 import {
   Search,
@@ -27,6 +26,39 @@ import {
 import { firestore } from "../../../firebase/firebase"
 import { collection, addDoc, onSnapshot, query, where, doc, getDoc } from "firebase/firestore"
 import { deleteDoc, updateDoc } from "firebase/firestore"
+import {
+  Box,
+  Flex,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Button,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Badge,
+  SimpleGrid,
+  useColorModeValue,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Select,
+  Textarea,
+  Checkbox,
+  Switch,
+  Avatar,
+  IconButton,
+  Tooltip,
+  Wrap,
+  WrapItem,
+} from '@chakra-ui/react'
 
 export default function ClienteAtendente() {
   const { uid } = useParams()
@@ -59,6 +91,8 @@ export default function ClienteAtendente() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<any>(null)
   const [editFormData, setEditFormData] = useState<any>({})
+  const [estabelecimentoCliente, setEstabelecimentoCliente] = useState<string>("")
+  const [tipoCadastroInfo, setTipoCadastroInfo] = useState<any>({})
 
   const filteredClients = firestoreClients.filter((client) => {
     const clientName = client?.nome || ""
@@ -197,7 +231,7 @@ export default function ClienteAtendente() {
     }
 
     try {
-      const clientDocRef = doc(firestore, "clienteAtendente", clientId)
+      const clientDocRef = doc(firestore, "clienteUser", clientId)
       await deleteDoc(clientDocRef)
       console.log("Cliente excluído com sucesso!")
     } catch (error) {
@@ -215,7 +249,7 @@ export default function ClienteAtendente() {
     }
 
     try {
-      const clientDocRef = doc(firestore, "clienteAtendente", selectedClient.id)
+      const clientDocRef = doc(firestore, "clienteUser", selectedClient.id)
       await updateDoc(clientDocRef, editFormData)
 
       console.log("Cliente atualizado com sucesso!")
@@ -242,6 +276,77 @@ export default function ClienteAtendente() {
     }
     fetchEstabelecimento()
   }, [uid])
+
+  // Sistema automático de identificação do tipo de cadastro
+  const getTipoCadastro = (cadastradoPor: string) => {
+    if (!cadastradoPor) return { tipo: 'desconhecido', nome: 'N/A' }
+    
+    // Padrões para identificar cadastro automático via agendamento
+    const padroesAgendamento = [
+      'agendaAdmin',
+      'agendamento',
+      'auto',
+      'sistema',
+      'online'
+    ]
+    
+    // Verifica se contém algum padrão de agendamento automático
+    const isAgendamentoAutomatico = padroesAgendamento.some(padrao => 
+      cadastradoPor.toLowerCase().includes(padrao.toLowerCase())
+    )
+    
+    if (isAgendamentoAutomatico) {
+      return { 
+        tipo: 'agendamento_automatico', 
+        nome: 'Agendamento Online Automático',
+        descricao: 'Cliente se cadastrou automaticamente via agendamento online'
+      }
+    }
+    
+    // Se não for agendamento automático, é cadastro manual
+    return { 
+      tipo: 'cadastro_manual', 
+      nome: 'Cadastro Manual',
+      descricao: 'Cliente cadastrado manualmente pelo estabelecimento'
+    }
+  }
+
+  // Função para buscar o nome do estabelecimento baseado no cadastradoPor
+  const getEstabelecimentoName = async (cadastradoPor: string) => {
+    if (!cadastradoPor) return "N/A"
+    
+    const tipoCadastro = getTipoCadastro(cadastradoPor)
+    
+    // Se for agendamento automático, busca na coleção agendaAdmin
+    if (tipoCadastro.tipo === 'agendamento_automatico') {
+      try {
+        const agendaAdminDocRef = doc(firestore, "agendaAdmin", cadastradoPor)
+        const agendaAdminDoc = await getDoc(agendaAdminDocRef)
+        if (agendaAdminDoc.exists()) {
+          const agendaData = agendaAdminDoc.data()
+          return agendaData.nomeEstabelecimento || "Estabelecimento não encontrado"
+        }
+      } catch (error) {
+        console.error("Erro ao buscar estabelecimento na agendaAdmin:", error)
+      }
+    }
+    
+    // Se for cadastro manual, busca na coleção colaboradores
+    if (tipoCadastro.tipo === 'cadastro_manual') {
+      try {
+        const colaboradorDocRef = doc(firestore, "colaboradores", cadastradoPor)
+        const colaboradorDoc = await getDoc(colaboradorDocRef)
+        if (colaboradorDoc.exists()) {
+          const colaboradorData = colaboradorDoc.data()
+          return colaboradorData.estabelecimento || "Estabelecimento não encontrado"
+        }
+      } catch (error) {
+        console.error("Erro ao buscar estabelecimento nos colaboradores:", error)
+      }
+    }
+    
+    return "Estabelecimento não encontrado"
+  }
 
   // Buscar clientes em tempo real pelo nome do estabelecimento
   useEffect(() => {
@@ -288,12 +393,6 @@ export default function ClienteAtendente() {
     }
   }
 
-  const getInitials = (name: string, surname: string) => {
-    if (!name) return "?"
-    const firstInitial = name.charAt(0).toUpperCase()
-    const secondInitial = surname ? surname.charAt(0).toUpperCase() : ""
-    return secondInitial ? `${firstInitial}${secondInitial}` : firstInitial
-  }
 
   useEffect(() => {
     if (selectedClient) {
@@ -318,410 +417,438 @@ export default function ClienteAtendente() {
         dataCriacao: selectedClient.dataCriacao || null,
         cadastradoPor: selectedClient.cadastradoPor || null,
       })
+      
+      // Identificar tipo de cadastro e buscar informações
+      if (selectedClient.cadastradoPor) {
+        const tipoInfo = getTipoCadastro(selectedClient.cadastradoPor)
+        setTipoCadastroInfo(tipoInfo)
+        
+        getEstabelecimentoName(selectedClient.cadastradoPor).then(nomeEstabelecimento => {
+          setEstabelecimentoCliente(nomeEstabelecimento)
+        })
+      } else {
+        setTipoCadastroInfo({ tipo: 'desconhecido', nome: 'N/A', descricao: 'Informação não disponível' })
+        setEstabelecimentoCliente("N/A")
+      }
     } else {
       setEditFormData({})
+      setEstabelecimentoCliente("")
+      setTipoCadastroInfo({})
     }
   }, [selectedClient])
 
   return (
-    <div className="atendente-cliente-container">
+    <Box minH="100vh" bg={useColorModeValue('gray.50', 'gray.900')} p={4} overflowY="auto">
       {/* Header */}
-      <div className="atendente-cliente-header">
-        <div className="atendente-header-title">
-          <h1>Clientes</h1>
-          <p>Gerencie seus clientes e histórico de atendimentos</p>
-        </div>
-        <div className="atendente-header-actions">
-          <button className="atendente-btn-secondary" onClick={() => setShowFilters(!showFilters)}>
-            <Filter size={18} />
-            Filtros
-          </button>
-          <button className="atendente-btn-primary" onClick={handleOpenModal}>
-            <UserPlus size={18} />
-            Cadastrar Cliente
-          </button>
-        </div>
-      </div>
+      <Box bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" p={6} mb={6} boxShadow="sm">
+        <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={4}>
+          <Box>
+            <Heading size="lg" mb={2}>Clientes</Heading>
+            <Text color={useColorModeValue('gray.600', 'gray.300')}>Gerencie seus clientes e histórico de atendimentos</Text>
+          </Box>
+          <HStack spacing={3}>
+            <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => setShowFilters(!showFilters)}>
+              Filtros
+            </Button>
+            <Button colorScheme="blue" leftIcon={<UserPlus size={18} />} onClick={handleOpenModal}>
+              Cadastrar Cliente
+            </Button>
+          </HStack>
+        </Flex>
+      </Box>
 
       {/* Filters */}
       {showFilters && (
-        <div className="atendente-filters-container">
-          <div className="atendente-filter-group">
-            <label>Status</label>
-            <div className="atendente-filter-options">
-              <button className={filterStatus === "all" ? "active" : ""} onClick={() => setFilterStatus("all")}>
-                Todos
-              </button>
-              <button className={filterStatus === "active" ? "active" : ""} onClick={() => setFilterStatus("active")}>
-                Ativos
-              </button>
-              <button
-                className={filterStatus === "inactive" ? "active" : ""}
-                onClick={() => setFilterStatus("inactive")}
-              >
-                Inativos
-              </button>
-            </div>
-          </div>
-          <div className="atendente-filter-group">
-            <label>Tags</label>
-            <div className="atendente-filter-tags">
-              <span
-                className={selectedTags.includes("VIP") ? "atendente-tag active" : "atendente-tag"}
-                onClick={() => toggleTag("VIP")}
-              >
-                VIP
-              </span>
-              <span
-                className={selectedTags.includes("Novo") ? "atendente-tag active" : "atendente-tag"}
-                onClick={() => toggleTag("Novo")}
-              >
-                Novo
-              </span>
-              <span
-                className={selectedTags.includes("Cabelo") ? "atendente-tag active" : "atendente-tag"}
-                onClick={() => toggleTag("Cabelo")}
-              >
-                Cabelo
-              </span>
-              <span
-                className={selectedTags.includes("Manicure") ? "atendente-tag active" : "atendente-tag"}
-                onClick={() => toggleTag("Manicure")}
-              >
-                Manicure
-              </span>
-              <span
-                className={selectedTags.includes("Barba") ? "atendente-tag active" : "atendente-tag"}
-                onClick={() => toggleTag("Barba")}
-              >
-                Barba
-              </span>
-            </div>
-          </div>
-        </div>
+        <Box bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" p={6} mb={6} boxShadow="sm">
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+            <Box>
+              <Text fontWeight="semibold" mb={3}>Status</Text>
+              <HStack spacing={2} flexWrap="wrap">
+                <Button size="sm" variant={filterStatus === "all" ? "solid" : "outline"} onClick={() => setFilterStatus("all")}>
+                  Todos
+                </Button>
+                <Button size="sm" variant={filterStatus === "active" ? "solid" : "outline"} onClick={() => setFilterStatus("active")}>
+                  Ativos
+                </Button>
+                <Button size="sm" variant={filterStatus === "inactive" ? "solid" : "outline"} onClick={() => setFilterStatus("inactive")}>
+                  Inativos
+                </Button>
+              </HStack>
+            </Box>
+            <Box>
+              <Text fontWeight="semibold" mb={3}>Tags</Text>
+              <Wrap spacing={2}>
+                {["VIP", "Novo", "Cabelo", "Manicure", "Barba"].map((tag) => (
+                  <WrapItem key={tag}>
+                    <Badge
+                      as="button"
+                      colorScheme={selectedTags.includes(tag) ? "blue" : "gray"}
+                      variant={selectedTags.includes(tag) ? "solid" : "outline"}
+                      cursor="pointer"
+                      onClick={() => toggleTag(tag)}
+                      _hover={{ opacity: 0.8 }}
+                    >
+                      {tag}
+                    </Badge>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Box>
+          </SimpleGrid>
+        </Box>
       )}
 
       {/* Search */}
-      <div className="atendente-search-container">
-        <div className="atendente-search-input">
-          <Search size={20} className="atendente-search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar por nome"
+      <Box bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" p={6} mb={6} boxShadow="sm">
+        <InputGroup>
+          <InputLeftElement pointerEvents="none">
+            <Search size={20} />
+          </InputLeftElement>
+          <Input
+            placeholder="Buscar por nome, telefone ou email"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery && (
-            <button className="atendente-clear-search" onClick={() => setSearchQuery("")}>
-              <X size={16} />
-            </button>
+            <IconButton
+              aria-label="Limpar busca"
+              icon={<X size={16} />}
+              size="sm"
+              variant="ghost"
+              onClick={() => setSearchQuery("")}
+            />
           )}
-        </div>
-        <div className="atendente-search-results">
-          {filteredClients && filteredClients.length > 0 ? (
-            <div className="atendente-results-count">
-              <span>{filteredClients.length} cliente(s) encontrado(s)</span>
-            </div>
-          ) : filteredClients && filteredClients.length === 0 && searchQuery ? (
-            <div className="atendente-empty-state">
-              <Users size={48} />
-              <h3>Nenhum cliente encontrado para sua busca</h3>
-              <p>Tente ajustar sua busca ou cadastre um novo cliente</p>
-              <button className="atendente-btn-primary" onClick={handleOpenModal}>
-                <UserPlus size={18} />
-                Cadastrar Cliente
-              </button>
-            </div>
-          ) : filteredClients && filteredClients.length === 0 && !searchQuery ? (
-            <div className="atendente-empty-state">
-              <Users size={48} />
-              <h3>Nenhum cliente cadastrado</h3>
-              <p>Cadastre seu primeiro cliente para começar!</p>
-              <button className="atendente-btn-primary" onClick={handleOpenModal}>
-                <UserPlus size={18} />
-                Cadastrar Cliente
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
+        </InputGroup>
+        
+        {filteredClients && filteredClients.length > 0 ? (
+          <Text mt={3} color={useColorModeValue('gray.600', 'gray.300')} fontSize="sm">
+            {filteredClients.length} cliente(s) encontrado(s)
+          </Text>
+        ) : filteredClients && filteredClients.length === 0 && searchQuery ? (
+          <VStack py={10} spacing={4} color={useColorModeValue('gray.500', 'gray.400')}>
+            <Users size={48} />
+            <Heading size="md">Nenhum cliente encontrado para sua busca</Heading>
+            <Text textAlign="center">Tente ajustar sua busca ou cadastre um novo cliente</Text>
+            <Button colorScheme="blue" leftIcon={<UserPlus size={18} />} onClick={handleOpenModal}>
+              Cadastrar Cliente
+            </Button>
+          </VStack>
+        ) : filteredClients && filteredClients.length === 0 && !searchQuery ? (
+          <VStack py={10} spacing={4} color={useColorModeValue('gray.500', 'gray.400')}>
+            <Users size={48} />
+            <Heading size="md">Nenhum cliente cadastrado</Heading>
+            <Text textAlign="center">Cadastre seu primeiro cliente para começar!</Text>
+            <Button colorScheme="blue" leftIcon={<UserPlus size={18} />} onClick={handleOpenModal}>
+              Cadastrar Cliente
+            </Button>
+          </VStack>
+        ) : null}
+      </Box>
 
       {/* Client List */}
       {Array.isArray(filteredClients) && filteredClients.length > 0 && (
-        <div className="atendente-client-list">
+        <VStack spacing={4} align="stretch">
           {filteredClients.map((client) => (
-            <div key={client.id} className="atendente-client-card">
-              <div className="atendente-client-info-principal">
-                <h3>
-                  {client.nome} {client.sobrenome}
-                </h3>
+            <Box key={client.id} bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" p={6} boxShadow="sm">
+              <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={4}>
+                <Box flex={1}>
+                  <Heading size="md" mb={3}>
+                    {client.nome} {client.sobrenome}
+                  </Heading>
 
-                <p>
-                  <strong>Telefone:</strong>
-                  <Phone size={16} style={{ marginRight: "6px", color: "var(--atendente-primary)" }} />
-                  {client.telefone || "Não informado"}
-                </p>
+                  <VStack align="stretch" spacing={2}>
+                    <HStack>
+                      <Phone size={16} color="blue.500" />
+                      <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                        <strong>Telefone:</strong> {client.telefone || "Não informado"}
+                      </Text>
+                    </HStack>
 
-                <p>
-                  <strong>Email:</strong>
-                  {client.email || "Não informado"}
-                </p>
+                    <HStack>
+                      <Mail size={16} color="blue.500" />
+                      <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                        <strong>Email:</strong> {client.email || "Não informado"}
+                      </Text>
+                    </HStack>
 
-                <p>
-                  <strong>CPF:</strong>
-                  <User size={16} style={{ marginRight: "6px", color: "var(--atendente-primary)" }} />
-                  {client.cpf || "Não informado"}
-                </p>
+                    <HStack>
+                      <User size={16} color="blue.500" />
+                      <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                        <strong>CPF:</strong> {client.cpf || "Não informado"}
+                      </Text>
+                    </HStack>
 
-                {client.cidade && (
-                  <p>
-                    <strong>Endereço:</strong>
-                    <MapPin size={16} style={{ marginRight: "6px", color: "var(--atendente-primary)" }} />
-                    {client.cidade}
-                  </p>
-                )}
+                    {client.cidade && (
+                      <HStack>
+                        <MapPin size={16} color="blue.500" />
+                        <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                          <strong>Endereço:</strong> {client.cidade}
+                        </Text>
+                      </HStack>
+                    )}
 
-                {client.dataCriacao && (
-                  <p>
-                    <strong>Cadastro:</strong>
-                    {formatDate(client.dataCriacao)}
-                  </p>
-                )}
+                    {client.dataCriacao && (
+                      <HStack>
+                        <Calendar size={16} color="blue.500" />
+                        <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                          <strong>Cadastro:</strong> {formatDate(client.dataCriacao)}
+                        </Text>
+                      </HStack>
+                    )}
 
-                {client.tags && client.tags.length > 0 && (
-                  <div className="atendente-client-tags">
-                    <Tag size={16} style={{ color: "var(--atendente-primary)", marginRight: "8px" }} />
-                    {client.tags.map((tag: string, index: number) => (
-                      <span key={index} className="atendente-tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                    {client.tags && client.tags.length > 0 && (
+                      <Box>
+                        <HStack mb={2}>
+                          <Tag size={16} color="blue.500" />
+                          <Text fontSize="sm" fontWeight="semibold">Tags:</Text>
+                        </HStack>
+                        <Wrap spacing={1}>
+                          {client.tags.map((tag: string, index: number) => (
+                            <WrapItem key={index}>
+                              <Badge colorScheme="blue" variant="subtle">
+                                {tag}
+                              </Badge>
+                            </WrapItem>
+                          ))}
+                        </Wrap>
+                      </Box>
+                    )}
 
-                {client.estabelecimento && (
-                  <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
-                    cliente cadastrado por {client.estabelecimento}
-                  </p>
-                )}
-              </div>
+                    {client.estabelecimento && (
+                      <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')} mt={2}>
+                        Cliente cadastrado por {client.estabelecimento}
+                      </Text>
+                    )}
+                  </VStack>
+                </Box>
 
-              <div className="atendente-client-actions">
-                <button className="atendente-btn-icon" onClick={() => handleDeleteClient(client.id)}>
-                  <Trash2 size={18} color="#ef4444" />
-                </button>
-                <button className="atendente-btn-icon">
-                  <Phone size={18} />
-                </button>
-                <button
-                  className="atendente-btn-secondary"
-                  onClick={() => {
-                    setSelectedClient(client)
-                    setShowEditModal(true)
-                  }}
-                >
-                  Editar perfil
-                </button>
-              </div>
-            </div>
+                <HStack spacing={2} justify={{ base: 'center', md: 'flex-end' }}>
+                  <Tooltip label="Excluir cliente">
+                    <IconButton
+                      aria-label="Excluir cliente"
+                      icon={<Trash2 size={18} />}
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteClient(client.id)}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Ligar">
+                    <IconButton
+                      aria-label="Ligar"
+                      icon={<Phone size={18} />}
+                      colorScheme="green"
+                      variant="ghost"
+                    />
+                  </Tooltip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedClient(client)
+                      setShowEditModal(true)
+                    }}
+                  >
+                    Editar perfil
+                  </Button>
+                </HStack>
+              </Flex>
+            </Box>
           ))}
-        </div>
+        </VStack>
       )}
 
       {/* Add Client Modal */}
-      {showModal && (
-        <div className="atendente-modal-overlay" onClick={handleCloseModal}>
-          <div className="atendente-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="atendente-modal-header">
-              <button className="atendente-modal-back" onClick={formStep > 1 ? handlePrevStep : handleCloseModal}>
-                <ArrowLeft size={20} />
-              </button>
-              <h2>
-                {formStep === 1 && "Novo Cliente"}
-                {formStep === 2 && "Informações de Contato"}
-                {formStep === 3 && "Preferências e Detalhes"}
-              </h2>
-              <div className="atendente-modal-steps">
-                <div className={`atendente-step ${formStep >= 1 ? "active" : ""}`}>1</div>
-                <div className="atendente-step-line"></div>
-                <div className={`atendente-step ${formStep >= 2 ? "active" : ""}`}>2</div>
-                <div className="atendente-step-line"></div>
-                <div className={`atendente-step ${formStep >= 3 ? "active" : ""}`}>3</div>
-              </div>
-              <button className="atendente-modal-close" onClick={handleCloseModal}>
-                <X size={20} />
-              </button>
-            </div>
+      <Modal isOpen={showModal} onClose={handleCloseModal} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Flex justify="space-between" align="center">
+              <HStack>
+                <IconButton
+                  aria-label="Voltar"
+                  icon={<ArrowLeft size={20} />}
+                  variant="ghost"
+                  onClick={formStep > 1 ? handlePrevStep : handleCloseModal}
+                />
+                <Heading size="md">
+                  {formStep === 1 && "Novo Cliente"}
+                  {formStep === 2 && "Informações de Contato"}
+                  {formStep === 3 && "Preferências e Detalhes"}
+                </Heading>
+              </HStack>
+              <HStack spacing={2}>
+                <Badge colorScheme={formStep >= 1 ? "blue" : "gray"}>1</Badge>
+                <Badge colorScheme={formStep >= 2 ? "blue" : "gray"}>2</Badge>
+                <Badge colorScheme={formStep >= 3 ? "blue" : "gray"}>3</Badge>
+              </HStack>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
 
-            <form onSubmit={handleSubmit}>
-              {/* Step 1: Basic Information */}
-              {formStep === 1 && (
-                <div className="atendente-modal-body">
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="name">Nome*</label>
-                      <input
-                        type="text"
-                        id="name"
-                        placeholder="Nome do cliente"
-                        required
-                        value={nomeClinte}
-                        onChange={(e) => setNomeCliente(e.target.value)}
-                      />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="surname">Sobrenome</label>
-                      <input
-                        type="text"
-                        id="surname"
-                        placeholder="Sobrenome do cliente"
-                        value={sobreNomeClinte}
-                        onChange={(e) => setSobreNomeCliente(e.target.value)}
-                      />
-                    </div>
-                  </div>
+          <form onSubmit={handleSubmit}>
+            {/* Step 1: Basic Information */}
+            {formStep === 1 && (
+              <>
+              <ModalBody>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel>Nome</FormLabel>
+                    <Input
+                      placeholder="Nome do cliente"
+                      value={nomeClinte}
+                      onChange={(e) => setNomeCliente(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Sobrenome</FormLabel>
+                    <Input
+                      placeholder="Sobrenome do cliente"
+                      value={sobreNomeClinte}
+                      onChange={(e) => setSobreNomeCliente(e.target.value)}
+                    />
+                  </FormControl>
+                </SimpleGrid>
 
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="cpf">CPF</label>
-                      <input
-                        type="text"
-                        id="cpf"
-                        placeholder="000.000.000-00"
-                        value={cpfClinte}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "")
-                          let maskedValue = value
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>CPF</FormLabel>
+                    <Input
+                      placeholder="000.000.000-00"
+                      value={cpfClinte}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "")
+                        let maskedValue = value
 
-                          if (value.length > 3) {
-                            maskedValue = `${maskedValue.slice(0, 3)}.${maskedValue.slice(3)}`
-                          }
-                          if (value.length > 6) {
-                            maskedValue = `${maskedValue.slice(0, 7)}.${maskedValue.slice(7)}`
-                          }
-                          if (value.length > 9) {
-                            maskedValue = `${maskedValue.slice(0, 11)}-${maskedValue.slice(11)}`
-                          }
-                          if (maskedValue.length > 14) {
-                            maskedValue = maskedValue.slice(0, 14)
-                          }
+                        if (value.length > 3) {
+                          maskedValue = `${maskedValue.slice(0, 3)}.${maskedValue.slice(3)}`
+                        }
+                        if (value.length > 6) {
+                          maskedValue = `${maskedValue.slice(0, 7)}.${maskedValue.slice(7)}`
+                        }
+                        if (value.length > 9) {
+                          maskedValue = `${maskedValue.slice(0, 11)}-${maskedValue.slice(11)}`
+                        }
+                        if (maskedValue.length > 14) {
+                          maskedValue = maskedValue.slice(0, 14)
+                        }
 
-                          setCpfCliente(maskedValue)
-                        }}
-                      />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="birthdate">Data de Nascimento</label>
-                      <input
-                        type="date"
-                        id="birthdate"
-                        value={dataNascimentoClinte}
-                        onChange={(e) => setDataNascimentoCliente(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                        setCpfCliente(maskedValue)
+                      }}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <Input
+                      type="date"
+                      value={dataNascimentoClinte}
+                      onChange={(e) => setDataNascimentoCliente(e.target.value)}
+                    />
+                  </FormControl>
+                </SimpleGrid>
 
-                  <div className="atendente-form-group">
-                    <label>Agendamento Online</label>
-                    <div className="atendente-toggle-switch">
-                      <input
-                        type="checkbox"
-                        id="online-scheduling"
-                        checked={agendamentoOnline}
-                        onChange={(e) => setAgendamentoOnline(e.target.checked)}
-                      />
-                      <label htmlFor="online-scheduling"></label>
-                      <span>{agendamentoOnline ? "Habilitado" : "Desabilitado"}</span>
-                    </div>
-                    <p className="atendente-form-help">Este cliente poderá marcar agendamentos online.</p>
-                  </div>
+                <FormControl>
+                  <FormLabel>Agendamento Online</FormLabel>
+                  <HStack>
+                    <Switch
+                      isChecked={agendamentoOnline}
+                      onChange={(e) => setAgendamentoOnline(e.target.checked)}
+                    />
+                    <Text>{agendamentoOnline ? "Habilitado" : "Desabilitado"}</Text>
+                  </HStack>
+                  <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')} mt={1}>
+                    Este cliente poderá marcar agendamentos online.
+                  </Text>
+                </FormControl>
 
-                  <div className="atendente-form-footer">
-                    <button type="button" className="atendente-btn-secondary" onClick={handleCloseModal}>
-                      Cancelar
-                    </button>
-                    <button type="button" className="atendente-btn-primary" onClick={handleNextStep}>
-                      Próximo
-                      <ChevronDown size={18} className="atendente-rotate-270" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              </ModalBody>
+              <ModalFooter>
+                <HStack spacing={3}>
+                  <Button variant="ghost" onClick={handleCloseModal}>
+                    Cancelar
+                  </Button>
+                  <Button colorScheme="blue" onClick={handleNextStep} rightIcon={<ChevronDown size={18} />}>
+                    Próximo
+                  </Button>
+                </HStack>
+              </ModalFooter>
+              </>
+            )}
 
-              {/* Step 2: Contact Information */}
-              {formStep === 2 && (
-                <div className="atendente-modal-body">
-                  <div className="atendente-form-section">
-                    <h3>Informações de Contato</h3>
-
-                    <div className="atendente-form-row">
-                      <div className="atendente-form-group">
-                        <label htmlFor="phone">Telefone*</label>
-                        <div className="atendente-input-with-icon">
-                          <Phone size={18} />
-                          <input
+            {/* Step 2: Contact Information */}
+            {formStep === 2 && (
+              <>
+              <ModalBody>
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="sm" mb={4}>Informações de Contato</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl isRequired>
+                        <FormLabel>Telefone</FormLabel>
+                        <InputGroup>
+                          <InputLeftElement pointerEvents="none">
+                            <Phone size={18} />
+                          </InputLeftElement>
+                          <Input
                             type="tel"
-                            id="phone"
                             placeholder="(00) 00000-0000"
-                            required
                             value={telefoneContato}
                             onChange={(e) => setTelefoneContato(e.target.value)}
                           />
-                        </div>
-                      </div>
-                      <div className="atendente-form-group">
-                        <label htmlFor="whatsapp">WhatsApp</label>
-                        <div className="atendente-input-with-icon">
-                          <Phone size={18} />
-                          <input
+                        </InputGroup>
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>WhatsApp</FormLabel>
+                        <InputGroup>
+                          <InputLeftElement pointerEvents="none">
+                            <Phone size={18} />
+                          </InputLeftElement>
+                          <Input
                             type="tel"
-                            id="whatsapp"
                             placeholder="(00) 00000-0000"
                             value={whatsappContato}
                             onChange={(e) => setWhatsappContato(e.target.value)}
                           />
-                        </div>
-                      </div>
-                    </div>
+                        </InputGroup>
+                      </FormControl>
+                    </SimpleGrid>
 
-                    <div className="atendente-form-group">
-                      <label htmlFor="email">E-mail</label>
-                      <div className="atendente-input-with-icon">
-                        <Mail size={18} />
-                        <input
+                    <FormControl>
+                      <FormLabel>E-mail</FormLabel>
+                      <InputGroup>
+                        <InputLeftElement pointerEvents="none">
+                          <Mail size={18} />
+                        </InputLeftElement>
+                        <Input
                           type="email"
-                          id="email"
                           placeholder="email@exemplo.com"
                           value={emailContato}
                           onChange={(e) => setEmailContato(e.target.value)}
                         />
-                      </div>
-                    </div>
+                      </InputGroup>
+                    </FormControl>
 
-                    <div className="atendente-form-group">
-                      <label htmlFor="instagram">Instagram</label>
-                      <div className="atendente-input-with-icon">
-                        <Instagram size={18} />
-                        <input
+                    <FormControl>
+                      <FormLabel>Instagram</FormLabel>
+                      <InputGroup>
+                        <InputLeftElement pointerEvents="none">
+                          <Instagram size={18} />
+                        </InputLeftElement>
+                        <Input
                           type="text"
-                          id="instagram"
                           placeholder="@usuario"
                           value={instagramContato}
                           onChange={(e) => setInstagramContato(e.target.value)}
                         />
-                      </div>
-                    </div>
-                  </div>
+                      </InputGroup>
+                    </FormControl>
+                  </Box>
 
-                  <div className="atendente-form-section">
-                    <h3>Endereço</h3>
-
-                    <div className="atendente-form-row">
-                      <div className="atendente-form-group">
-                        <label htmlFor="cep">CEP</label>
-                        <input
-                          type="text"
-                          id="cep"
+                  <Box>
+                    <Heading size="sm" mb={4}>Endereço</Heading>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl>
+                        <FormLabel>CEP</FormLabel>
+                        <Input
                           placeholder="00000-000"
                           value={cepCliente}
                           onChange={(e) => {
@@ -734,257 +861,230 @@ export default function ClienteAtendente() {
                           }}
                           onBlur={(e) => fetchAddressByCep(e.target.value)}
                         />
-                      </div>
-                      <div className="atendente-form-group">
-                        <label htmlFor="city">Cidade</label>
-                        <input
-                          type="text"
-                          id="city"
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Cidade</FormLabel>
+                        <Input
                           placeholder="Cidade"
                           value={cidadeCliente}
                           onChange={(e) => setCidadeCliente(e.target.value)}
                         />
-                      </div>
-                    </div>
+                      </FormControl>
+                    </SimpleGrid>
 
-                    <div className="atendente-form-row">
-                      <div className="atendente-form-group">
-                        <label htmlFor="street">Rua</label>
-                        <input
-                          type="text"
-                          id="street"
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl>
+                        <FormLabel>Rua</FormLabel>
+                        <Input
                           placeholder="Rua, Avenida, etc"
                           value={ruaClinte}
                           onChange={(e) => setRuaCliente(e.target.value)}
                         />
-                      </div>
-                      <div className="atendente-form-group">
-                        <label htmlFor="number">Número</label>
-                        <input
-                          type="text"
-                          id="number"
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Número</FormLabel>
+                        <Input
                           placeholder="Número"
                           value={numeroCasaClinte}
                           onChange={(e) => setNumeroCasaCliente(e.target.value)}
                         />
-                      </div>
-                    </div>
+                      </FormControl>
+                    </SimpleGrid>
 
-                    <div className="atendente-form-group">
-                      <label htmlFor="complement">Complemento</label>
-                      <input
-                        type="text"
-                        id="complement"
+                    <FormControl>
+                      <FormLabel>Complemento</FormLabel>
+                      <Input
                         placeholder="Apartamento, bloco, etc"
                         value={complementoCasaClinte}
                         onChange={(e) => setComplementoCasaCliente(e.target.value)}
                       />
-                    </div>
-                  </div>
+                    </FormControl>
+                  </Box>
 
-                  <div className="atendente-form-footer">
-                    <button type="button" className="atendente-btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="atendente-rotate-90" />
-                      Voltar
-                    </button>
-                    <button type="button" className="atendente-btn-primary" onClick={handleNextStep}>
-                      Próximo
-                      <ChevronDown size={18} className="atendente-rotate-270" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                </VStack>
+              </ModalBody>
+              <ModalFooter>
+                <HStack spacing={3}>
+                  <Button variant="ghost" leftIcon={<ChevronDown size={18} />} onClick={handlePrevStep}>
+                    Voltar
+                  </Button>
+                  <Button colorScheme="blue" rightIcon={<ChevronDown size={18} />} onClick={handleNextStep}>
+                    Próximo
+                  </Button>
+                </HStack>
+              </ModalFooter>
+              </>
+            )}
 
-              {/* Step 3: Preferences and Details */}
-              {formStep === 3 && (
-                <div className="atendente-modal-body">
-                  <div className="atendente-form-section">
-                    <h3>Preferências e Detalhes</h3>
+            {/* Step 3: Preferences and Details */}
+            {formStep === 3 && (
+              <>
+              <ModalBody>
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="sm" mb={4}>Preferências e Detalhes</Heading>
+                    <FormControl>
+                      <FormLabel>Como Conheceu</FormLabel>
+                      <Select placeholder="Selecione uma opção" value={comoConheceu} onChange={(e) => setComoConheceu(e.target.value)}>
+                        <option value="indicacao">Indicação</option>
+                        <option value="redes-sociais">Redes Sociais</option>
+                        <option value="google">Google</option>
+                        <option value="passagem">Passagem</option>
+                        <option value="outro">Outro</option>
+                      </Select>
+                    </FormControl>
 
-                    <div className="atendente-form-group">
-                      <label htmlFor="referral">Como Conheceu</label>
-                      <div className="atendente-select-wrapper">
-                        <select id="referral" value={comoConheceu} onChange={(e) => setComoConheceu(e.target.value)}>
-                          <option value="">Selecione uma opção</option>
-                          <option value="indicacao">Indicação</option>
-                          <option value="redes-sociais">Redes Sociais</option>
-                          <option value="google">Google</option>
-                          <option value="passagem">Passagem</option>
-                          <option value="outro">Outro</option>
-                        </select>
-                        <ChevronDown size={18} />
-                      </div>
-                    </div>
+                    <FormControl>
+                      <FormLabel>Tags</FormLabel>
+                      <Wrap spacing={2}>
+                        {["VIP", "Novo", "Cabelo", "Manicure", "Barba"].map((tag) => (
+                          <WrapItem key={tag}>
+                            <Badge
+                              as="button"
+                              colorScheme={selectedTags.includes(tag) ? "blue" : "gray"}
+                              variant={selectedTags.includes(tag) ? "solid" : "outline"}
+                              cursor="pointer"
+                              onClick={() => toggleTag(tag)}
+                              _hover={{ opacity: 0.8 }}
+                            >
+                              {tag}
+                            </Badge>
+                          </WrapItem>
+                        ))}
+                      </Wrap>
+                    </FormControl>
 
-                    <div className="atendente-form-group">
-                      <label>Tags</label>
-                      <div className="atendente-tags-container">
-                        <span
-                          className={selectedTags.includes("VIP") ? "atendente-tag active" : "atendente-tag"}
-                          onClick={() => toggleTag("VIP")}
-                        >
-                          VIP
-                        </span>
-                        <span
-                          className={selectedTags.includes("Novo") ? "atendente-tag active" : "atendente-tag"}
-                          onClick={() => toggleTag("Novo")}
-                        >
-                          Novo
-                        </span>
-                        <span
-                          className={selectedTags.includes("Cabelo") ? "atendente-tag active" : "atendente-tag"}
-                          onClick={() => toggleTag("Cabelo")}
-                        >
-                          Cabelo
-                        </span>
-                        <span
-                          className={selectedTags.includes("Manicure") ? "atendente-tag active" : "atendente-tag"}
-                          onClick={() => toggleTag("Manicure")}
-                        >
-                          Manicure
-                        </span>
-                        <span
-                          className={selectedTags.includes("Barba") ? "atendente-tag active" : "atendente-tag"}
-                          onClick={() => toggleTag("Barba")}
-                        >
-                          Barba
-                        </span>
-                        <span className="atendente-tag atendente-add-tag">+ Nova Tag</span>
-                      </div>
-                    </div>
-
-                    <div className="atendente-form-group">
-                      <label htmlFor="notes">Anotações Importantes</label>
-                      <textarea
-                        id="notes"
+                    <FormControl>
+                      <FormLabel>Anotações Importantes</FormLabel>
+                      <Textarea
                         placeholder="Adicione informações importantes sobre o cliente, como alergias, preferências, etc."
                         rows={4}
                         value={anotacoesImportantes}
                         onChange={(e) => setAnotacoesImportantes(e.target.value)}
-                      ></textarea>
-                    </div>
+                      />
+                    </FormControl>
 
-                    <div className="atendente-form-group">
-                      <label>Notificações</label>
-                      <div className="atendente-checkbox-group">
-                        <div className="atendente-checkbox-item">
-                          <input type="checkbox" id="notify-sms" />
-                          <label htmlFor="notify-sms">Enviar SMS</label>
-                        </div>
-                        <div className="atendente-checkbox-item">
-                          <input type="checkbox" id="notify-email" />
-                          <label htmlFor="notify-email">Enviar E-mail</label>
-                        </div>
-                        <div className="atendente-checkbox-item">
-                          <input type="checkbox" id="notify-whatsapp" />
-                          <label htmlFor="notify-whatsapp">Enviar WhatsApp</label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    <FormControl>
+                      <FormLabel>Notificações</FormLabel>
+                      <VStack align="stretch" spacing={2}>
+                        <Checkbox>Enviar SMS</Checkbox>
+                        <Checkbox>Enviar E-mail</Checkbox>
+                        <Checkbox>Enviar WhatsApp</Checkbox>
+                      </VStack>
+                    </FormControl>
+                  </Box>
 
-                  <div className="atendente-form-footer">
-                    <button type="button" className="atendente-btn-secondary" onClick={handlePrevStep}>
-                      <ChevronDown size={18} className="atendente-rotate-90" />
-                      Voltar
-                    </button>
-                    <button type="submit" className="atendente-btn-primary">
-                      <Check size={18} />
-                      Salvar Cliente
-                    </button>
-                  </div>
-                </div>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
+                </VStack>
+              </ModalBody>
+              <ModalFooter>
+                <HStack spacing={3}>
+                  <Button variant="ghost" leftIcon={<ChevronDown size={18} />} onClick={handlePrevStep}>
+                    Voltar
+                  </Button>
+                  <Button type="submit" colorScheme="blue" leftIcon={<Check size={18} />}>
+                    Salvar Cliente
+                  </Button>
+                </HStack>
+              </ModalFooter>
+              </>
+            )}
+          </form>
+        </ModalContent>
+      </Modal>
 
       {/* Edit Client Modal */}
-      {showEditModal && selectedClient && (
-        <div className="atendente-modal-overlay atendente-profile-modal" onClick={() => setShowEditModal(false)}>
-          <div className="atendente-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="atendente-modal-header">
-              <h2>Perfil do Cliente</h2>
-              <button className="atendente-modal-close" onClick={() => setShowEditModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <Heading size="md">Perfil do Cliente</Heading>
+          </ModalHeader>
+          <ModalCloseButton />
 
-            <div className="atendente-profile-header">
-              <div className="atendente-profile-avatar">
-                {getInitials(selectedClient.nome, selectedClient.sobrenome)}
-              </div>
-              <div className="atendente-profile-info">
-                <h3>
-                  {selectedClient.nome} {selectedClient.sobrenome}
-                </h3>
-                <div className="atendente-profile-meta">
-                  <div className="atendente-profile-meta-item">
-                    <Phone size={16} />
-                    <span>{selectedClient.telefone || "Não informado"}</span>
-                  </div>
-                  <div className="atendente-profile-meta-item">
-                    <Mail size={16} />
-                    <span>{selectedClient.email || "Não informado"}</span>
-                  </div>
-                  <div className="atendente-profile-meta-item">
-                    <Calendar size={16} />
-                    <span>Cliente desde {formatDate(selectedClient.dataCriacao)}</span>
-                  </div>
-                </div>
-                <div className="atendente-profile-status active">
-                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "currentColor" }}></div>
-                  Ativo
-                </div>
-              </div>
-            </div>
+          {selectedClient && (
+            <Box p={6} bg={useColorModeValue('gray.50', 'gray.700')}>
+              <Flex align="center" gap={4}>
+                <Avatar size="lg" name={`${selectedClient.nome} ${selectedClient.sobrenome}`} />
+                <Box flex={1}>
+                  <Heading size="md" mb={2}>
+                    {selectedClient.nome} {selectedClient.sobrenome}
+                  </Heading>
+                  <VStack align="start" spacing={1}>
+                    <HStack>
+                      <Phone size={16} />
+                      <Text fontSize="sm">{selectedClient.telefone || "Não informado"}</Text>
+                    </HStack>
+                    <HStack>
+                      <Mail size={16} />
+                      <Text fontSize="sm">{selectedClient.email || "Não informado"}</Text>
+                    </HStack>
+                    <HStack>
+                      <Calendar size={16} />
+                      <Text fontSize="sm">Cliente desde {formatDate(selectedClient.dataCriacao)}</Text>
+                    </HStack>
+                  </VStack>
+                  <HStack mt={2}>
+                    <Box w="8px" h="8px" borderRadius="50%" bg="green.500" />
+                    <Text fontSize="sm" color="green.500">Ativo</Text>
+                  </HStack>
+                </Box>
+              </Flex>
+            </Box>
+          )}
 
-            <form onSubmit={handleUpdateClient}>
-              <div className="atendente-modal-body">
-                <div className="atendente-form-section">
-                  <h3>
+          <form onSubmit={handleUpdateClient}>
+            <ModalBody>
+              <VStack spacing={6} align="stretch">
+                {/* Informações Básicas */}
+                <Box>
+                  <HStack mb={4}>
                     <User size={20} />
-                    Informações Básicas
-                  </h3>
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-name">
-                        <User size={16} />
-                        Nome*
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-name"
+                    <Heading size="sm">Informações Básicas</Heading>
+                  </HStack>
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <User size={16} />
+                          <Text>Nome*</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="Nome do cliente"
-                        required
                         value={editFormData.nome || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, nome: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-surname">
-                        <User size={16} />
-                        Sobrenome
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-surname"
+                    </FormControl>
+                    
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <User size={16} />
+                          <Text>Sobrenome</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="Sobrenome do cliente"
                         value={editFormData.sobrenome || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, sobrenome: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                  </div>
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-cpf">
-                        <User size={16} />
-                        CPF
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-cpf"
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mt={4}>
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <User size={16} />
+                          <Text>CPF</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="000.000.000-00"
                         value={editFormData.cpf || ""}
                         onChange={(e) => {
@@ -1004,116 +1104,163 @@ export default function ClienteAtendente() {
                           }
                           setEditFormData({ ...editFormData, cpf: maskedValue })
                         }}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-birthdate">
-                        <Calendar size={16} />
-                        Data de Nascimento
-                      </label>
-                      <input
+                    </FormControl>
+                    
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <Calendar size={16} />
+                          <Text>Data de Nascimento</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         type="date"
-                        id="edit-birthdate"
                         value={editFormData.dataNascimento || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, dataNascimento: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                  </div>
-                  <div className="atendente-form-group">
-                    <label>
-                      <Calendar size={16} />
-                      Agendamento Online
-                    </label>
-                    <div className="atendente-toggle-switch">
-                      <input
-                        type="checkbox"
-                        id="edit-online-scheduling"
-                        checked={editFormData.agendamentoOnline || false}
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2}>
+                      <HStack>
+                        <Calendar size={16} />
+                        <Text>Agendamento Online</Text>
+                      </HStack>
+                    </FormLabel>
+                    <HStack>
+                      <Switch
+                        isChecked={editFormData.agendamentoOnline || false}
                         onChange={(e) => setEditFormData({ ...editFormData, agendamentoOnline: e.target.checked })}
+                        size="md"
                       />
-                      <label htmlFor="edit-online-scheduling"></label>
-                      <span>{editFormData.agendamentoOnline ? "Habilitado" : "Desabilitado"}</span>
-                    </div>
-                    <p className="atendente-form-help">Este cliente poderá marcar agendamentos online.</p>
-                  </div>
-                </div>
+                      <Text fontSize="sm">{editFormData.agendamentoOnline ? "Habilitado" : "Desabilitado"}</Text>
+                    </HStack>
+                    <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')} mt={1}>
+                      Este cliente poderá marcar agendamentos online.
+                    </Text>
+                  </FormControl>
+                </Box>
 
-                <div className="atendente-form-section">
-                  <h3>
+                {/* Informações de Contato */}
+                <Box>
+                  <HStack mb={4}>
                     <Phone size={20} />
-                    Informações de Contato
-                  </h3>
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-phone">
-                        <Phone size={16} />
-                        Telefone*
-                      </label>
-                      <input
-                        type="tel"
-                        id="edit-phone"
-                        placeholder="(00) 00000-0000"
-                        required
-                        value={editFormData.telefone || ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, telefone: e.target.value })}
-                      />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-whatsapp">
-                        <Phone size={16} />
-                        WhatsApp
-                      </label>
-                      <input
-                        type="tel"
-                        id="edit-whatsapp"
-                        placeholder="(00) 00000-0000"
-                        value={editFormData.whatsapp || ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="atendente-form-group">
-                    <label htmlFor="edit-email">
-                      <Mail size={16} />
-                      E-mail
-                    </label>
-                    <input
-                      type="email"
-                      id="edit-email"
-                      placeholder="email@exemplo.com"
-                      value={editFormData.email || ""}
-                      onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="atendente-form-group">
-                    <label htmlFor="edit-instagram">
-                      <Instagram size={16} />
-                      Instagram
-                    </label>
-                    <input
-                      type="text"
-                      id="edit-instagram"
-                      placeholder="@usuario"
-                      value={editFormData.instagram || ""}
-                      onChange={(e) => setEditFormData({ ...editFormData, instagram: e.target.value })}
-                    />
-                  </div>
-                </div>
+                    <Heading size="sm">Informações de Contato</Heading>
+                  </HStack>
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <Phone size={16} />
+                          <Text>Telefone*</Text>
+                        </HStack>
+                      </FormLabel>
+                      <InputGroup>
+                        <InputLeftElement pointerEvents="none">
+                          <Phone size={18} />
+                        </InputLeftElement>
+                        <Input
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          value={editFormData.telefone || ""}
+                          onChange={(e) => setEditFormData({ ...editFormData, telefone: e.target.value })}
+                          size="md"
+                          h="40px"
+                        />
+                      </InputGroup>
+                    </FormControl>
+                    
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <Phone size={16} />
+                          <Text>WhatsApp</Text>
+                        </HStack>
+                      </FormLabel>
+                      <InputGroup>
+                        <InputLeftElement pointerEvents="none">
+                          <Phone size={18} />
+                        </InputLeftElement>
+                        <Input
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          value={editFormData.whatsapp || ""}
+                          onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
+                          size="md"
+                          h="40px"
+                        />
+                      </InputGroup>
+                    </FormControl>
+                  </SimpleGrid>
 
-                <div className="atendente-form-section">
-                  <h3>
-                    <MapPin size={20} />
-                    Endereço
-                  </h3>
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-cep">
-                        <MapPin size={16} />
-                        CEP
-                      </label>
-                      <input
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <Mail size={16} />
+                        <Text>E-mail</Text>
+                      </HStack>
+                    </FormLabel>
+                    <InputGroup>
+                      <InputLeftElement pointerEvents="none">
+                        <Mail size={18} />
+                      </InputLeftElement>
+                      <Input
+                        type="email"
+                        placeholder="email@exemplo.com"
+                        value={editFormData.email || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                        size="md"
+                        h="40px"
+                      />
+                    </InputGroup>
+                  </FormControl>
+
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <Instagram size={16} />
+                        <Text>Instagram</Text>
+                      </HStack>
+                    </FormLabel>
+                    <InputGroup>
+                      <InputLeftElement pointerEvents="none">
+                        <Instagram size={18} />
+                      </InputLeftElement>
+                      <Input
                         type="text"
-                        id="edit-cep"
+                        placeholder="@usuario"
+                        value={editFormData.instagram || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, instagram: e.target.value })}
+                        size="md"
+                        h="40px"
+                      />
+                    </InputGroup>
+                  </FormControl>
+                </Box>
+
+                {/* Endereço */}
+                <Box>
+                  <HStack mb={4}>
+                    <MapPin size={20} />
+                    <Heading size="sm">Endereço</Heading>
+                  </HStack>
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <MapPin size={16} />
+                          <Text>CEP</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="00000-000"
                         value={editFormData.cep || ""}
                         onChange={(e) => {
@@ -1125,117 +1272,143 @@ export default function ClienteAtendente() {
                           setEditFormData({ ...editFormData, cep: maskedValue })
                         }}
                         onBlur={(e) => fetchAddressByCep(e.target.value)}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-city">
-                        <MapPin size={16} />
-                        Cidade
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-city"
+                    </FormControl>
+                    
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <MapPin size={16} />
+                          <Text>Cidade</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="Cidade"
                         value={editFormData.cidade || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, cidade: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                  </div>
-                  <div className="atendente-form-row">
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-street">
-                        <MapPin size={16} />
-                        Rua
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-street"
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mt={4}>
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <MapPin size={16} />
+                          <Text>Rua</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="Rua, Avenida, etc"
                         value={editFormData.rua || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, rua: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                    <div className="atendente-form-group">
-                      <label htmlFor="edit-number">
-                        <MapPin size={16} />
-                        Número
-                      </label>
-                      <input
-                        type="text"
-                        id="edit-number"
+                    </FormControl>
+                    
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                        <HStack>
+                          <MapPin size={16} />
+                          <Text>Número</Text>
+                        </HStack>
+                      </FormLabel>
+                      <Input
                         placeholder="Número"
                         value={editFormData.numeroCasa || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, numeroCasa: e.target.value })}
+                        size="md"
+                        h="40px"
                       />
-                    </div>
-                  </div>
-                  <div className="atendente-form-group">
-                    <label htmlFor="edit-complement">
-                      <MapPin size={16} />
-                      Complemento
-                    </label>
-                    <input
-                      type="text"
-                      id="edit-complement"
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <MapPin size={16} />
+                        <Text>Complemento</Text>
+                      </HStack>
+                    </FormLabel>
+                    <Input
                       placeholder="Apartamento, bloco, etc"
                       value={editFormData.complementoCasa || ""}
                       onChange={(e) => setEditFormData({ ...editFormData, complementoCasa: e.target.value })}
+                      size="md"
+                      h="40px"
                     />
-                  </div>
-                </div>
+                  </FormControl>
+                </Box>
 
-                <div className="atendente-form-section">
-                  <h3>
+                {/* Preferências e Detalhes */}
+                <Box>
+                  <HStack mb={4}>
                     <Tag size={20} />
-                    Preferências e Detalhes
-                  </h3>
-                  <div className="atendente-form-group">
-                    <label htmlFor="edit-referral">
-                      <User size={16} />
-                      Como Conheceu
-                    </label>
-                    <div className="atendente-select-wrapper">
-                      <select
-                        id="edit-referral"
-                        value={editFormData.comoConheceu || ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, comoConheceu: e.target.value })}
-                      >
-                        <option value="">Selecione uma opção</option>
-                        <option value="indicacao">Indicação</option>
-                        <option value="redes-sociais">Redes Sociais</option>
-                        <option value="google">Google</option>
-                        <option value="passagem">Passagem</option>
-                        <option value="outro">Outro</option>
-                      </select>
-                      <ChevronDown size={18} />
-                    </div>
-                  </div>
-                  <div className="atendente-form-group">
-                    <label>
-                      <Tag size={16} />
-                      Tags
-                    </label>
-                    <div className="atendente-tags-container">
-                      {editFormData.tags &&
-                        Array.isArray(editFormData.tags) &&
-                        editFormData.tags.map((tag: string, index: number) => (
-                          <span key={index} className="atendente-tag">
-                            {tag}
-                            <X
-                              size={12}
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                setEditFormData({
-                                  ...editFormData,
-                                  tags: editFormData.tags.filter((t: string) => t !== tag),
-                                })
-                              }}
-                            />
-                          </span>
-                        ))}
-                      <input
-                        type="text"
-                        placeholder="+ Nova Tag"
+                    <Heading size="sm">Preferências e Detalhes</Heading>
+                  </HStack>
+                  
+                  <FormControl>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <User size={16} />
+                        <Text>Como Conheceu</Text>
+                      </HStack>
+                    </FormLabel>
+                    <Select
+                      placeholder="Selecione uma opção"
+                      value={editFormData.comoConheceu || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, comoConheceu: e.target.value })}
+                      size="md"
+                      h="40px"
+                    >
+                      <option value="indicacao">Indicação</option>
+                      <option value="redes-sociais">Redes Sociais</option>
+                      <option value="google">Google</option>
+                      <option value="passagem">Passagem</option>
+                      <option value="outro">Outro</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <Tag size={16} />
+                        <Text>Tags</Text>
+                      </HStack>
+                    </FormLabel>
+                    <Box>
+                      <Wrap spacing={2} mb={3}>
+                        {editFormData.tags &&
+                          Array.isArray(editFormData.tags) &&
+                          editFormData.tags.map((tag: string, index: number) => (
+                            <WrapItem key={index}>
+                              <Badge
+                                colorScheme="blue"
+                                variant="solid"
+                                cursor="pointer"
+                                onClick={() => {
+                                  setEditFormData({
+                                    ...editFormData,
+                                    tags: editFormData.tags.filter((t: string) => t !== tag),
+                                  })
+                                }}
+                                _hover={{ opacity: 0.8 }}
+                              >
+                                {tag}
+                                <X size={12} style={{ marginLeft: '4px' }} />
+                              </Badge>
+                            </WrapItem>
+                          ))}
+                      </Wrap>
+                      <Input
+                        placeholder="+ Nova Tag (pressione Enter para adicionar)"
+                        size="md"
+                        h="40px"
                         onKeyPress={(e) => {
                           if (e.key === "Enter" && e.currentTarget.value.trim()) {
                             const newTag = e.currentTarget.value.trim()
@@ -1250,52 +1423,91 @@ export default function ClienteAtendente() {
                           }
                         }}
                       />
-                    </div>
-                  </div>
-                  <div className="atendente-form-group">
-                    <label htmlFor="edit-notes">
-                      <Edit size={16} />
-                      Anotações Importantes
-                    </label>
-                    <textarea
-                      id="edit-notes"
+                    </Box>
+                  </FormControl>
+
+                  <FormControl mt={4}>
+                    <FormLabel fontSize="sm" fontWeight="medium" mb={2} minH="20px">
+                      <HStack>
+                        <Edit size={16} />
+                        <Text>Anotações Importantes</Text>
+                      </HStack>
+                    </FormLabel>
+                    <Textarea
                       placeholder="Adicione informações importantes sobre o cliente, como alergias, preferências, etc."
                       rows={4}
                       value={editFormData.anotacoesImportantes || ""}
                       onChange={(e) => setEditFormData({ ...editFormData, anotacoesImportantes: e.target.value })}
-                    ></textarea>
-                  </div>
-                </div>
+                      size="md"
+                    />
+                  </FormControl>
+                </Box>
 
-                <div className="atendente-form-section">
-                  <h3>
+                {/* Detalhes do Cadastro */}
+                <Box>
+                  <HStack mb={4}>
                     <Clock size={20} />
-                    Detalhes do Cadastro
-                  </h3>
-                  <div className="atendente-info-display">
-                    <p>
-                      <strong>Cadastrado por:</strong> {editFormData.cadastradoPor || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Data de Cadastro:</strong> {formatDate(editFormData.dataCriacao) || "N/A"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    <Heading size="sm">Detalhes do Cadastro</Heading>
+                  </HStack>
+                  
+                  <Box 
+                    bg={useColorModeValue('gray.50', 'gray.700')} 
+                    p={4} 
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor={useColorModeValue('gray.200', 'gray.600')}
+                  >
+                    <VStack align="start" spacing={3}>
+                      <Box>
+                        <Text fontSize="sm" fontWeight="bold" mb={1}>Tipo de Cadastro:</Text>
+                        <HStack>
+                          <Badge 
+                            colorScheme={tipoCadastroInfo.tipo === 'agendamento_automatico' ? 'green' : 
+                                       tipoCadastroInfo.tipo === 'cadastro_manual' ? 'blue' : 'gray'}
+                            variant="solid"
+                          >
+                            {tipoCadastroInfo.nome || "Carregando..."}
+                          </Badge>
+                        </HStack>
+                        {tipoCadastroInfo.descricao && (
+                          <Text fontSize="xs" color={useColorModeValue('gray.600', 'gray.300')} mt={1}>
+                            {tipoCadastroInfo.descricao}
+                          </Text>
+                        )}
+                      </Box>
+                      
+                      <Box>
+                        <Text fontSize="sm" fontWeight="bold" mb={1}>Estabelecimento:</Text>
+                        <Text fontSize="sm">
+                          {estabelecimentoCliente || "Carregando..."}
+                        </Text>
+                      </Box>
+                      
+                      <Box>
+                        <Text fontSize="sm" fontWeight="bold" mb={1}>Data de Cadastro:</Text>
+                        <Text fontSize="sm">
+                          {formatDate(editFormData.dataCriacao) || "N/A"}
+                        </Text>
+                      </Box>
+                    </VStack>
+                  </Box>
+                </Box>
+              </VStack>
+            </ModalBody>
 
-              <div className="atendente-form-footer">
-                <button type="button" className="atendente-btn-secondary" onClick={() => setShowEditModal(false)}>
+            <ModalFooter>
+              <HStack spacing={3}>
+                <Button variant="ghost" onClick={() => setShowEditModal(false)}>
                   Cancelar
-                </button>
-                <button type="submit" className="atendente-btn-primary">
-                  <Check size={18} />
+                </Button>
+                <Button type="submit" colorScheme="blue" leftIcon={<Check size={18} />}>
                   Salvar Alterações
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+                </Button>
+              </HStack>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
+    </Box>
   )
 }

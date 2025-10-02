@@ -388,9 +388,9 @@ const VendasAtendente: React.FC = () => {
           <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => setShowFilters(!showFilters)} w={{ base: 'full', md: 'auto' }}>
             Filtros
           </Button>
-          <Button variant="outline" leftIcon={<Download size={18} />} w={{ base: 'full', md: 'auto' }}>
+          {/* <Button variant="outline" leftIcon={<Download size={18} />} w={{ base: 'full', md: 'auto' }}>
             Exportar
-          </Button>
+          </Button> */}
           <Button colorScheme="purple" leftIcon={<Plus size={18} />} onClick={handleOpenModal} w={{ base: 'full', md: 'auto' }}>
             Nova Venda
           </Button>
