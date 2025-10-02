@@ -9,7 +9,6 @@ import {
   Users,
   Calendar,
   User,
-  Gift,
   ChevronRight,
   LogOut,
   Menu as MenuIcon,
@@ -27,7 +26,6 @@ const DashboardAtendente: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [showPromotion, setShowPromotion] = useState(true)
   const [estabelecimento, setEstabelecimento] = useState<string>("")
   const [colaboradorNome, setColaboradorNome] = useState<string>("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)

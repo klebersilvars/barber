@@ -41,7 +41,6 @@ import {
   Plus,
   ShoppingCart,
   Filter,
-  Download,
   DollarSign,
   Package,
   User,
@@ -95,7 +94,6 @@ const VendasAtendente: React.FC = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteUid, setClienteUid] = useState("");
   const [clientesMap, setClientesMap] = useState<{ [key: string]: string }>({});
-  const [vendedoresMap, setVendedoresMap] = useState<{ [key: string]: string }>({});
 
   // Form states
   const [produto, setProduto] = useState("")
@@ -204,25 +202,6 @@ const VendasAtendente: React.FC = () => {
     });
   }, [sales]);
 
-  // Buscar nomes dos vendedores em tempo real
-  useEffect(() => {
-    const vendedorUids = Array.from(new Set(sales.map(sale => sale.vendedorUid).filter(Boolean)));
-    if (vendedorUids.length === 0) {
-      setVendedoresMap({});
-      return;
-    }
-    // Buscar todos os vendedores de uma vez
-    const colaboradoresRef = collection(firestore, 'colaboradores');
-    getDocs(colaboradoresRef).then(snapshot => {
-      const map: { [key: string]: string } = {};
-      snapshot.docs.forEach(doc => {
-        if (vendedorUids.includes(doc.id)) {
-          map[doc.id] = doc.data().nome;
-        }
-      });
-      setVendedoresMap(map);
-    });
-  }, [sales]);
 
   const filteredSales = sales.filter((sale) => {
     const clienteNome = sale.clienteUid ? clientesMap[sale.clienteUid] || '' : '';
