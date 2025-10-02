@@ -547,8 +547,9 @@ export default function ClienteAtendente() {
 
       {/* Client List */}
       {Array.isArray(filteredClients) && filteredClients.length > 0 && (
-        <VStack spacing={4} align="stretch">
-          {filteredClients.map((client) => (
+        <Box maxH="70vh" overflowY="auto" pr={2} sx={{ WebkitOverflowScrolling: 'touch' }}>
+          <VStack spacing={4} align="stretch">
+            {filteredClients.map((client) => (
             <Box key={client.id} bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" p={6} boxShadow="sm">
               <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={4}>
                 <Box flex={1}>
@@ -654,7 +655,8 @@ export default function ClienteAtendente() {
               </Flex>
             </Box>
           ))}
-        </VStack>
+          </VStack>
+        </Box>
       )}
 
       {/* Add Client Modal */}

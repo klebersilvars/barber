@@ -53,10 +53,13 @@ import {
   Eye,
   CreditCard,
   Clock,
+  Download
 } from "lucide-react"
 import { firestore } from '../../firebase/firebase';
 import { collection, addDoc, getDocs, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useParams } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 interface Sale {
   id: string
@@ -304,6 +307,74 @@ const VendasAtendente: React.FC = () => {
     setShowEditModal(true);
   };
 
+  // Função para exportar vendas para Excel
+  const handleExportToExcel = () => {
+    try {
+      // Preparar dados para exportação
+      const exportData = filteredSales.map((sale, index) => {
+        const clienteNome = sale.clienteUid ? clientesMap[sale.clienteUid] || 'Cliente não encontrado' : sale.cliente;
+        const dataVenda = sale.dataVenda instanceof Date 
+          ? sale.dataVenda.toLocaleDateString('pt-BR') 
+          : new Date(sale.dataVenda).toLocaleDateString('pt-BR');
+        
+        return {
+          'Nº': index + 1,
+          'Produto': sale.produto,
+          'Categoria': sale.categoria,
+          'Quantidade': sale.quantidade,
+          'Preço Unitário': `R$ ${sale.precoUnitario.toFixed(2).replace('.', ',')}`,
+          'Preço Total': `R$ ${sale.precoTotal.toFixed(2).replace('.', ',')}`,
+          'Cliente': clienteNome,
+          'Vendedor': sale.vendedor,
+          'Data da Venda': dataVenda,
+          'Forma de Pagamento': sale.formaPagamento,
+          'Status': sale.status === 'concluida' ? 'Concluída' : 
+                   sale.status === 'pendente' ? 'Pendente' : 
+                   sale.status === 'cancelada' ? 'Cancelada' : sale.status,
+          'Observações': sale.observacoes || '-'
+        };
+      });
+
+      // Criar workbook e worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      
+      // Configurar largura das colunas
+      const colWidths = [
+        { wch: 5 },   // Nº
+        { wch: 25 },  // Produto
+        { wch: 15 },  // Categoria
+        { wch: 10 },  // Quantidade
+        { wch: 15 },  // Preço Unitário
+        { wch: 15 },  // Preço Total
+        { wch: 20 },  // Cliente
+        { wch: 20 },  // Vendedor
+        { wch: 12 },  // Data da Venda
+        { wch: 15 },  // Forma de Pagamento
+        { wch: 12 },  // Status
+        { wch: 30 }   // Observações
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Relatório de Vendas');
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Nome do arquivo com data atual
+      const fileName = `relatorio_vendas_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Download do arquivo
+      saveAs(data, fileName);
+      
+      alert('Relatório exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar relatório:', error);
+      alert('Erro ao exportar relatório. Tente novamente.');
+    }
+  };
+
   const handleUpdateSale = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSale) return;
@@ -367,9 +438,9 @@ const VendasAtendente: React.FC = () => {
           <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => setShowFilters(!showFilters)} w={{ base: 'full', md: 'auto' }}>
             Filtros
           </Button>
-          {/* <Button variant="outline" leftIcon={<Download size={18} />} w={{ base: 'full', md: 'auto' }}>
+          <Button variant="outline" leftIcon={<Download size={18} />} onClick={handleExportToExcel} w={{ base: 'full', md: 'auto' }}>
             Exportar
-          </Button> */}
+          </Button>
           <Button colorScheme="purple" leftIcon={<Plus size={18} />} onClick={handleOpenModal} w={{ base: 'full', md: 'auto' }}>
             Nova Venda
           </Button>
