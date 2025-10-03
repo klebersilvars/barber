@@ -1420,11 +1420,11 @@ export default function Colaboradores() {
                             bg={index % 2 === 0 ? "white" : "gray.50"}
                             _hover={{ bg: "blue.50", transform: "translateY(-1px)", boxShadow: "sm" }}
                             transition="all 0.2s ease-in-out"
-                            height={{ base: "64px", md: "72px" }}
+                            height={{ base: "80px", md: "88px" }}
                             borderBottom="1px"
                             borderColor="gray.100"
                           >
-                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                            <Td py={{ base: 4, md: 6 }} px={{ base: 3, md: 4 }}>
                               <HStack spacing={3} align="center">
                                 <Avatar
                                   size={{ base: "sm", md: "md" }}
@@ -1463,7 +1463,7 @@ export default function Colaboradores() {
                                 </VStack>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                            <Td py={{ base: 4, md: 6 }} px={{ base: 3, md: 4 }}>
                               <HStack spacing={2} w="full" align="center">
                                 <Icon as={Mail} size={14} color="gray.400" flexShrink={0} />
                                 <Text 
@@ -1478,7 +1478,7 @@ export default function Colaboradores() {
                                 </Text>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                            <Td py={{ base: 4, md: 6 }} px={{ base: 3, md: 4 }}>
                               <HStack spacing={1} wrap="wrap" maxW="150px">
                                 {colaborador.cargos?.map((cargo, idx) => (
                                   <Badge 
@@ -1498,7 +1498,7 @@ export default function Colaboradores() {
                                 ))}
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                            <Td py={{ base: 4, md: 6 }} px={{ base: 3, md: 4 }}>
                               <HStack spacing={2} w="full" align="center">
                                 <Icon as={Phone} size={14} color="gray.400" flexShrink={0} />
                                 <Text 
@@ -1513,7 +1513,7 @@ export default function Colaboradores() {
                                 </Text>
                               </HStack>
                             </Td>
-                            <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
+                            <Td py={{ base: 4, md: 6 }} px={{ base: 3, md: 4 }}>
                               <Badge 
                                 colorScheme={colaborador.status === "active" ? "green" : "gray"} 
                                 variant="solid"
@@ -1625,7 +1625,7 @@ export default function Colaboradores() {
                 <VStack spacing={10}>
             {filteredCollaborators.map((colaborador) => (
                     <Card key={colaborador.id} bg={cardBg} shadow="lg" w="full" _hover={{ shadow: "xl" }}>
-                      <CardBody p={{ base: 8, md: 10 }}>
+                      <CardBody p={{ base: 10, md: 12 }}>
                         <Flex justify="space-between" align="start" mb={4}>
                           <HStack spacing={4} flex={1} minW={0}>
                             <Avatar

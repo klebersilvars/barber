@@ -21,11 +21,14 @@ import {
   MapPin,
   Clock,
   Edit,
+  Download,
 } from "lucide-react"
 import { firestore } from "../../../firebase/firebase"
 import { collection, addDoc, onSnapshot, query, where, doc, getDoc } from "firebase/firestore"
 import { deleteDoc, updateDoc } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import {
   Box,
   Flex,
@@ -336,6 +339,93 @@ export default function Cliente() {
     }
   }
 
+  // Função para exportar clientes para Excel
+  const handleExportToExcel = () => {
+    try {
+      // Preparar dados para exportação
+      const exportData = filteredClients.map((client, index) => {
+        const dataCriacao = formatDate(client.dataCriacao);
+        const dataNascimento = client.dataNascimento ? 
+          new Date(client.dataNascimento).toLocaleDateString('pt-BR') : 'Não informado';
+        
+        return {
+          'Nº': index + 1,
+          'Nome': client.nome || '',
+          'Sobrenome': client.sobrenome || '',
+          'Nome Completo': `${client.nome || ''} ${client.sobrenome || ''}`.trim(),
+          'CPF': client.cpf || 'Não informado',
+          'Data de Nascimento': dataNascimento,
+          'Telefone': client.telefone || 'Não informado',
+          'WhatsApp': client.whatsapp || 'Não informado',
+          'E-mail': client.email || 'Não informado',
+          'Instagram': client.instagram || 'Não informado',
+          'CEP': client.cep || 'Não informado',
+          'Cidade': client.cidade || 'Não informado',
+          'Rua': client.rua || 'Não informado',
+          'Número': client.numeroCasa || 'Não informado',
+          'Complemento': client.complementoCasa || 'Não informado',
+          'Endereço Completo': `${client.rua || ''}, ${client.numeroCasa || ''}${client.complementoCasa ? ` - ${client.complementoCasa}` : ''}, ${client.cidade || ''}`.replace(/Não informado/g, '').replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '') || 'Não informado',
+          'Como Conheceu': client.comoConheceu || 'Não informado',
+          'Agendamento Online': client.agendamentoOnline ? 'Habilitado' : 'Desabilitado',
+          'Tags': client.tags && client.tags.length > 0 ? client.tags.join(', ') : 'Nenhuma',
+          'Anotações': client.anotacoesImportantes || 'Nenhuma',
+          'Data de Cadastro': dataCriacao,
+          'Estabelecimento': client.estabelecimento || 'Não informado',
+          'Status': client.status === 'active' ? 'Ativo' : client.status === 'inactive' ? 'Inativo' : 'Não definido'
+        };
+      });
+
+      // Criar workbook e worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      
+      // Configurar largura das colunas
+      const colWidths = [
+        { wch: 5 },   // Nº
+        { wch: 20 },  // Nome
+        { wch: 20 },  // Sobrenome
+        { wch: 30 },  // Nome Completo
+        { wch: 15 },  // CPF
+        { wch: 15 },  // Data de Nascimento
+        { wch: 15 },  // Telefone
+        { wch: 15 },  // WhatsApp
+        { wch: 25 },  // E-mail
+        { wch: 20 },  // Instagram
+        { wch: 12 },  // CEP
+        { wch: 20 },  // Cidade
+        { wch: 25 },  // Rua
+        { wch: 8 },   // Número
+        { wch: 20 },  // Complemento
+        { wch: 40 },  // Endereço Completo
+        { wch: 15 },  // Como Conheceu
+        { wch: 18 },  // Agendamento Online
+        { wch: 20 },  // Tags
+        { wch: 30 },  // Anotações
+        { wch: 15 },  // Data de Cadastro
+        { wch: 20 },  // Estabelecimento
+        { wch: 10 }   // Status
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Relatório de Clientes');
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Nome do arquivo com data atual
+      const fileName = `relatorio_clientes_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Download do arquivo
+      saveAs(data, fileName);
+      
+      alert('Relatório de clientes exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar relatório:', error);
+      alert('Erro ao exportar relatório. Tente novamente.');
+    }
+  };
+
   
 
   // UseEffect para preencher o formulário de edição quando um cliente é selecionado
@@ -413,6 +503,9 @@ export default function Cliente() {
           <HStack spacing={2} flexWrap="wrap" w="100%" justify={{ base: 'stretch', md: 'flex-end' }}>
             <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" leftIcon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
             Filtros
+            </Button>
+            <Button size="sm" w={{ base: '100%', sm: 'auto' }} variant="outline" leftIcon={<Download size={16} />} onClick={handleExportToExcel}>
+            Exportar
             </Button>
             <Button size="sm" w={{ base: '100%', sm: 'auto' }} colorScheme="purple" leftIcon={<UserPlus size={16} />} onClick={handleOpenModal}>Cadastrar Cliente</Button>
           </HStack>
