@@ -540,6 +540,13 @@ export default function DashboardUser() {
   const allowedPathsGratisExpirado = [
     `/dashboard/${uid}/plano`
   ];
+  const allowedPathsBronze = [
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/configuracoes`,
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}`
+  ];
   const allowedPathsIndividual = [
     `/dashboard/${uid}/servicos`,
     `/dashboard/${uid}/agenda`,
@@ -560,7 +567,7 @@ export default function DashboardUser() {
     }
     
     // Para planos pagos, usar dias_plano_pago_restante
-    if (tipo === 'individual' || tipo === 'empresa') {
+    if (tipo === 'bronze' || tipo === 'individual' || tipo === 'empresa') {
       return diasPlanoPagoRestante !== null && diasPlanoPagoRestante <= 0;
     }
     
@@ -589,6 +596,20 @@ export default function DashboardUser() {
       ...item,
       disabled: false
     }));
+  } else if (tipoPlano === 'bronze') {
+    if (isPlanoExpirado('bronze', dataInicioTesteGratis)) {
+      // Bronze expirado: bloqueia tudo EXCETO plano e configurações
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !alwaysAllowedPaths.includes(item.path)
+      }));
+    } else {
+      // Bronze ativo: Serviços, Agenda Online, Configurações, Plano e Pagamento, Dashboard (SEM Clientes)
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsBronze.includes(item.path)
+      }));
+    }
   } else if ((tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
     // Teste grátis ativo: libera as rotas do allowedPathsGratis
     filteredMenuItems = menuItems.map(item => ({
@@ -691,6 +712,16 @@ export default function DashboardUser() {
       // Para plano vitalício, permitir tudo
       allowedPaths = [
         ...menuItems.map(item => item.path)
+      ];
+    } else if (tipoPlano === 'bronze') {
+      // Para plano bronze, permitir serviços, agenda e configurações (SEM clientes)
+      allowedPaths = [
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}`,
+        `#logout`
       ];
     } else if (tipoPlano === 'gratis' || tipoPlano === '') {
       // Para plano grátis, sempre permitir cliente, serviços, agenda e configurações

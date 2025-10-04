@@ -93,10 +93,10 @@ export default function Plano() {
 
   const plans = [
     {
-      id: "individual",
-      name: "Básico",
+      id: "bronze",
+      name: "Bronze",
       description: "Para profissionais autônomos ou pequenos negócios",
-      monthlyPrice: 28.90,
+      monthlyPrice: 59.90,  
       quarterlyPrice: 79.90,
       yearlyPrice: 299.00,
       popular: false,
@@ -110,17 +110,65 @@ export default function Plano() {
         "Sem relatórios avançados",
         "Sem colaboradores adicionais",
         'Sem gestão financeira',
-        'Sem controle de clientes'
-        
+        'Sem controle de clientes',
+        'Whatsapp integrado',
+        'Sem personalização da página de agendamento' 
       ],
       color: "purple",
       icon: Star,
     },
     {
-      id: "empresa",
-      name: "Empresa",
+      id: "prata",
+      name: "Prata",
       description: "Para estabelecimentos em crescimento",
-      monthlyPrice: 58.00,
+      monthlyPrice: 89.90,
+      quarterlyPrice: 164.90,
+      yearlyPrice: 599.00,
+      popular: false,
+      features: [
+        "2 colaboradores",
+        "Relatórios avançados",
+        "Relatórios personalizados",
+        "Suporte prioritário 24/7",
+        "Treinamento incluído",
+        "Gestão financeira completa",
+      ],
+      limitations: [
+        'Whatsapp integrado',
+        'Sem personalização da página de agendamento'
+      ],
+      color: "blue",
+      icon: Crown,
+    },
+    {
+      id: "ouro",
+      name: "Ouro",
+      description: 'Perfeito para empresas em plena expansão.',
+      monthlyPrice: 139.90,
+      quarterlyPrice: 164.90,
+      yearlyPrice: 599.00,
+      popular: false,
+      features: [
+        "3 colaboradores",
+        "Relatórios avançados",
+        "Relatórios personalizados",
+        "Suporte prioritário 24/7",
+        "Treinamento incluído",
+        "Gestão financeira completa",
+        'Whatsapp integrado para o atendente.',
+        'Personalização da página de agendamento'
+      ],
+      limitations: [
+        'Sem colaboradores ilimitados'
+      ],
+      color: "blue",
+      icon: Crown,
+    },
+    {
+      id: "diamante",
+      name: "Diamante",
+      description: 'Feito para líderes que buscam o máximo em desempenho e exclusividade.',
+      monthlyPrice: 189.90,
       quarterlyPrice: 164.90,
       yearlyPrice: 599.00,
       popular: true,
@@ -131,8 +179,11 @@ export default function Plano() {
         "Suporte prioritário 24/7",
         "Treinamento incluído",
         "Gestão financeira completa",
+        'Whatsapp integrado para o atendente.',
+        'Personalização da página de agendamento'
       ],
-      limitations: [],
+      limitations: [
+      ],
       color: "blue",
       icon: Crown,
     },
@@ -327,20 +378,18 @@ export default function Plano() {
                 </Box>
               )
             )}
-            {/* Ordem dos cards: Free (se existir), Básico (meio), Empresa (direita) */}
-            {['individual','empresa'].map((planId) => {
-              const plan = plans.find(p => p.id === planId)
-              if (!plan) return null
+            {/* Mostrar todos os planos: Bronze, Prata, Ouro, Diamante */}
+            {plans.map((plan) => {
               return (
               <Box
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
                 borderStyle={selectedPlan === plan.id ? "solid" : "dashed"}
                 borderWidth={selectedPlan === plan.id ? 3 : 2}
-                borderColor={selectedPlan === plan.id ? (plan.id === "individual" ? "purple.500" : "blue.500") : plan.popular ? "blue.400" : "gray.200"}
+                borderColor={selectedPlan === plan.id ? (plan.id === "bronze" ? "purple.500" : "blue.500") : plan.popular ? "blue.400" : "gray.200"}
                 borderRadius="xl"
                 boxShadow={plan.popular ? "0 0 0 3px #2563eb33" : "sm"}
-                bg={plan.id === "individual" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
+                bg={plan.id === "bronze" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
                 p={6}
                 w="100%"
                 h="100%"
@@ -354,21 +403,21 @@ export default function Plano() {
                     <Icon as={Star} mr={1} /> Mais Popular
                   </Badge>
                 )}
-                {plan.id === "individual" && (
+                {plan.id === "bronze" && (
                   <Badge colorScheme="purple" position="absolute" top={4} right={4} px={3} py={1} borderRadius="md" fontWeight={700} fontSize="sm">
                     Básico
                   </Badge>
                 )}
                 <VStack spacing={3} align="start">
                   <HStack spacing={2} align="center">
-                    <Box bg={plan.id === "individual" ? "purple.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
+                    <Box bg={plan.id === "bronze" ? "purple.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
                       <Icon as={plan.icon} color="white" boxSize={6} />
                     </Box>
-                    <Text fontWeight={700} fontSize="2xl" color={plan.id === "individual" ? "purple.700" : "blue.700"}>{plan.name}</Text>
+                    <Text fontWeight={700} fontSize="2xl" color={plan.id === "bronze" ? "purple.700" : "blue.700"}>{plan.name}</Text>
                   </HStack>
                   <Text color="gray.600" fontSize="md">{plan.description}</Text>
                   <Box mt={2} mb={2}>
-                    <Text fontSize="3xl" fontWeight={800} color={plan.id === "individual" ? "purple.700" : "blue.700"}>
+                    <Text fontSize="3xl" fontWeight={800} color={plan.id === "bronze" ? "purple.700" : "blue.700"}>
                       R$ {getTotalPriceByPeriod(plan, billingPeriod).toFixed(2).replace(".", ",")}
                       <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>{getCycleLabel(billingPeriod)}</Text>
                     </Text>
@@ -384,7 +433,7 @@ export default function Plano() {
                   <VStack align="start" spacing={1} mt={2} mb={2}>
                     {plan.features.map((feature, index) => (
                       <HStack key={index} spacing={2}>
-                        <Icon as={Check} color={plan.id === "individual" ? "purple.500" : "blue.500"} boxSize={4} />
+                        <Icon as={Check} color={plan.id === "bronze" ? "purple.500" : "blue.500"} boxSize={4} />
                         <Text fontSize="sm">{feature}</Text>
                       </HStack>
                     ))}
@@ -396,7 +445,7 @@ export default function Plano() {
                     ))}
                   </VStack>
                   <Button
-                    colorScheme={plan.id === "individual" ? "purple" : "blue"}
+                    colorScheme={plan.id === "bronze" ? "purple" : "blue"}
                     rightIcon={<ChevronRight size={16} />}
                     onClick={e => {
                       e.stopPropagation();

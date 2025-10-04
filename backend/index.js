@@ -144,58 +144,114 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
         if (!snapshot.empty) {
           const docRef = snapshot.docs[0].ref;
           const contaData = snapshot.docs[0].data();
-          // Verificar tipo de plano pelo valor ou pelo metadata
-          let tipoPlano = 'empresa';
+          // Verificar tipo de plano pelo metadata ou pelo valor
+          let tipoPlano = 'bronze'; // padrão
           let plano = '';
           let price = 0;
+          
           if (payment.additional_info && payment.additional_info.items && payment.additional_info.items[0]) {
             plano = payment.additional_info.items[0].title?.toLowerCase() || '';
             price = payment.additional_info.items[0].unit_price || 0;
           } else if (payment.description) {
             plano = payment.description.toLowerCase();
           }
-          // Tenta pegar do metadata
+          
+          // Priorizar metadata do tipoPlano (enviado do frontend)
           if (payment.metadata && payment.metadata.tipoPlano) {
             tipoPlano = payment.metadata.tipoPlano;
-          } else if (price === 10) {
-            tipoPlano = 'individual';
-          } else if (price === 20) {
-            tipoPlano = 'empresa';
+            console.log('Tipo de plano definido pelo metadata:', tipoPlano);
+          } else {
+            // Fallback: tentar identificar pelo preço (valores dos novos planos)
+            if (price === 59.90) {
+              tipoPlano = 'bronze';
+            } else if (price === 89.90) {
+              tipoPlano = 'prata';
+            } else if (price === 139.90) {
+              tipoPlano = 'ouro';
+            } else if (price === 189.90) {
+              tipoPlano = 'diamante';
+            } else {
+              // Valores trimestrais ou anuais - usar metadata para identificar o plano correto
+              // pois alguns valores são iguais entre planos diferentes
+              console.log('Preço não identificado automaticamente, usando metadata ou padrão bronze');
+              // Se não conseguir identificar pelo preço, manter bronze como padrão
+              // O importante é que o metadata seja enviado corretamente do frontend
+            }
+            console.log('Tipo de plano identificado pelo preço:', tipoPlano, 'Preço:', price);
           }
           
-          // Pegar data de término do metadata se disponível
+          // Pegar período de cobrança do metadata
+          const billingPeriod = payment.metadata?.billingPeriod || 'monthly';
+          
+          // Calcular data de término e dias premium baseado no período
+          const hoje = new Date();
           let dataTermino = null;
+          let diasPremium = 30; // padrão
+          
+          if (billingPeriod === 'monthly') {
+            // Mensal: 1 mês exato
+            const dataTerminoCalc = new Date(hoje);
+            dataTerminoCalc.setMonth(hoje.getMonth() + 1);
+            dataTermino = dataTerminoCalc.toISOString();
+            diasPremium = 30;
+            console.log('Período mensal: 30 dias de premium');
+          } else if (billingPeriod === 'quarterly') {
+            // Trimestral: 3 meses exatos
+            const dataTerminoCalc = new Date(hoje);
+            dataTerminoCalc.setMonth(hoje.getMonth() + 3);
+            dataTermino = dataTerminoCalc.toISOString();
+            diasPremium = 90; // 3 meses = 90 dias
+            console.log('Período trimestral: 90 dias de premium');
+          } else if (billingPeriod === 'yearly') {
+            // Anual: 1 ano exato
+            const dataTerminoCalc = new Date(hoje);
+            dataTerminoCalc.setFullYear(hoje.getFullYear() + 1);
+            dataTermino = dataTerminoCalc.toISOString();
+            diasPremium = 365; // 1 ano = 365 dias
+            console.log('Período anual: 365 dias de premium');
+          } else {
+            // Fallback para mensal se não especificado
+            const dataTerminoCalc = new Date(hoje);
+            dataTerminoCalc.setMonth(hoje.getMonth() + 1);
+            dataTermino = dataTerminoCalc.toISOString();
+            diasPremium = 30;
+            console.log('Período não especificado, usando mensal: 30 dias de premium');
+          }
+          
+          // Usar data de término do metadata se disponível (prioridade)
           if (payment.metadata && payment.metadata.dataTermino) {
             dataTermino = payment.metadata.dataTermino;
             console.log('Data de término recebida do metadata:', dataTermino);
-          } else {
-            // Calcular data de término padrão (30 dias)
-            const hoje = new Date();
-            const dataTerminoCalc = new Date(hoje);
-            dataTerminoCalc.setDate(hoje.getDate() + 30);
-            dataTermino = dataTerminoCalc.toISOString();
-            console.log('Data de término calculada:', dataTermino);
           }
           
-          // Sempre 30 dias premium para ambos
-          const hoje = new Date();
-          const dataTerminoFinal = new Date(hoje);
-          dataTerminoFinal.setDate(hoje.getDate() + 30); // 30 dias de premium
+          console.log('=== DADOS DO PAGAMENTO ===');
+          console.log('Email do pagador:', email);
+          console.log('Tipo de plano identificado:', tipoPlano);
+          console.log('Preço pago:', price);
+          console.log('Período de cobrança:', billingPeriod);
+          console.log('Dias premium:', diasPremium);
+          console.log('Data de término:', dataTermino);
+          console.log('Metadata recebido:', payment.metadata);
           
-          console.log('Salvando data de término no Firestore:', dataTermino || dataTerminoFinal.toISOString());
+          // Calcular data de expiração para o Firestore (em milissegundos)
+          const dataExpiracao = new Date(dataTermino);
+          const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
           
           await docRef.update({
             premium: true,
-            premiumExpiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
-            premiumDaysLeft: 30,
+            premiumExpiresAt: premiumExpiresAt,
+            premiumDaysLeft: diasPremium,
             tipoPlano: tipoPlano,
-            dias_plano_pago: 30,
-            dias_plano_pago_restante: 30,
-            data_termino_plano_premium: dataTermino || dataTerminoFinal.toISOString(),
-            status_pagamento: 'pago'
+            dias_plano_pago: diasPremium,
+            dias_plano_pago_restante: diasPremium,
+            data_termino_plano_premium: dataTermino,
+            status_pagamento: 'pago',
+            billing_period: billingPeriod // Salvar o período de cobrança
           });
-          // Se for empresa, ativa colaboradores
-          if (tipoPlano === 'empresa' && contaData.nomeEstabelecimento) {
+          
+          console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email}`);
+          // Ativar colaboradores para planos que permitem (Prata, Ouro, Diamante)
+          if ((tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
             const colaboradoresRef = db.collection('colaboradores');
             const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
             const batchColab = db.batch();
@@ -203,6 +259,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               batchColab.update(colabDoc.ref, { ativo: true });
             });
             await batchColab.commit();
+            console.log(`Colaboradores ativados para plano ${tipoPlano}`);
           }
         }
       }
@@ -227,8 +284,8 @@ app.post('/api/decrement-premium-days', async (req, res) => {
     snapshot.forEach((doc) => {
       const data = doc.data();
       
-      // Para planos pagos (individual ou empresa)
-      if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+      // Para planos pagos (bronze, prata, ouro, diamante)
+      if ((data.tipoPlano === 'bronze' || data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.dias_plano_pago_restante > 0) {
         if (data.dias_plano_pago_restante > 1) {
           batch.update(doc.ref, { dias_plano_pago_restante: data.dias_plano_pago_restante - 1 });
         } else if (data.dias_plano_pago_restante === 1) {
@@ -240,8 +297,8 @@ app.post('/api/decrement-premium-days', async (req, res) => {
             dias_plano_pago: 0 
           });
           
-          // Se for plano empresa, desativa colaboradores
-          if (data.tipoPlano === 'empresa' && data.nomeEstabelecimento) {
+          // Se for plano que permite colaboradores, desativa colaboradores
+          if ((data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.nomeEstabelecimento) {
             const colaboradoresRef = db.collection('colaboradores');
             const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
               const batchColab = db.batch();
@@ -347,26 +404,24 @@ app.get('/api/cron/decrementar-dias', async (req, res) => {
               needsUpdate = true;
               decrementedCount++;
             }
-            // Verificar planos pagos (individual ou empresa)
-            else if ((data.tipoPlano === 'individual' || data.tipoPlano === 'empresa') && data.dias_plano_pago_restante > 0) {
+            // Verificar planos pagos (bronze, prata, ouro, diamante)
+            else if ((data.tipoPlano === 'bronze' || data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.dias_plano_pago_restante > 0) {
               const novosDias = data.dias_plano_pago_restante - 1;
               
               if (novosDias <= 0) {
-                // Plano expirou
-                batch.update(doc.ref, {
-                  premium: false,
-                  dias_plano_pago_restante: 0,
-                  tipoPlano: 'nenhum',
-                  data_termino_plano_premium: null
-                });
+                // Plano expirou - desativar premium
+                updates.premium = false;
+                updates.dias_plano_pago_restante = 0;
+                updates.tipoPlano = 'nenhum';
+                updates.data_termino_plano_premium = null;
+                updates.status_pagamento = 'expirado';
                 console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
               } else {
                 // Decrementar dias
-                batch.update(doc.ref, {
-                  dias_plano_pago_restante: novosDias
-                });
+                updates.dias_plano_pago_restante = novosDias;
                 console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
               }
+              needsUpdate = true;
               decrementedCount++;
             }
             

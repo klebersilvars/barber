@@ -652,7 +652,11 @@ const ConfiguracoesAdmin = () => {
           <HStack spacing={0} overflowX="auto" py={4}>
             {tabs.map((tab) => {
               const hasAnyPlan = isPremium || (tipoPlano && tipoPlano !== '');
-              const isDisabled = tab.premiumRequired && !hasAnyPlan;
+              // Para plano Bronze, permitir apenas informações do salão e horários/políticas
+              const isBronzeRestricted = tipoPlano === 'bronze' && tab.id === 'appearance';
+              // Para plano Prata, permitir acesso à aba de aparência mas com restrições internas
+              const isPrataRestricted = tipoPlano === 'prata' && tab.id === 'appearance';
+              const isDisabled = (tab.premiumRequired && !hasAnyPlan) || isBronzeRestricted;
               return (
                 <Button
                   key={tab.id}
@@ -675,7 +679,9 @@ const ConfiguracoesAdmin = () => {
                   <HStack spacing={2}>
                     <Text>{tab.label}</Text>
                     {isDisabled && (
-                      <Badge colorScheme="purple" size="sm">PREMIUM</Badge>
+                      <Badge colorScheme="purple" size="sm">
+                        {isBronzeRestricted ? "OURO+" : "PREMIUM"}
+                      </Badge>
                     )}
                   </HStack>
                 </Button>
@@ -1167,7 +1173,30 @@ const ConfiguracoesAdmin = () => {
                       {/* Cor Principal */}
                       <Card>
                         <CardHeader>
-                          <Heading size="sm">Cor Principal</Heading>
+                          <HStack spacing={2}>
+                            <Heading size="sm">Cor Principal</Heading>
+                            {(tipoPlano === 'bronze' || tipoPlano === 'prata') && (
+                              <Box position="relative" display="inline-block">
+                                <Box
+                                  as="span"
+                                  bg="gray.100"
+                                  color="gray.600"
+                                  borderRadius="full"
+                                  w="20px"
+                                  h="20px"
+                                  display="flex"
+                                  alignItems="center"
+                                  justifyContent="center"
+                                  fontSize="xs"
+                                  fontWeight="bold"
+                                  cursor="help"
+                                  title="Somente para planos ouro pra cima"
+                                >
+                                  ?
+                                </Box>
+                              </Box>
+                            )}
+                          </HStack>
                         </CardHeader>
                         <CardBody>
                           <VStack spacing={4}>
@@ -1179,10 +1208,11 @@ const ConfiguracoesAdmin = () => {
                                 bg={primaryColor}
                                 border="2px"
                                 borderColor={borderColor}
-                                cursor="pointer"
-                                onClick={() => setShowColorPicker(!showColorPicker)}
+                                cursor={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "not-allowed" : "pointer"}
+                                onClick={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? undefined : () => setShowColorPicker(!showColorPicker)}
+                                opacity={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? 0.5 : 1}
                               />
-                              <Text>{primaryColor}</Text>
+                              <Text color={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.400" : "inherit"}>{primaryColor}</Text>
                             </HStack>
 
                             <HStack spacing={2} flexWrap="wrap">
@@ -1195,10 +1225,11 @@ const ConfiguracoesAdmin = () => {
                                   bg={color}
                                   border="2px"
                                   borderColor={primaryColor === color ? "gray.800" : "transparent"}
-                                  cursor="pointer"
-                                  onClick={() => setPrimaryColor(color)}
-                                  _hover={{ transform: "scale(1.1)" }}
+                                  cursor={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "not-allowed" : "pointer"}
+                                  onClick={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? undefined : () => setPrimaryColor(color)}
+                                  _hover={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? {} : { transform: "scale(1.1)" }}
                                   transition="all 0.2s"
+                                  opacity={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? 0.5 : 1}
                                 />
                               ))}
                             </HStack>
@@ -1207,15 +1238,19 @@ const ConfiguracoesAdmin = () => {
                               <Input
                                 type="color"
                                 value={primaryColor}
-                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                onChange={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? undefined : (e) => setPrimaryColor(e.target.value)}
                                 w="40px"
                                 h="40px"
                                 p={0}
                                 border="none"
                                 borderRadius="md"
-                                cursor="pointer"
+                                cursor={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "not-allowed" : "pointer"}
+                                disabled={tipoPlano === 'bronze' || tipoPlano === 'prata'}
+                                opacity={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? 0.5 : 1}
                               />
-                              <Text fontSize="sm" color="gray.600">Cor personalizada</Text>
+                              <Text fontSize="sm" color={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.400" : "gray.600"}>
+                                {(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "Somente para planos ouro pra cima" : "Cor personalizada"}
+                              </Text>
                             </HStack>
                           </VStack>
                         </CardBody>
@@ -1282,16 +1317,43 @@ const ConfiguracoesAdmin = () => {
                       {/* Mensagens Personalizadas */}
                       <Card>
                         <CardHeader>
-                          <Heading size="sm">Mensagem de Boas-vindas</Heading>
+                          <HStack spacing={2}>
+                            <Heading size="sm">Mensagem de Boas-vindas</Heading>
+                            {(tipoPlano === 'bronze' || tipoPlano === 'prata') && (
+                              <Box position="relative" display="inline-block">
+                                <Box
+                                  as="span"
+                                  bg="gray.100"
+                                  color="gray.600"
+                                  borderRadius="full"
+                                  w="20px"
+                                  h="20px"
+                                  display="flex"
+                                  alignItems="center"
+                                  justifyContent="center"
+                                  fontSize="xs"
+                                  fontWeight="bold"
+                                  cursor="help"
+                                  title="Somente para planos ouro pra cima"
+                                >
+                                  ?
+                                </Box>
+                              </Box>
+                            )}
+                          </HStack>
                         </CardHeader>
                         <CardBody>
                           <FormControl>
                             <FormLabel>Texto de Boas-vindas</FormLabel>
                             <Textarea
                               value={appearance.welcomeMessage}
-                              onChange={(e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
-                              placeholder="Bem-vindo ao nosso salão! Escolha o melhor horário para você."
+                              onChange={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? undefined : (e) => setAppearance((prev) => ({ ...prev, welcomeMessage: e.target.value }))}
+                              placeholder={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "Somente para planos ouro pra cima" : "Bem-vindo ao nosso salão! Escolha o melhor horário para você."}
                               rows={3}
+                              disabled={tipoPlano === 'bronze' || tipoPlano === 'prata'}
+                              bg={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.100" : "white"}
+                              color={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.400" : "inherit"}
+                              cursor={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "not-allowed" : "text"}
                             />
                           </FormControl>
                         </CardBody>
@@ -1299,16 +1361,43 @@ const ConfiguracoesAdmin = () => {
 
                       <Card>
                         <CardHeader>
-                          <Heading size="sm">Mensagem de Agradecimento</Heading>
+                          <HStack spacing={2}>
+                            <Heading size="sm">Mensagem de Agradecimento</Heading>
+                            {(tipoPlano === 'bronze' || tipoPlano === 'prata') && (
+                              <Box position="relative" display="inline-block">
+                                <Box
+                                  as="span"
+                                  bg="gray.100"
+                                  color="gray.600"
+                                  borderRadius="full"
+                                  w="20px"
+                                  h="20px"
+                                  display="flex"
+                                  alignItems="center"
+                                  justifyContent="center"
+                                  fontSize="xs"
+                                  fontWeight="bold"
+                                  cursor="help"
+                                  title="Somente para planos ouro pra cima"
+                                >
+                                  ?
+                                </Box>
+                              </Box>
+                            )}
+                          </HStack>
                         </CardHeader>
                         <CardBody>
                           <FormControl>
                             <FormLabel>Texto após Agendamento</FormLabel>
                             <Textarea
                               value={appearance.thankYouMessage}
-                              onChange={(e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
-                              placeholder="Obrigado por agendar conosco! Confirmaremos seu horário em breve."
+                              onChange={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? undefined : (e) => setAppearance((prev) => ({ ...prev, thankYouMessage: e.target.value }))}
+                              placeholder={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "Somente para planos ouro pra cima" : "Obrigado por agendar conosco! Confirmaremos seu horário em breve."}
                               rows={3}
+                              disabled={tipoPlano === 'bronze' || tipoPlano === 'prata'}
+                              bg={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.100" : "white"}
+                              color={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "gray.400" : "inherit"}
+                              cursor={(tipoPlano === 'bronze' || tipoPlano === 'prata') ? "not-allowed" : "text"}
                             />
                           </FormControl>
                         </CardBody>
