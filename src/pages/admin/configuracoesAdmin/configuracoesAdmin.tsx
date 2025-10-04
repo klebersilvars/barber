@@ -656,7 +656,7 @@ const ConfiguracoesAdmin = () => {
               const isBronzeRestricted = tipoPlano === 'bronze' && tab.id === 'appearance';
               // Para plano Prata, permitir acesso à aba de aparência mas com restrições internas
               const isPrataRestricted = tipoPlano === 'prata' && tab.id === 'appearance';
-              const isDisabled = (tab.premiumRequired && !hasAnyPlan) || isBronzeRestricted;
+              const isDisabled = (tab.premiumRequired && !hasAnyPlan) || isBronzeRestricted || isPrataRestricted;
               return (
                 <Button
                   key={tab.id}

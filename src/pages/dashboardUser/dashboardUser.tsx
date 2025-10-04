@@ -555,6 +555,39 @@ export default function DashboardUser() {
     `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}`
   ];
+  const allowedPathsPrata = [
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/configuracoes`,
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/cliente`,
+    `/dashboard/${uid}/vendas`,
+    `/dashboard/${uid}/despesas`,
+    `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}`
+  ];
+  const allowedPathsOuro = [
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/configuracoes`,
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/cliente`,
+    `/dashboard/${uid}/vendas`,
+    `/dashboard/${uid}/despesas`,
+    `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}`
+  ];
+  const allowedPathsDiamante = [
+    `/dashboard/${uid}/servicos`,
+    `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/configuracoes`,
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/cliente`,
+    `/dashboard/${uid}/vendas`,
+    `/dashboard/${uid}/despesas`,
+    `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}`
+  ];
   // Empresa: todas as rotas liberadas
 
   // Função para checar se o plano está expirado (usando dias_plano_pago_restante para planos pagos)
@@ -642,6 +675,48 @@ export default function DashboardUser() {
       filteredMenuItems = menuItems.map(item => ({
         ...item,
         disabled: !allowedPathsIndividual.includes(item.path)
+      }));
+    }
+  } else if (tipoPlano === 'prata') {
+    if (isPlanoExpirado('prata', dataInicioTesteGratis)) {
+      // Prata expirado: bloqueia tudo EXCETO plano e configurações
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !alwaysAllowedPaths.includes(item.path)
+      }));
+    } else {
+      // Prata ativo: Serviços, Agenda Online, Configurações, Plano, Cliente, Vendas, Despesas, Colaboradores, Dashboard
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsPrata.includes(item.path)
+      }));
+    }
+  } else if (tipoPlano === 'ouro') {
+    if (isPlanoExpirado('ouro', dataInicioTesteGratis)) {
+      // Ouro expirado: bloqueia tudo EXCETO plano e configurações
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !alwaysAllowedPaths.includes(item.path)
+      }));
+    } else {
+      // Ouro ativo: Todas as funcionalidades liberadas (incluindo personalização da página de agendamentos)
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsOuro.includes(item.path)
+      }));
+    }
+  } else if (tipoPlano === 'diamante') {
+    if (isPlanoExpirado('diamante', dataInicioTesteGratis)) {
+      // Diamante expirado: bloqueia tudo EXCETO plano e configurações
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !alwaysAllowedPaths.includes(item.path)
+      }));
+    } else {
+      // Diamante ativo: Todas as funcionalidades liberadas (incluindo colaboradores ilimitados)
+      filteredMenuItems = menuItems.map(item => ({
+        ...item,
+        disabled: !allowedPathsDiamante.includes(item.path)
       }));
     }
   } else if (tipoPlano === 'empresa') {
@@ -742,6 +817,48 @@ export default function DashboardUser() {
         `/dashboard/${uid}/agenda`,
         `/dashboard/${uid}/configuracoes`,
         `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
+    } else if (tipoPlano === 'prata') {
+      // Para plano prata, permitir cliente, serviços, agenda, configurações, vendas, despesas e colaboradores
+      allowedPaths = [
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/cliente`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/vendas`,
+        `/dashboard/${uid}/despesas`,
+        `/dashboard/${uid}/colaboradores`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
+    } else if (tipoPlano === 'ouro') {
+      // Para plano ouro, permitir todas as funcionalidades (incluindo personalização da página de agendamentos)
+      allowedPaths = [
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/cliente`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/vendas`,
+        `/dashboard/${uid}/despesas`,
+        `/dashboard/${uid}/colaboradores`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
+    } else if (tipoPlano === 'diamante') {
+      // Para plano diamante, permitir todas as funcionalidades (incluindo colaboradores ilimitados)
+      allowedPaths = [
+        `/dashboard/${uid}/servicos`,
+        `/dashboard/${uid}/cliente`,
+        `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/vendas`,
+        `/dashboard/${uid}/despesas`,
+        `/dashboard/${uid}/colaboradores`,
         `/dashboard/${uid}`,
         `#logout`
       ];
