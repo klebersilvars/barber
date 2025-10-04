@@ -304,7 +304,7 @@ const EstablishmentsContent = () => {
       }
     } else if (estabelecimento.tipoPlano === 'gratis' && estabelecimento.dias_restantes_teste_gratis) {
       return `${estabelecimento.dias_restantes_teste_gratis} dias (teste)`;
-    } else if ((estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') && estabelecimento.dias_plano_pago_restante) {
+    } else if ((estabelecimento.tipoPlano === 'bronze' || estabelecimento.tipoPlano === 'prata' || estabelecimento.tipoPlano === 'ouro' || estabelecimento.tipoPlano === 'diamante' || estabelecimento.tipoPlano === 'individual' || estabelecimento.tipoPlano === 'empresa') && estabelecimento.dias_plano_pago_restante) {
       return `${estabelecimento.dias_plano_pago_restante} dias`;
     }
     return 'Sem plano';
@@ -397,6 +397,26 @@ const EstablishmentsContent = () => {
         console.log('📅 Data de início do plano marcada:', agora.toISOString());
       }
 
+      // Função para calcular data de término baseada no período
+      const calcularDataTermino = (billingPeriod: string) => {
+        const dataTermino = new Date(agora);
+        if (billingPeriod === 'yearly') {
+          dataTermino.setFullYear(agora.getFullYear() + 1);
+        } else if (billingPeriod === 'quarterly') {
+          dataTermino.setMonth(agora.getMonth() + 3);
+        } else {
+          dataTermino.setMonth(agora.getMonth() + 1);
+        }
+        return dataTermino;
+      };
+
+      // Função para calcular dias premium baseado no período
+      const calcularDiasPremium = (billingPeriod: string) => {
+        if (billingPeriod === 'yearly') return 365;
+        if (billingPeriod === 'quarterly') return 90;
+        return 30; // monthly
+      };
+
       // Lógica de atualização de premium/plano com controle de datas
       if (editData.tipoPlano === 'vitalicio') {
         // Plano vitalício - nunca expira
@@ -409,6 +429,7 @@ const EstablishmentsContent = () => {
         updateObj.dias_restantes_teste_gratis = null;
         updateObj.data_inicio_teste_gratis = null;
         updateObj.data_fim_teste_gratis = null;
+        updateObj.billing_period = null;
         console.log('✅ Plano vitalício configurado - nunca expira');
         
       } else if (editData.tipoPlano === 'gratis') {
@@ -424,10 +445,30 @@ const EstablishmentsContent = () => {
         updateObj.dias_restantes_teste_gratis = 7;
         updateObj.dias_plano_pago = null;
         updateObj.dias_plano_pago_restante = null;
+        updateObj.billing_period = null;
         console.log('✅ Avaliação grátis configurada - expira em 7 dias:', dataTermino.toISOString());
         
+      } else if (editData.tipoPlano === 'bronze' || editData.tipoPlano === 'prata' || editData.tipoPlano === 'ouro' || editData.tipoPlano === 'diamante') {
+        // Novos planos pagos - calcular baseado no período de cobrança
+        const billingPeriod = editData.billing_period || 'monthly';
+        const dataTermino = calcularDataTermino(billingPeriod);
+        const diasPremium = calcularDiasPremium(billingPeriod);
+        
+        updateObj.premium = true;
+        updateObj.tipoPlano = editData.tipoPlano;
+        updateObj.avaliacao_gratis = false;
+        updateObj.data_inicio_teste_gratis = agora.toISOString();
+        updateObj.data_termino_plano_premium = dataTermino.toISOString();
+        updateObj.dias_plano_pago = diasPremium;
+        updateObj.dias_plano_pago_restante = diasPremium;
+        updateObj.dias_restantes_teste_gratis = null;
+        updateObj.billing_period = billingPeriod;
+        
+        const periodoLabel = billingPeriod === 'yearly' ? '1 ano' : billingPeriod === 'quarterly' ? '3 meses' : '1 mês';
+        console.log(`✅ Plano ${editData.tipoPlano} configurado - expira em ${periodoLabel}:`, dataTermino.toISOString());
+        
       } else if (editData.tipoPlano === 'individual' || editData.tipoPlano === 'empresa') {
-        // Planos pagos - 30 dias a partir de hoje
+        // Planos antigos - manter compatibilidade (30 dias)
         const dataTermino = new Date(agora);
         dataTermino.setDate(agora.getDate() + 30);
         
@@ -439,7 +480,8 @@ const EstablishmentsContent = () => {
         updateObj.dias_plano_pago = 30;
         updateObj.dias_plano_pago_restante = 30;
         updateObj.dias_restantes_teste_gratis = null;
-        console.log('✅ Plano pago configurado - expira em 30 dias:', dataTermino.toISOString());
+        updateObj.billing_period = 'monthly';
+        console.log('✅ Plano antigo configurado - expira em 30 dias:', dataTermino.toISOString());
         
       } else if (!editData.tipoPlano || editData.tipoPlano === '') {
         // Remover premium imediatamente
@@ -452,6 +494,7 @@ const EstablishmentsContent = () => {
         updateObj.dias_plano_pago = 0;
         updateObj.dias_plano_pago_restante = 0;
         updateObj.dias_restantes_teste_gratis = null;
+        updateObj.billing_period = null;
         console.log('❌ Premium removido - usuário sem plano');
       }
 
@@ -472,6 +515,10 @@ const EstablishmentsContent = () => {
       } else if (updateObj.tipoPlano === 'gratis') {
         const dataTermino = updateObj.data_termino_plano_premium ? new Date(updateObj.data_termino_plano_premium).toLocaleDateString('pt-BR') : '7 dias';
         mensagemPlano = `Avaliação grátis ativada - expira em ${dataTermino}`;
+      } else if (updateObj.tipoPlano === 'bronze' || updateObj.tipoPlano === 'prata' || updateObj.tipoPlano === 'ouro' || updateObj.tipoPlano === 'diamante') {
+        const dataTermino = updateObj.data_termino_plano_premium ? new Date(updateObj.data_termino_plano_premium).toLocaleDateString('pt-BR') : 'período padrão';
+        const periodoLabel = updateObj.billing_period === 'yearly' ? 'anual' : updateObj.billing_period === 'quarterly' ? 'trimestral' : 'mensal';
+        mensagemPlano = `Plano ${updateObj.tipoPlano} (${periodoLabel}) ativado - expira em ${dataTermino}`;
       } else if (updateObj.tipoPlano === 'individual' || updateObj.tipoPlano === 'empresa') {
         const dataTermino = updateObj.data_termino_plano_premium ? new Date(updateObj.data_termino_plano_premium).toLocaleDateString('pt-BR') : '30 dias';
         mensagemPlano = `Plano ${updateObj.tipoPlano} ativado - expira em ${dataTermino}`;
@@ -524,7 +571,21 @@ const EstablishmentsContent = () => {
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'vitalicio' ? 'Vitalício' : estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}</Td>
+                      <Td>
+                        {estab.tipoPlano === 'bronze' ? 'Bronze' : 
+                         estab.tipoPlano === 'prata' ? 'Prata' : 
+                         estab.tipoPlano === 'ouro' ? 'Ouro' : 
+                         estab.tipoPlano === 'diamante' ? 'Diamante' : 
+                         estab.tipoPlano === 'individual' ? 'Individual' : 
+                         estab.tipoPlano === 'empresa' ? 'Empresa' : 
+                         estab.tipoPlano === 'vitalicio' ? 'Vitalício' : 
+                         estab.tipoPlano === 'gratis' ? 'Avaliação' : 'Nenhum'}
+                        {estab.billing_period && estab.tipoPlano !== 'vitalicio' && estab.tipoPlano !== 'gratis' && (
+                          <Text fontSize="xs" color="gray.500">
+                            ({estab.billing_period === 'yearly' ? 'Anual' : estab.billing_period === 'quarterly' ? 'Trimestral' : 'Mensal'})
+                          </Text>
+                        )}
+                      </Td>
                       <Td>
                         {estab.tipoPlano && estab.tipoPlano !== '' ? (
                           estab.tipoPlano === 'gratis' && estab.data_inicio_teste_gratis ? (
@@ -633,16 +694,26 @@ const EstablishmentsContent = () => {
 
                     {/* Status premium e plano */}
                     <Heading size="sm" mt={4}>Plano e Status</Heading>
-                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={2}>
                       <Select placeholder="Selecione o tipo de plano" value={editData.tipoPlano || ''} onChange={e => {
                         const value = e.target.value;
                         handleEditChange('tipoPlano', value);
                       }}>
                         <option value="">Nenhum</option>
-                        <option value="individual">Individual</option>
-                        <option value="empresa">Empresa</option>
+                        <option value="bronze">Bronze</option>
+                        <option value="prata">Prata</option>
+                        <option value="ouro">Ouro</option>
+                        <option value="diamante">Diamante</option>
                         <option value="vitalicio">Vitalício</option>
                         <option value="gratis">Avaliação Grátis</option>
+                      </Select>
+                      <Select placeholder="Período de cobrança" value={editData.billing_period || 'monthly'} onChange={e => {
+                        const value = e.target.value;
+                        handleEditChange('billing_period', value);
+                      }}>
+                        <option value="monthly">Mensal</option>
+                        <option value="quarterly">Trimestral</option>
+                        <option value="yearly">Anual</option>
                       </Select>
                       <Box>
                         <Text fontSize="sm" mb={1} fontWeight="semibold">Status Premium</Text>
@@ -690,6 +761,28 @@ const FinancialContent = () => {
   // Calcular receita bruta dos planos pagos
   const receitaBruta = estabelecimentos.reduce((total, estab) => {
     if (estab.status_pagamento === 'pago') {
+      // Novos planos
+      if (estab.tipoPlano === 'bronze') {
+        if (estab.billing_period === 'yearly') return total + 299.00;
+        if (estab.billing_period === 'quarterly') return total + 79.90;
+        return total + 59.90; // monthly
+      }
+      if (estab.tipoPlano === 'prata') {
+        if (estab.billing_period === 'yearly') return total + 599.00;
+        if (estab.billing_period === 'quarterly') return total + 164.90;
+        return total + 89.90; // monthly
+      }
+      if (estab.tipoPlano === 'ouro') {
+        if (estab.billing_period === 'yearly') return total + 599.00;
+        if (estab.billing_period === 'quarterly') return total + 164.90;
+        return total + 139.90; // monthly
+      }
+      if (estab.tipoPlano === 'diamante') {
+        if (estab.billing_period === 'yearly') return total + 599.00;
+        if (estab.billing_period === 'quarterly') return total + 164.90;
+        return total + 189.90; // monthly
+      }
+      // Planos antigos (compatibilidade)
       if (estab.tipoPlano === 'individual') return total + 10;
       if (estab.tipoPlano === 'empresa') return total + 20;
     }
@@ -745,8 +838,37 @@ const FinancialContent = () => {
                   estabelecimentos.map(estab => (
                     <Tr key={estab.id}>
                       <Td>{estab.nomeEstabelecimento || '-'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'Individual' : estab.tipoPlano === 'empresa' ? 'Empresa' : estab.tipoPlano === 'vitalicio' ? 'Vitalício' : 'Nenhum'}</Td>
-                      <Td>{estab.tipoPlano === 'individual' ? 'R$ 10,00' : estab.tipoPlano === 'empresa' ? 'R$ 20,00' : estab.tipoPlano === 'vitalicio' ? 'R$ 0,00' : '-'}</Td>
+                      <Td>
+                        {estab.tipoPlano === 'bronze' ? 'Bronze' : 
+                         estab.tipoPlano === 'prata' ? 'Prata' : 
+                         estab.tipoPlano === 'ouro' ? 'Ouro' : 
+                         estab.tipoPlano === 'diamante' ? 'Diamante' : 
+                         estab.tipoPlano === 'individual' ? 'Individual' : 
+                         estab.tipoPlano === 'empresa' ? 'Empresa' : 
+                         estab.tipoPlano === 'vitalicio' ? 'Vitalício' : 'Nenhum'}
+                        {estab.billing_period && estab.tipoPlano !== 'vitalicio' && (
+                          <Text fontSize="xs" color="gray.500">
+                            ({estab.billing_period === 'yearly' ? 'Anual' : estab.billing_period === 'quarterly' ? 'Trimestral' : 'Mensal'})
+                          </Text>
+                        )}
+                      </Td>
+                      <Td>
+                        {estab.tipoPlano === 'bronze' ? (
+                          estab.billing_period === 'yearly' ? 'R$ 299,00' : 
+                          estab.billing_period === 'quarterly' ? 'R$ 79,90' : 'R$ 59,90'
+                        ) : estab.tipoPlano === 'prata' ? (
+                          estab.billing_period === 'yearly' ? 'R$ 599,00' : 
+                          estab.billing_period === 'quarterly' ? 'R$ 164,90' : 'R$ 89,90'
+                        ) : estab.tipoPlano === 'ouro' ? (
+                          estab.billing_period === 'yearly' ? 'R$ 599,00' : 
+                          estab.billing_period === 'quarterly' ? 'R$ 164,90' : 'R$ 139,90'
+                        ) : estab.tipoPlano === 'diamante' ? (
+                          estab.billing_period === 'yearly' ? 'R$ 599,00' : 
+                          estab.billing_period === 'quarterly' ? 'R$ 164,90' : 'R$ 189,90'
+                        ) : estab.tipoPlano === 'individual' ? 'R$ 10,00' : 
+                          estab.tipoPlano === 'empresa' ? 'R$ 20,00' : 
+                          estab.tipoPlano === 'vitalicio' ? 'R$ 0,00' : '-'}
+                      </Td>
                       <Td>
                         {estab.status_pagamento === 'inadimplente' ? (
                           <Badge colorScheme="red">NÃO PAGO</Badge>

@@ -561,8 +561,10 @@ const Servicos = () => {
   return (
     <Box
       width="100%"
-      minH={{ base: '40dvh', md: 'auto' }}
-      overflowY={{ base: 'auto', md: 'visible' }}
+      minH="100vh"
+      maxH="100vh"
+      overflowY="auto"
+      overflowX="hidden"
       pb={{ base: 12, md: 0 }}
       sx={{ WebkitOverflowScrolling: 'touch' }}
     >

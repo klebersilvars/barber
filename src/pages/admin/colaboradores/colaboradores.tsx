@@ -398,6 +398,8 @@ export default function Colaboradores() {
   const [collaborators, setCollaborators] = useState<ColaboradorFirestoreData[]>(mockCollaborators)
   const [showModal, setShowModal] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const [tipoPlano, setTipoPlano] = useState<string>("")
+  const [adminInfo, setAdminInfo] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("active")
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -464,6 +466,25 @@ export default function Colaboradores() {
     }
   }, [])
 
+  // Buscar informações do plano do usuário e dados do administrador
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      if (uid) {
+        try {
+          const contaDoc = await getDoc(doc(firestore, "contas", uid))
+          if (contaDoc.exists()) {
+            const userData = contaDoc.data()
+            setTipoPlano(userData.tipoPlano || "")
+            setAdminInfo(userData) // Armazenar dados do administrador
+          }
+        } catch (error) {
+          console.error("Erro ao buscar informações do plano:", error)
+        }
+      }
+    }
+    fetchUserPlan()
+  }, [uid])
+
   // Listen for collaborators in real-time from Firestore
   useEffect(() => {
     // Mudar referência da coleção para a raiz "colaboradores"
@@ -506,6 +527,29 @@ export default function Colaboradores() {
     const matchesStatus = statusFilter === "all" || colaborador.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Para plano Bronze, criar um colaborador fictício representando o administrador
+  const getDisplayCollaborators = () => {
+    if (tipoPlano === 'bronze' && adminInfo) {
+      const adminAsCollaborator: ColaboradorFirestoreData = {
+        id: 'admin',
+        nome: adminInfo.nomeEstabelecimento || 'Administrador',
+        email: adminInfo.email || '',
+        cargos: ['Administrador'],
+        status: 'active',
+        contato: {
+          telefone: adminInfo.telefone || '',
+          instagram: adminInfo.instagram || ''
+        },
+        avatar: adminInfo.logo || '',
+        createdBy: uid || '',
+        criadoEm: new Date(),
+        authUserId: uid || ''
+      }
+      return [adminAsCollaborator]
+    }
+    return filteredCollaborators
+  }
 
   // Função assíncrona para buscar endereço pelo CEP usando ViaCEP
   const fetchAddressByCep = async (cep: string) => {
@@ -1165,17 +1209,25 @@ export default function Colaboradores() {
                 </VStack>
               </HStack>
             </VStack>
-            <Button
-              leftIcon={<UserPlus size={20} />}
-              colorScheme="blue"
-              size={{ base: "md", md: "lg" }}
-              onClick={handleOpenModal}
-              shadow="lg"
-              _hover={{ shadow: "xl", transform: "translateY(-2px)" }}
-              transition="all 0.2s"
-            >
-            Adicionar Colaborador
-            </Button>
+            {tipoPlano !== 'bronze' ? (
+              <Button
+                leftIcon={<UserPlus size={20} />}
+                colorScheme="blue"
+                size={{ base: "md", md: "lg" }}
+                onClick={handleOpenModal}
+                shadow="lg"
+                _hover={{ shadow: "xl", transform: "translateY(-2px)" }}
+                transition="all 0.2s"
+              >
+              Adicionar Colaborador
+              </Button>
+            ) : (
+              <Box bg="purple.50" p={4} borderRadius="lg" border="1px" borderColor="purple.200">
+                <Text color="purple.700" fontSize="sm" fontWeight="medium">
+                  Plano Bronze: Apenas o administrador está disponível como colaborador
+                </Text>
+              </Box>
+            )}
           </Flex>
 
           {/* Stats Cards */}
@@ -1296,7 +1348,7 @@ export default function Colaboradores() {
           </Card>
 
       {/* Collaborators List */}
-        {filteredCollaborators.length > 0 ? (
+        {getDisplayCollaborators().length > 0 ? (
           <>
               {/* Desktop Table View */}
               {!isMobile && (
@@ -1414,7 +1466,7 @@ export default function Colaboradores() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {filteredCollaborators.map((colaborador, index) => (
+                        {getDisplayCollaborators().map((colaborador, index) => (
                           <Tr
                             key={colaborador.id}
                             bg={index % 2 === 0 ? "white" : "gray.50"}
@@ -1623,7 +1675,7 @@ export default function Colaboradores() {
               {/* Mobile/Tablet Card View */}
               {isMobile && (
                 <VStack spacing={10}>
-            {filteredCollaborators.map((colaborador) => (
+            {getDisplayCollaborators().map((colaborador) => (
                     <Card key={colaborador.id} bg={cardBg} shadow="lg" w="full" _hover={{ shadow: "xl" }}>
                       <CardBody p={{ base: 10, md: 12 }}>
                         <Flex justify="space-between" align="start" mb={4}>
@@ -1802,21 +1854,26 @@ export default function Colaboradores() {
                     </Box>
                     <VStack spacing={3}>
                       <Heading size="lg" color="gray.800">
-                        Nenhum colaborador encontrado
+                        {tipoPlano === 'bronze' ? 'Plano Bronze' : 'Nenhum colaborador encontrado'}
                       </Heading>
                       <Text color="gray.600" textAlign="center" fontSize="lg">
-                        Adicione colaboradores à sua equipe ou ajuste seus filtros de busca
+                        {tipoPlano === 'bronze' 
+                          ? 'O plano Bronze não tem colaboradores disponíveis, faça o upgrade para ter acesso aos colaboradores'
+                          : 'Adicione colaboradores à sua equipe ou ajuste seus filtros de busca'
+                        }
                       </Text>
                     </VStack>
-                    <Button
-                      leftIcon={<UserPlus size={20} />}
-                      colorScheme="blue"
-                      size="lg"
-                      onClick={handleOpenModal}
-                      shadow="lg"
-                    >
-              Adicionar Colaborador
-                    </Button>
+                    {tipoPlano !== 'bronze' && (
+                      <Button
+                        leftIcon={<UserPlus size={20} />}
+                        colorScheme="blue"
+                        size="lg"
+                        onClick={handleOpenModal}
+                        shadow="lg"
+                      >
+                        Adicionar Colaborador
+                      </Button>
+                    )}
                   </VStack>
                 </Center>
               </CardBody>

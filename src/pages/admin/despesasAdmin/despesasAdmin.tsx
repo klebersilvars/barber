@@ -521,9 +521,6 @@ const DespesasAdmin = () => {
     if (tipoPlano === 'individual' && !window.location.pathname.includes('despesasAdmin')) {
       navigate(`/dashboard/${auth.currentUser?.uid}`)
     }
-    if (tipoPlano === 'bronze') {
-      navigate(`/dashboard/${auth.currentUser?.uid}`)
-    }
     if (!isPremium) {
       navigate(`/dashboard/${auth.currentUser?.uid}`)
     }

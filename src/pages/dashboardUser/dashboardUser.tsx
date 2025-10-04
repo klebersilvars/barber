@@ -997,7 +997,7 @@ export default function DashboardUser() {
                   {getSaudacao()}, {estabelecimentoNome || 'Proprietário'}! 👋
                 </Heading>
                 <Text fontSize="lg" color="gray.600">
-                  Aqui está o resumo do seu salão hoje
+                  Aqui está o resumo do seu estabelecimento hoje
                 </Text>
               </Box>
 

@@ -404,7 +404,7 @@ const AgendaAdmin = () => {
   };
 
   return (
-    <Box minH="100vh" bg="gray.50" pb={8}>
+    <Box minH="100vh" maxH="100vh" overflowY="auto" overflowX="hidden" bg="gray.50" pb={8} sx={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header */}
       <Box bg="white" borderBottom="1px" borderColor="gray.200" p={4} position="sticky" top={0} zIndex={100} boxShadow="sm">
         <Flex direction={headerDirection} align="center" justify="space-between" gap={4}>
