@@ -285,71 +285,47 @@ const Servicos = () => {
     return () => unsub()
   }, [auth.currentUser])
 
-  // Buscar nome do estabelecimento do admin logado
+  // Buscar nome do estabelecimento do admin logado (tempo real)
   useEffect(() => {
-    const fetchEstabelecimento = async () => {
-      if (!auth.currentUser?.email) return
-
-      const contasRef = collection(firestore, 'contas')
-      const q = query(contasRef, where('email', '==', auth.currentUser.email))
-      const snapshot = await getDocs(q)
-
-      if (!snapshot.empty) {
-        const nomeEstab = snapshot.docs[0].data().nomeEstabelecimento
-        setNomeEstabelecimento(nomeEstab)
-      }
-    }
-
-    fetchEstabelecimento()
+    const user = auth.currentUser
+    if (!user?.uid) return
+    const ref = doc(firestore, 'contas', user.uid)
+    const unsub = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) { setNomeEstabelecimento(""); return }
+      const data: any = snap.data()
+      setNomeEstabelecimento(data?.nomeEstabelecimento || "")
+    }, (err) => {
+      console.error('Erro ao buscar conta:', err)
+    })
+    return () => unsub()
   }, [auth.currentUser])
 
-  // Buscar colaboradores do estabelecimento
+  // Buscar colaboradores do estabelecimento (tempo real), apenas profissionais ativos criados pelo admin logado
   useEffect(() => {
-    const fetchColaboradores = async () => {
-      const user = auth.currentUser
-
-      if (!user?.uid) {
-        return
-      }
-
-      try {
-        const colaboradoresRef = collection(firestore, 'colaboradores')
-        
-        const q = query(
-          colaboradoresRef,
-          where('estabelecimentoId', '==', user.uid)
-        )
-
-        const snapshot = await getDocs(q)
-        
-        if (snapshot.empty) {
-          setColaboradores([])
-          return
-        }
-
-        const colaboradoresData = snapshot.docs
-          .map(doc => {
-            const data = doc.data()
-            return {
-              id: doc.id,
-              nome: data.nome,
-              cargos: data.cargos || [],
-              estabelecimentoId: data.estabelecimentoId
-            }
-          })
-          .filter(colab => 
-            Array.isArray(colab.cargos) && 
-            colab.cargos.includes('Profissional')
-          )
-
-        setColaboradores(colaboradoresData)
-      } catch (error) {
-        console.error('Erro ao buscar colaboradores:', error)
-        alert('Erro ao buscar colaboradores: ' + error)
-      }
+    const user = auth.currentUser
+    if (!user?.uid) return
+    try {
+      const colaboradoresRef = collection(firestore, 'colaboradores')
+      const qColabs = query(
+        colaboradoresRef,
+        where('createdBy', '==', user.uid),
+        where('status', '==', 'active')
+      )
+      const unsub = onSnapshot(qColabs, (snapshot) => {
+        const data = snapshot.docs
+          .map((d) => ({ id: d.id, ...(d.data() as any) }))
+          .filter((c: any) => Array.isArray(c.cargos) && c.cargos.includes('Profissional'))
+          .map((c: any) => ({ id: c.id, nome: c.nome, cargos: c.cargos }))
+        setColaboradores(data)
+      }, (err) => {
+        console.error('Erro ao ouvir colaboradores:', err)
+        setColaboradores([])
+      })
+      return () => unsub()
+    } catch (error) {
+      console.error('Erro ao buscar colaboradores:', error)
+      setColaboradores([])
     }
-
-    fetchColaboradores()
   }, [auth.currentUser])
 
   // Buscar serviços do estabelecimento

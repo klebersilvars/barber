@@ -177,7 +177,9 @@ export default function DashboardUser() {
               data_termino_plano_premium: null,
               dias_plano_pago_restante: 0,
               dias_restantes_teste_gratis: 0,
-              avaliacao_gratis: false
+              avaliacao_gratis: false,
+              // Volta limite de colaboradores para 1 (somente administrador)
+              max_colaborador: 1
             });
           }
         }
@@ -466,7 +468,9 @@ export default function DashboardUser() {
       data_termino_plano_premium: dataTermino.toISOString(), // ✅ Data de término correta
       dias_restantes_teste_gratis: 7,
       ja_pegou_premium_gratis: true,
-      avaliacao_gratis: true
+      avaliacao_gratis: true,
+      // Liberar 1 colaborador adicional além do administrador durante o teste
+      max_colaborador: 2
     })
     
     setTesteGratisAtivo(true)

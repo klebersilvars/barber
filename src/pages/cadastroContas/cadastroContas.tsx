@@ -40,6 +40,8 @@ export default function CadastroContas() {
         userId: userCredential.user.uid,
         avaliacao_gratis: avaliacaoAtiva,
         premium: premiumAtivo,
+        tipoPlano: 'nenhum',
+        max_colaborador: 1,
         createdAt: new Date().toISOString(),
       })
 

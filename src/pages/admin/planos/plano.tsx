@@ -79,7 +79,9 @@ export default function Plano() {
       data_inicio_teste_gratis: hoje.toISOString(),
       dias_restantes_teste_gratis: 7,
       ja_pegou_premium_gratis: true,
-      data_termino_plano_premium: dataTermino.toISOString() // ✅ Data de término correta
+      data_termino_plano_premium: dataTermino.toISOString(), // ✅ Data de término correta
+      // Liberar 1 colaborador adicional além do administrador durante o teste
+      max_colaborador: 2
     })
     
     console.log('Teste grátis ativado com sucesso!');

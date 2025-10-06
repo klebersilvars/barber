@@ -400,6 +400,7 @@ export default function Colaboradores() {
   const [currentStep, setCurrentStep] = useState(1)
   const [tipoPlano, setTipoPlano] = useState<string>("")
   const [adminInfo, setAdminInfo] = useState<any>(null)
+  const [maxColaborador, setMaxColaborador] = useState<number>(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("active")
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -453,6 +454,8 @@ export default function Colaboradores() {
 
   // Estado para controlar o ID do colaborador sendo editado
   const [editingCollaboratorId, setEditingCollaboratorId] = useState<string | null>(null)
+  // Evitar reexecuções desnecessárias da desativação em massa
+  const [enforcedDeactivationAt, setEnforcedDeactivationAt] = useState<string | null>(null)
 
   // Chakra UI responsive values
   const isMobile = useBreakpointValue({ base: true, lg: false })
@@ -466,23 +469,23 @@ export default function Colaboradores() {
     }
   }, [])
 
-  // Buscar informações do plano do usuário e dados do administrador
+  // Buscar informações do plano/conta em tempo real (tipoPlano, adminInfo, max_colaborador)
   useEffect(() => {
-    const fetchUserPlan = async () => {
-      if (uid) {
-        try {
-          const contaDoc = await getDoc(doc(firestore, "contas", uid))
-          if (contaDoc.exists()) {
-            const userData = contaDoc.data()
-            setTipoPlano(userData.tipoPlano || "")
-            setAdminInfo(userData) // Armazenar dados do administrador
-          }
-        } catch (error) {
-          console.error("Erro ao buscar informações do plano:", error)
-        }
+    if (!uid) return
+    const contasRef = collection(firestore, 'contas')
+    const q = query(contasRef, where('__name__', '==', uid))
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data() as any
+        setTipoPlano(data.tipoPlano || "")
+        setAdminInfo(data)
+        // max_colaborador representa QUANTOS ADICIONAIS além do administrador
+        setMaxColaborador(typeof data.max_colaborador === 'number' ? data.max_colaborador : 0)
       }
-    }
-    fetchUserPlan()
+    }, (err) => {
+      console.error('Erro ao ouvir conta:', err)
+    })
+    return () => unsub()
   }, [uid])
 
   // Listen for collaborators in real-time from Firestore
@@ -509,6 +512,55 @@ export default function Colaboradores() {
     // Limpeza do listener ao desmontar o componente
     return () => unsubscribe()
   }, [uid]) // Dependência: re-executar se o UID mudar
+
+  // Verificação do plano no client: se expirado ou sem plano, desativar todos os colaboradores imediatamente
+  useEffect(() => {
+    const enforceDeactivationIfNeeded = async () => {
+      try {
+        if (!uid || !adminInfo) return
+        const tipo = (tipoPlano || '').toString()
+        const terminoISO: string | null = adminInfo.data_termino_plano_premium || null
+
+        // Considerar sem plano ativo quando: tipo vazio/'nenhum' ou data de término passada (se existir)
+        let semPlanoAtivo = false
+        if (!tipo || tipo === 'nenhum' || tipo === '') {
+          semPlanoAtivo = true
+        }
+        if (terminoISO) {
+          const agora = new Date()
+          const termino = new Date(terminoISO.length === 10 ? `${terminoISO}T00:00:00` : terminoISO)
+          if (!isNaN(termino.getTime()) && agora >= termino) {
+            semPlanoAtivo = true
+          }
+        }
+
+        // Evitar loops: só executar novamente se o estado mudou (timestamp chave)
+        if (!semPlanoAtivo) return
+        const lastKey = enforcedDeactivationAt
+        const newKey = `${tipo}|${terminoISO || 'null'}`
+        if (lastKey === newKey) return
+
+        // Buscar colaboradores ativos do estabelecimento do usuário e desativar
+        const colaboradoresRef = collection(firestore, 'colaboradores')
+        const qAtivos = query(colaboradoresRef, where('createdBy', '==', uid), where('status', '==', 'active'))
+        const snap = await new Promise<any>((resolve, reject) => {
+          onSnapshot(qAtivos, (s) => resolve(s), reject)
+        })
+        if (snap && !snap.empty) {
+          const batchOps: Promise<any>[] = []
+          snap.docs.forEach((d: any) => {
+            batchOps.push(updateDoc(doc(firestore, 'colaboradores', d.id), { status: 'inactive' }))
+          })
+          await Promise.all(batchOps)
+        }
+        setEnforcedDeactivationAt(newKey)
+      } catch (e) {
+        // silencioso para não impactar UX
+      }
+    }
+    enforceDeactivationIfNeeded()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, adminInfo, tipoPlano])
 
   // Efeito para abrir o modal quando um colaborador for selecionado para edição
   useEffect(() => {
@@ -1214,6 +1266,49 @@ export default function Colaboradores() {
   }
 
   const stats = getStatsData()
+  // Cálculo de disponibilidade e limites do plano (em tempo real)
+  const activeCount = collaborators.filter((c) => c.status === 'active').length
+  const plano = (tipoPlano || '').toString().trim().toLowerCase()
+
+  // Determinar se o plano está ativo (tipo válido e, se houver data de término, ainda não expirado)
+  const terminoISO: string | null = (adminInfo?.data_termino_plano_premium as string) || null
+  const agora = new Date()
+  const terminoDate = terminoISO
+    ? new Date(terminoISO.length === 10 ? `${terminoISO}T00:00:00` : terminoISO)
+    : null
+  const terminou = terminoDate ? !isNaN(terminoDate.getTime()) && agora >= terminoDate : false
+  const planoValido = !!plano && plano !== 'nenhum'
+  const planoAtivo = planoValido && !terminou
+
+  // Limites por plano (ADICIONAIS, não inclui administrador). O admin conta sempre como 1 fixo.
+  // bronze: 0 adicionais | prata: 1 adicional | ouro: 2 adicionais | diamante: ∞ (enquanto ativo)
+  const baseAdditionalByPlan: Record<string, number> = {
+    '': 0,
+    nenhum: 0,
+    bronze: 0,
+    prata: 1,
+    ouro: 2,
+    diamante: Number.POSITIVE_INFINITY,
+  }
+  const hasNumericLimit = typeof maxColaborador === 'number' && maxColaborador > 0
+  const baseAdditional = baseAdditionalByPlan.hasOwnProperty(plano) ? baseAdditionalByPlan[plano] : 0
+
+  // Diamante vencido volta a 1
+  const diamanteExpirado = plano === 'diamante' && !planoAtivo
+
+  // adicionais permitidos: prioriza max_colaborador (tempo real). Se não tiver, usa o do plano.
+  const allowedAdditional = hasNumericLimit ? (maxColaborador as number) : (diamanteExpirado ? 0 : baseAdditional)
+
+  // Infinito somente se diamante ativo e sem max_colaborador definido
+  const ilimitado = (plano === 'diamante' && planoAtivo && !hasNumericLimit)
+
+  // total permitido no time = admin(1) + adicionais
+  // Disponíveis = adicionais permitidos - colaboradores ativos
+  const disponiveis = ilimitado ? Number.POSITIVE_INFINITY : Math.max(0, (Math.max(0, allowedAdditional) - activeCount))
+  const limiteAtingido = ilimitado ? false : disponiveis <= 0
+
+  const limiteTexto = ilimitado ? '∞' : String(1 + Math.max(0, allowedAdditional))
+  const terminoTexto = terminoDate ? terminoDate.toLocaleDateString('pt-BR') : null
 
   return (
     <Box minH={{ base: "100vh", md: "90vh" }} bg="gray.50" p={{ base: 2, md: 4, lg: 8 }} pb={{ base: 40, md: 24, lg: 32 }} overflow="auto">
@@ -1241,29 +1336,25 @@ export default function Colaboradores() {
                 </VStack>
               </HStack>
             </VStack>
-            {tipoPlano !== 'bronze' ? (
+            <HStack spacing={4} align="center">
               <Button
                 leftIcon={<UserPlus size={20} />}
                 colorScheme="blue"
                 size={{ base: "md", md: "lg" }}
                 onClick={handleOpenModal}
+                isDisabled={ilimitado ? false : disponiveis <= 0}
                 shadow="lg"
-                _hover={{ shadow: "xl", transform: "translateY(-2px)" }}
+                _hover={{ shadow: limiteAtingido ? undefined : "xl", transform: limiteAtingido ? undefined : "translateY(-2px)" }}
                 transition="all 0.2s"
               >
-              Adicionar Colaborador
+                Adicionar Colaborador
               </Button>
-            ) : (
-              <Box bg="purple.50" p={4} borderRadius="lg" border="1px" borderColor="purple.200">
-                <Text color="purple.700" fontSize="sm" fontWeight="medium">
-                  Plano Bronze: Apenas o administrador está disponível como colaborador
-                </Text>
-              </Box>
-            )}
+              
+            </HStack>
           </Flex>
 
           {/* Stats Cards */}
-          <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} spacing={{ base: 3, md: 6 }}>
+          <SimpleGrid columns={{ base: 2, md: 2, lg: 5 }} spacing={{ base: 3, md: 6 }}>
             <Card bg="blue.500" color="white" shadow="lg" _hover={{ shadow: "xl" }} transition="all 0.2s">
               <CardBody p={{ base: 3, md: 6 }}>
                 <Flex justify="space-between" align="center">
@@ -1272,6 +1363,25 @@ export default function Colaboradores() {
                     <StatNumber fontSize={{ base: "xl", md: "3xl" }}>{stats.total}</StatNumber>
                   </Stat>
                   <Icon as={Users} w={{ base: 6, md: 8 }} h={{ base: 6, md: 8 }} color="blue.200" />
+                </Flex>
+              </CardBody>
+            </Card>
+
+            <Card bg={limiteAtingido ? "red.500" : "teal.500"} color="white" shadow="lg" _hover={{ shadow: "xl" }} transition="all 0.2s">
+              <CardBody p={{ base: 3, md: 6 }}>
+                <Flex justify="space-between" align="center">
+                  <Stat>
+                    <StatLabel color="teal.100" fontSize={{ base: "xs", md: "sm" }}>Disponíveis</StatLabel>
+                    <StatNumber fontSize={{ base: "xl", md: "3xl" }}>{ilimitado ? '∞' : disponiveis}</StatNumber>
+                    <Text color="teal.50" fontSize={{ base: "10px", md: "sm" }}>
+                      {ilimitado
+                        ? (terminoTexto
+                            ? `Diamante ativo até ${terminoTexto}`
+                            : 'Diamante ativo')
+                        : `Limite: ${limiteTexto} totais (inclui administrador)`}
+                    </Text>
+                  </Stat>
+                  <Icon as={Users} w={{ base: 6, md: 8 }} h={{ base: 6, md: 8 }} color="teal.200" />
                 </Flex>
               </CardBody>
             </Card>

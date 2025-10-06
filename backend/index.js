@@ -249,6 +249,18 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
           const dataExpiracao = new Date(dataTermino);
           const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
           
+          // Definir limite de colaboradores por plano
+          let maxColaborador = 1;
+          if (tipoPlano === 'bronze') {
+            maxColaborador = 2;
+          } else if (tipoPlano === 'prata') {
+            maxColaborador = 3;
+          } else if (tipoPlano === 'ouro') {
+            maxColaborador = 4;
+          } else if (tipoPlano === 'diamante') {
+            maxColaborador = 999999; // Sem limite prático
+          }
+
           await docRef.update({
             premium: true,
             premiumExpiresAt: premiumExpiresAt,
@@ -258,7 +270,8 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             dias_plano_pago_restante: diasPremium,
             data_termino_plano_premium: dataTermino,
             status_pagamento: 'pago',
-            billing_period: billingPeriod // Salvar o período de cobrança
+            billing_period: billingPeriod, // Salvar o período de cobrança
+            max_colaborador: maxColaborador
           });
           
           console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email}`);
@@ -306,11 +319,12 @@ app.post('/api/decrement-premium-days', async (req, res) => {
             premium: false, 
             tipoPlano: '',
             dias_plano_pago_restante: 0, 
-            dias_plano_pago: 0 
+            dias_plano_pago: 0,
+            max_colaborador: 1
           });
           
-          // Se for plano que permite colaboradores, desativa colaboradores
-          if ((data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.nomeEstabelecimento) {
+          // Desativar colaboradores extras (inclui bronze, prata, ouro, diamante)
+          if ((data.tipoPlano === 'bronze' || data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.nomeEstabelecimento) {
             const colaboradoresRef = db.collection('colaboradores');
             const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
               const batchColab = db.batch();
@@ -334,8 +348,23 @@ app.post('/api/decrement-premium-days', async (req, res) => {
             premium: false, 
             tipoPlano: '',
             data_inicio_teste_gratis: null,
-            dias_restantes_teste_gratis: null 
+            dias_restantes_teste_gratis: null,
+            max_colaborador: 1,
+            status_pagamento: 'expirado'
           });
+
+          // Desativar TODOS os colaboradores do estabelecimento imediatamente
+          if (data.nomeEstabelecimento) {
+            const colaboradoresRef = db.collection('colaboradores');
+            const p = colaboradoresRef.where('estabelecimento', '==', data.nomeEstabelecimento).get().then(colabSnap => {
+              const batchColab = db.batch();
+              colabSnap.forEach(colabDoc => {
+                batchColab.update(colabDoc.ref, { ativo: false });
+              });
+              return batchColab.commit();
+            });
+            promises.push(p);
+          }
         }
       }
     });
@@ -536,8 +565,22 @@ app.post('/api/verificar-planos-expirados', async (req, res) => {
             premium: false,
             data_termino_plano_premium: null,
             dias_plano_pago_restante: 0,
-            dias_restantes_teste_gratis: 0
+            dias_restantes_teste_gratis: 0,
+            max_colaborador: 1,
+            status_pagamento: 'expirado'
           });
+          // Desativar colaboradores extras ao expirar
+          const nomeEstabelecimento = data.nomeEstabelecimento;
+          const tipoPlanoAnterior = data.tipoPlano;
+          if (nomeEstabelecimento) {
+            const colaboradoresRef = db.collection('colaboradores');
+            const colabSnap = await colaboradoresRef.where('estabelecimento', '==', nomeEstabelecimento).get();
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: false });
+            });
+            await batchColab.commit();
+          }
           
           planosExpirados++;
           console.log(`Plano expirado para ${doc.id}: ${data.nomeEstabelecimento}`);
@@ -561,6 +604,36 @@ app.post('/api/verificar-planos-expirados', async (req, res) => {
       message: error.message,
       timestamp: new Date().toISOString()
     });
+  }
+});
+
+// Endpoint para inicializar conta com valores padrão, incluindo max_colaborador = 1
+app.post('/api/init-account', async (req, res) => {
+  try {
+    const { uid, email, nomeEstabelecimento } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: 'UID é obrigatório' });
+    }
+
+    const docRef = db.collection('contas').doc(uid);
+    await docRef.set({
+      email: email || null,
+      nomeEstabelecimento: nomeEstabelecimento || null,
+      premium: false,
+      tipoPlano: 'nenhum',
+      dias_plano_pago: 0,
+      dias_plano_pago_restante: 0,
+      dias_restantes_teste_gratis: 0,
+      avaliacao_gratis: false,
+      data_termino_plano_premium: null,
+      max_colaborador: 1,
+      createdAt: new Date().toISOString()
+    }, { merge: true });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao inicializar conta:', error.message);
+    return res.status(500).json({ error: 'Erro ao inicializar conta' });
   }
 });
 
