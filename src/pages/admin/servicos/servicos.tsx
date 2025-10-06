@@ -41,7 +41,7 @@ import {
   Trash,
 } from "lucide-react"
 import './servicos.css'
-import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore'
+import { collection, addDoc, query, where, updateDoc, doc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firebase'
 import { getAuth } from "firebase/auth"
 import {

@@ -128,7 +128,7 @@ export default function Plano() {
       yearlyPrice: 863.00,
       popular: false,
       features: [
-        "2 colaboradores",
+        "2 colaboradoresd adicionais",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
@@ -151,7 +151,7 @@ export default function Plano() {
       yearlyPrice: 1343.00,
       popular: false,
       features: [
-        "3 colaboradores",
+        "3 colaboradores adicionais",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
@@ -175,7 +175,7 @@ export default function Plano() {
       yearlyPrice: 1823.00,
       popular: true,
       features: [
-        "Colaboradores ilimitados",
+        "Colaboradores adicionais ilimitados",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",

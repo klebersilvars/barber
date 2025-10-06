@@ -126,7 +126,7 @@ export default function Plano() {
       yearlyPrice: 863.00,
       popular: false,
       features: [
-        "2 colaboradores",
+        "2 colaboradores adicionais",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
@@ -149,7 +149,7 @@ export default function Plano() {
       yearlyPrice: 1343.00,
       popular: false,
       features: [
-        "3 colaboradores",
+        "3 colaboradores adicionais",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
@@ -173,7 +173,7 @@ export default function Plano() {
       yearlyPrice: 1823.00,
       popular: true,
       features: [
-        "Colaboradores ilimitados",
+        "Colaboradores adicionais ilimitados",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
@@ -431,14 +431,14 @@ export default function Plano() {
                     )}
                   </Box>
                   <VStack align="start" spacing={1} mt={2} mb={2}>
-                    {plan.features.map((feature, index) => (
-                      <HStack key={index} spacing={2}>
+                    {plan.features?.map((feature, index) => (
+                      <HStack key={`f-${plan.id}-${index}`} spacing={2}>
                         <Icon as={Check} color={plan.id === "bronze" ? "purple.500" : "blue.500"} boxSize={4} />
                         <Text fontSize="sm">{feature}</Text>
                       </HStack>
                     ))}
-                    {plan.limitations.map((limitation, index) => (
-                      <HStack key={index} spacing={2}>
+                    {plan.limitations?.map((limitation, index) => (
+                      <HStack key={`l-${plan.id}-${index}`} spacing={2}>
                         <Icon as={X} color="red.400" boxSize={4} />
                         <Text fontSize="sm" color="red.500">{limitation}</Text>
                       </HStack>

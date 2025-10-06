@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
+import { useRef } from "react"
 import type React from "react"
 
 import {
@@ -401,6 +402,12 @@ export default function Colaboradores() {
   const [tipoPlano, setTipoPlano] = useState<string>("")
   const [adminInfo, setAdminInfo] = useState<any>(null)
   const [maxColaborador, setMaxColaborador] = useState<number>(1)
+  // Aviso quando houver downgrade e desativações automáticas
+  const [planLimitNotice, setPlanLimitNotice] = useState<{ show: boolean; limit: number | null; deactivatedIds: string[] }>({ show: false, limit: null, deactivatedIds: [] })
+  // Chave para evitar loops na aplicação do limite por plano
+  const [enforcedPlanLimitAt, setEnforcedPlanLimitAt] = useState<string | null>(null)
+  // Memoriza o último limite de colaboradores ativos permitidos (sem contar admin)
+  const prevAllowedActiveRef = useRef<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("active")
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -480,6 +487,7 @@ export default function Colaboradores() {
         setTipoPlano(data.tipoPlano || "")
         setAdminInfo(data)
         // max_colaborador representa QUANTOS ADICIONAIS além do administrador
+        // NOVA REGRA: max_colaborador PASSA a representar TOTAL incluindo administrador
         setMaxColaborador(typeof data.max_colaborador === 'number' ? data.max_colaborador : 0)
       }
     }, (err) => {
@@ -487,6 +495,36 @@ export default function Colaboradores() {
     })
     return () => unsub()
   }, [uid])
+
+  // Sincronizar max_colaborador automaticamente quando o plano mudar (upgrade/downgrade)
+  useEffect(() => {
+    if (!uid) return
+    const planoKey = (tipoPlano || '').toString().trim().toLowerCase()
+    // Totais por plano (inclui administrador)
+    const totalByPlan: Record<string, number | null> = {
+      '': 1,
+      nenhum: 1,
+      bronze: 2,
+      prata: 3,
+      ouro: 4,
+      diamante: null, // ilimitado
+    }
+    if (!(planoKey in totalByPlan)) return
+    const intendedTotal = totalByPlan[planoKey]
+    // Evitar writes desnecessários: compara com adminInfo.max_colaborador (number ou null/undefined)
+    const currentMax: number | null | undefined = (adminInfo?.max_colaborador as any)
+    const needUpdate = (intendedTotal === null && currentMax !== null && currentMax !== undefined) || (typeof intendedTotal === 'number' && intendedTotal !== currentMax)
+    if (!needUpdate) return
+    ;(async () => {
+      try {
+        await updateDoc(doc(firestore, 'contas', uid), {
+          max_colaborador: intendedTotal === null ? null : intendedTotal,
+        } as any)
+      } catch (e) {
+        // silencioso
+      }
+    })()
+  }, [tipoPlano, uid, adminInfo])
 
   // Listen for collaborators in real-time from Firestore
   useEffect(() => {
@@ -582,57 +620,57 @@ export default function Colaboradores() {
 
   // Para plano Bronze, criar um colaborador fictício representando o administrador
   const getDisplayCollaborators = () => {
-    if (tipoPlano === 'bronze' && adminInfo) {
-      const adminAsCollaborator: ColaboradorFirestoreData = {
-        id: 'admin',
-        nome: adminInfo.nomeEstabelecimento || 'Administrador',
-        email: adminInfo.email || '',
-        agendamentoOnline: 'enabled',
-        cargos: ['Administrador'],
-        status: 'active',
-        contato: {
-          telefone: adminInfo.telefone || '',
-          instagram: adminInfo.instagram || '',
-          tipoTelefone: (adminInfo as any)?.tipoTelefone || 'WhatsApp'
-        },
-        atributos: {
-          executaAtendimentos: true,
-          vendeProdutos: false,
-          vendePacotes: false
-        },
-        pessoal: {
-          dataNascimento: '',
-          cpf: '',
-          rg: '',
-          orgaoExpedidor: '',
-          informacoesAdicionais: ''
-        },
-        bancario: {
-          chavePix: '',
-          banco: '',
-          agencia: '',
-          conta: '',
-          digito: '',
-          tipoConta: '',
-          tipoPessoa: ''
-        },
-        endereco: {
-          rua: '',
-          numeroCasa: '',
-          complementoCasa: '',
-          bairro: '',
-          cidade: '',
-          estado: '',
-          cep: ''
-        },
-        avatar: adminInfo.logo || '',
-        createdBy: uid || '',
-        criadoEm: new Date(),
-        authUserId: uid || ''
-      }
-      return [adminAsCollaborator]
-    }
-    return filteredCollaborators
+    // Monta o card/linha do dono da conta (administrador) sempre no topo da lista
+    const owner: ColaboradorFirestoreData | null = adminInfo ? {
+      id: 'owner',
+      nome: adminInfo.nomeEstabelecimento || 'Dono da conta',
+      email: adminInfo.email || '',
+      agendamentoOnline: 'enabled',
+      cargos: ['Dono da conta'],
+      status: 'active',
+      contato: {
+        telefone: adminInfo.telefone || '',
+        instagram: adminInfo.instagram || '',
+        tipoTelefone: (adminInfo as any)?.tipoTelefone || 'WhatsApp'
+      },
+      atributos: {
+        executaAtendimentos: true,
+        vendeProdutos: false,
+        vendePacotes: false
+      },
+      pessoal: {
+        dataNascimento: '',
+        cpf: '',
+        rg: '',
+        orgaoExpedidor: '',
+        informacoesAdicionais: ''
+      },
+      bancario: {
+        chavePix: '',
+        banco: '',
+        agencia: '',
+        conta: '',
+        digito: '',
+        tipoConta: '',
+        tipoPessoa: ''
+      },
+      endereco: {
+        rua: '',
+        numeroCasa: '',
+        complementoCasa: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+        cep: ''
+      },
+      avatar: adminInfo.logo || '',
+      createdBy: uid || '',
+      criadoEm: new Date(),
+      authUserId: uid || ''
+    } : null
+
+    const list = filteredCollaborators
+    return owner ? [owner, ...list] : list
   }
 
   // Função assíncrona para buscar endereço pelo CEP usando ViaCEP
@@ -1069,7 +1107,8 @@ export default function Colaboradores() {
             estado: formData.address.state,
             cep: formData.address.zipCode,
           },
-          status: "active",
+          // Se não houver vagas disponíveis (limite total inclui admin, então permitidos na coleção = limitTotal - 1), criar já como inativo
+          status: (Number.isFinite(limitTotal) && (activeCount >= Math.max(0, (limitTotal as number) - 1))) ? 'inactive' : 'active',
           criadoEm: new Date(),
           createdBy: uid,
           estabelecimento: estabelecimentoNome,
@@ -1160,6 +1199,16 @@ export default function Colaboradores() {
     console.log(`${newStatus === "active" ? "Ativar" : "Desativar"} colaborador:`, collaborator.nome)
 
     try {
+      // Bloquear ativações quando o limite total já foi atingido
+      if (newStatus === 'active') {
+        const currentActive = collaborators.filter((c) => c.status === 'active').length
+        const allowed = Number.isFinite(limitTotal) ? Math.max(0, (limitTotal as number) - 1) : Infinity
+        const willExceed = !Number.isFinite(limitTotal) ? false : currentActive >= allowed
+        if (willExceed) {
+          alert(`Seu plano permite ${limiteTexto} colaboradores ativos. Desative alguém antes de ativar outro.`)
+          return
+        }
+      }
       // Atualizar status no Firestore
       const docRef = doc(firestore, "colaboradores", collaborator.id!)
       await updateDoc(docRef, { status: newStatus })
@@ -1243,6 +1292,8 @@ export default function Colaboradores() {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
+      case "Dono da conta":
+        return "yellow"
       case "Proprietário":
         return "yellow"
       case "Gerente":
@@ -1257,7 +1308,7 @@ export default function Colaboradores() {
   }
 
   const getStatsData = () => {
-    const total = collaborators.length
+    const total = collaborators.length + 1 // inclui administrador
     const active = collaborators.filter((c) => c.status === "active").length
     const inactive = collaborators.filter((c) => c.status === "inactive").length
     const professionals = collaborators.filter((c) => c.cargos?.includes("Profissional")).length
@@ -1266,7 +1317,7 @@ export default function Colaboradores() {
   }
 
   const stats = getStatsData()
-  // Cálculo de disponibilidade e limites do plano (em tempo real)
+  // Cálculo de disponibilidade e limites do plano (em tempo real) – NOVA REGRA
   const activeCount = collaborators.filter((c) => c.status === 'active').length
   const plano = (tipoPlano || '').toString().trim().toLowerCase()
 
@@ -1280,35 +1331,86 @@ export default function Colaboradores() {
   const planoValido = !!plano && plano !== 'nenhum'
   const planoAtivo = planoValido && !terminou
 
-  // Limites por plano (ADICIONAIS, não inclui administrador). O admin conta sempre como 1 fixo.
-  // bronze: 0 adicionais | prata: 1 adicional | ouro: 2 adicionais | diamante: ∞ (enquanto ativo)
-  const baseAdditionalByPlan: Record<string, number> = {
-    '': 0,
-    nenhum: 0,
-    bronze: 0,
-    prata: 1,
-    ouro: 2,
+  // Totais por plano (inclui administrador)
+  const planTotalByDefault: Record<string, number> = {
+    '': 1,
+    nenhum: 1,
+    bronze: 2,
+    prata: 3,
+    ouro: 4,
     diamante: Number.POSITIVE_INFINITY,
   }
-  const hasNumericLimit = typeof maxColaborador === 'number' && maxColaborador > 0
-  const baseAdditional = baseAdditionalByPlan.hasOwnProperty(plano) ? baseAdditionalByPlan[plano] : 0
-
-  // Diamante vencido volta a 1
+  const hasNumericLimitTotal = typeof maxColaborador === 'number' && maxColaborador > 0
+  const defaultTotal = planTotalByDefault.hasOwnProperty(plano) ? planTotalByDefault[plano] : 1
+  // Diamante expirado volta a 1
   const diamanteExpirado = plano === 'diamante' && !planoAtivo
-
-  // adicionais permitidos: prioriza max_colaborador (tempo real). Se não tiver, usa o do plano.
-  const allowedAdditional = hasNumericLimit ? (maxColaborador as number) : (diamanteExpirado ? 0 : baseAdditional)
-
-  // Infinito somente se diamante ativo e sem max_colaborador definido
-  const ilimitado = (plano === 'diamante' && planoAtivo && !hasNumericLimit)
-
-  // total permitido no time = admin(1) + adicionais
-  // Disponíveis = adicionais permitidos - colaboradores ativos
-  const disponiveis = ilimitado ? Number.POSITIVE_INFINITY : Math.max(0, (Math.max(0, allowedAdditional) - activeCount))
+  const limitTotal = hasNumericLimitTotal ? (maxColaborador as number) : (diamanteExpirado ? 1 : defaultTotal)
+  const ilimitado = limitTotal === Number.POSITIVE_INFINITY
+  // Como o administrador sempre conta como 1 e não está na coleção "colaboradores",
+  // o número máximo de colaboradores ATIVOS permitidos na coleção é (limitTotal - 1)
+  const allowedActiveCollaborators = ilimitado ? Number.POSITIVE_INFINITY : Math.max(0, (limitTotal as number) - 1)
+  const disponiveis = ilimitado ? Number.POSITIVE_INFINITY : Math.max(0, allowedActiveCollaborators - activeCount)
   const limiteAtingido = ilimitado ? false : disponiveis <= 0
-
-  const limiteTexto = ilimitado ? '∞' : String(1 + Math.max(0, allowedAdditional))
+  const limiteTexto = ilimitado ? '∞' : String(limitTotal)
   const terminoTexto = terminoDate ? terminoDate.toLocaleDateString('pt-BR') : null
+
+  // Aplicar desativação automática quando activeCount exceder o novo limite após downgrade
+  useEffect(() => {
+    if (!uid) return
+    if (!Number.isFinite(limitTotal)) { prevAllowedActiveRef.current = null; return }
+    const limitNum = typeof limitTotal === 'number' ? limitTotal : Infinity
+    if (!Number.isFinite(limitNum)) { prevAllowedActiveRef.current = null; return }
+    const allowed = Math.max(0, (limitNum as number) - 1)
+
+    const was = prevAllowedActiveRef.current
+    // Atualiza a memória para próximos ciclos
+    prevAllowedActiveRef.current = allowed
+
+    // Só considerar desativação automática quando há DOWGRADE (allowed diminuiu)
+    const isDowngrade = typeof was === 'number' && allowed < was
+    if (!isDowngrade) {
+      // Upgrade ou primeiro cálculo: não desativa nada
+      if (planLimitNotice.show) setPlanLimitNotice({ show: false, limit: null, deactivatedIds: [] })
+      return
+    }
+
+    if (activeCount <= allowed) {
+      if (planLimitNotice.show) setPlanLimitNotice({ show: false, limit: null, deactivatedIds: [] })
+      return
+    }
+
+    const key = `${uid}|${plano}|${allowed}`
+    if (enforcedPlanLimitAt === key) return
+    ;(async () => {
+      try {
+        const ativosOrdenados = collaborators
+          .filter((c) => c.status === 'active')
+          .sort((a, b) => {
+            const da = (a.criadoEm && (a.criadoEm as any).toDate ? (a.criadoEm as any).toDate() : a.criadoEm) || 0
+            const db = (b.criadoEm && (b.criadoEm as any).toDate ? (b.criadoEm as any).toDate() : b.criadoEm) || 0
+            const ta = typeof da === 'number' ? da : (da instanceof Date ? da.getTime() : 0)
+            const tb = typeof db === 'number' ? db : (db instanceof Date ? db.getTime() : 0)
+            return ta - tb
+          })
+        const toDeactivate = ativosOrdenados.slice(allowed)
+        const ops: Promise<any>[] = []
+        const deactivatedIds: string[] = []
+        toDeactivate.forEach((c) => {
+          if (!c.id) return
+          deactivatedIds.push(c.id)
+          ops.push(updateDoc(doc(firestore, 'colaboradores', c.id), { status: 'inactive' }))
+        })
+        if (ops.length > 0) {
+          await Promise.all(ops)
+          setPlanLimitNotice({ show: true, limit: limitTotal as number, deactivatedIds })
+        }
+        setEnforcedPlanLimitAt(key)
+      } catch (e) {
+        // silencioso
+      }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, plano, limitTotal, activeCount, collaborators])
 
   return (
     <Box minH={{ base: "100vh", md: "90vh" }} bg="gray.50" p={{ base: 2, md: 4, lg: 8 }} pb={{ base: 40, md: 24, lg: 32 }} overflow="auto">
@@ -1361,6 +1463,7 @@ export default function Colaboradores() {
                   <Stat>
                     <StatLabel color="blue.100" fontSize={{ base: "xs", md: "sm" }}>Total</StatLabel>
                     <StatNumber fontSize={{ base: "xl", md: "3xl" }}>{stats.total}</StatNumber>
+                    <Text color="blue.100" fontSize={{ base: "10px", md: "sm" }}>Inclui administrador</Text>
                   </Stat>
                   <Icon as={Users} w={{ base: 6, md: 8 }} h={{ base: 6, md: 8 }} color="blue.200" />
                 </Flex>
@@ -1422,6 +1525,15 @@ export default function Colaboradores() {
               </CardBody>
             </Card>
           </SimpleGrid>
+
+          {/* Aviso de downgrade e desativações automáticas */}
+          {planLimitNotice.show && (
+            <Alert status="warning" borderRadius="lg" variant="subtle">
+              <AlertDescription>
+                {`Seu novo plano permite apenas ${planLimitNotice.limit} colaboradores ativos. ${planLimitNotice.deactivatedIds.length} colaborador(es) foram desativados automaticamente. Escolha quais deseja manter ativos.`}
+              </AlertDescription>
+            </Alert>
+          )}
 
       {/* Filters and Search */}
           <Card bg={cardBg} shadow="lg">
@@ -1498,7 +1610,8 @@ export default function Colaboradores() {
                   <TableContainer
                     w="100%"
                     maxW="100vw"
-                    maxH={{ base: 'none', md: '600px', lg: '700px' }}
+                    // Aumenta a área visível para mostrar melhor os cards/linhas
+                    maxH={{ base: 'none', md: '80vh', lg: '82vh' }}
                     overflowY={{ base: 'unset', md: 'auto' }}
                     sx={{
                       '&::-webkit-scrollbar': {
@@ -1724,17 +1837,22 @@ export default function Colaboradores() {
                             </Td>
                             <Td py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }} textAlign="center">
                               <Box as="span" position="relative" display="inline-block" w="100%">
-                                <IconButton
-                                  aria-label="Opções"
-                                  icon={<MoreVertical size={16} />}
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleMenuToggle(colaborador.id || null)}
-                                  zIndex={11}
-                                  color="gray.600"
-                                  _hover={{ bg: "gray.100", color: "gray.800" }}
-                                  transition="all 0.2s"
-                                />
+                                {/* Desabilita ações para o dono da conta */}
+                                {colaborador.id === 'owner' ? (
+                                  <Badge colorScheme="yellow" variant="subtle" px={3} py={1} borderRadius="md">Sem ações</Badge>
+                                ) : (
+                                  <IconButton
+                                    aria-label="Opções"
+                                    icon={<MoreVertical size={16} />}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMenuToggle(colaborador.id || null)}
+                                    zIndex={11}
+                                    color="gray.600"
+                                    _hover={{ bg: "gray.100", color: "gray.800" }}
+                                    transition="all 0.2s"
+                                  />
+                                )}
                                 {openMenuId === colaborador.id && (
                                   <VStack
                                     position="absolute"
@@ -1766,6 +1884,7 @@ export default function Colaboradores() {
                                       borderRadius="md"
                                       _hover={{ bg: "blue.50", color: "blue.600" }}
                                       transition="all 0.2s"
+                                      isDisabled={colaborador.id === 'owner'}
                                     >
                                       Editar
                                     </Button>
@@ -1782,6 +1901,7 @@ export default function Colaboradores() {
                                       borderRadius="md"
                                       _hover={{ bg: "orange.50", color: "orange.600" }}
                                       transition="all 0.2s"
+                                      isDisabled={colaborador.id === 'owner'}
                                     >
                                       {colaborador.status === "active" ? "Desativar" : "Ativar"}
                                     </Button>
@@ -1799,6 +1919,7 @@ export default function Colaboradores() {
                                       borderRadius="md"
                                       _hover={{ bg: "red.50", color: "red.600" }}
                                       transition="all 0.2s"
+                                      isDisabled={colaborador.id === 'owner'}
                                     >
                                       Excluir
                                     </Button>
@@ -1858,13 +1979,17 @@ export default function Colaboradores() {
                             </VStack>
                           </HStack>
                           <Box position="relative" flexShrink={0}>
-                            <IconButton
-                              aria-label="Opções"
-                              icon={<MoreVertical size={16} />}
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMenuToggle(colaborador.id || null)}
-                            />
+                            {colaborador.id === 'owner' ? (
+                              <Badge colorScheme="yellow" variant="subtle" px={3} py={1} borderRadius="md">Sem ações</Badge>
+                            ) : (
+                              <IconButton
+                                aria-label="Opções"
+                                icon={<MoreVertical size={16} />}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMenuToggle(colaborador.id || null)}
+                              />
+                            )}
                             {openMenuId === colaborador.id && (
                               <Box
                                 position="absolute"
@@ -1889,6 +2014,7 @@ export default function Colaboradores() {
                                     handleEditCollaborator(colaborador)
                                     handleMenuToggle(null)
                                   }}
+                                  isDisabled={colaborador.id === 'owner'}
                                 >
                                   Editar
                                 </Button>
@@ -1902,6 +2028,7 @@ export default function Colaboradores() {
                                     handleToggleStatus(colaborador)
                                     handleMenuToggle(null)
                                   }}
+                                  isDisabled={colaborador.id === 'owner'}
                                 >
                                   {colaborador.status === "active" ? "Desativar" : "Ativar"}
                                 </Button>
@@ -1916,6 +2043,7 @@ export default function Colaboradores() {
                                     handleDeleteCollaborator(colaborador)
                                     handleMenuToggle(null)
                                   }}
+                                  isDisabled={colaborador.id === 'owner'}
                                 >
                                   Excluir
                                 </Button>
