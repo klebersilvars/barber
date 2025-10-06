@@ -89,6 +89,47 @@ export default function PageHome() {
     navigate('/cadastro')
   }
 
+  // Dados dos planos (sem avaliação grátis)
+  const planos = [
+    {
+      id: "bronze",
+      name: "Bronze",
+      description: "Para profissionais autônomos ou pequenos negócios",
+      monthlyPrice: 59.90,
+      color: "purple",
+      icon: Award
+    },
+    {
+      id: "prata",
+      name: "Prata",
+      description: "Para estabelecimentos em crescimento",
+      monthlyPrice: 89.90,
+      color: "blue",
+      icon: Award
+    },
+    {
+      id: "ouro",
+      name: "Ouro",
+      description: "Perfeito para empresas em expansão",
+      monthlyPrice: 139.90,
+      color: "blue",
+      icon: Award
+    },
+    {
+      id: "diamante",
+      name: "Diamante",
+      description: "Máximo em desempenho e exclusividade",
+      monthlyPrice: 189.90,
+      color: "blue",
+      icon: Award
+    }
+  ]
+
+  function selecionarPlano() {
+    // Sem compra fora da plataforma — apenas direciona para cadastro
+    navigate('/cadastro')
+  }
+
   return (
     <div className="page-home">
       {/* Header Chakra UI */}
@@ -103,6 +144,7 @@ export default function PageHome() {
           <HStack as="nav" spacing={8} display={{ base: "none", md: "flex" }}>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#inicio">Início</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#solucoes">Soluções</Button>
+            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#planos">Planos</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#funcionalidades">Funcionalidades</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#depoimentos">Depoimentos</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#contato">Contato</Button>
@@ -231,6 +273,40 @@ export default function PageHome() {
             <div className="hero-image">
               <img src={barberImage} alt="Profissional trabalhando" />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Planos */}
+      <section className="section" id="planos">
+        <div className="container">
+          <div className="section-header">
+            <h2>Escolha um plano para começar</h2>
+            <p>Selecione um plano agora e conclua a compra dentro da plataforma após o cadastro.</p>
+          </div>
+          <div className="funcionalidades-grid">
+            {planos.map((plano) => (
+              <div
+                key={plano.id}
+                className="funcionalidade-card"
+                style={{ cursor: 'pointer', border: '1px solid #e5e7eb' }}
+                onClick={selecionarPlano}
+              >
+                <div className="funcionalidade-icon">
+                  <plano.icon />
+                </div>
+                <h3>{plano.name}</h3>
+                <p>{plano.description}</p>
+                <div style={{ marginTop: 12, fontWeight: 800, color: '#111827' }}>
+                  R$ {plano.monthlyPrice.toFixed(2).replace('.', ',')}/mês
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <Button colorScheme={plano.color === 'purple' ? 'purple' : 'blue'} onClick={selecionarPlano}>
+                    Selecionar Plano
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

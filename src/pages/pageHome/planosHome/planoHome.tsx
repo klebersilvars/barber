@@ -115,7 +115,7 @@ export default function Plano() {
         'Sem personalização da página de agendamento' 
       ],
       color: "purple",
-      icon: Crown,
+      icon: Star,
     },
     {
       id: "prata",
@@ -138,7 +138,7 @@ export default function Plano() {
         'Sem personalização da página de agendamento'
       ],
       color: "blue",
-      icon: Crown,
+      icon: Star,
     },
     {
       id: "ouro",
@@ -185,7 +185,7 @@ export default function Plano() {
       limitations: [
       ],
       color: "blue",
-      icon: Crown,
+      icon: Star,
     },
   ]
 
@@ -334,7 +334,7 @@ export default function Plano() {
                   <VStack spacing={3} align="start">
                     <HStack spacing={2} align="center">
                       <Box bg="green.400" borderRadius="full" p={2} display="flex" alignItems="center">
-                        <Icon as={Crown} color="white" boxSize={6} />
+                        <Icon as={Star} color="white" boxSize={6} />
                       </Box>
                       <Text fontWeight={700} fontSize="2xl" color="green.700">Avaliação Grátis</Text>
                     </HStack>
