@@ -535,12 +535,43 @@ export default function Colaboradores() {
         id: 'admin',
         nome: adminInfo.nomeEstabelecimento || 'Administrador',
         email: adminInfo.email || '',
+        agendamentoOnline: 'enabled',
         cargos: ['Administrador'],
         status: 'active',
         contato: {
           telefone: adminInfo.telefone || '',
           instagram: adminInfo.instagram || '',
           tipoTelefone: (adminInfo as any)?.tipoTelefone || 'WhatsApp'
+        },
+        atributos: {
+          executaAtendimentos: true,
+          vendeProdutos: false,
+          vendePacotes: false
+        },
+        pessoal: {
+          dataNascimento: '',
+          cpf: '',
+          rg: '',
+          orgaoExpedidor: '',
+          informacoesAdicionais: ''
+        },
+        bancario: {
+          chavePix: '',
+          banco: '',
+          agencia: '',
+          conta: '',
+          digito: '',
+          tipoConta: '',
+          tipoPessoa: ''
+        },
+        endereco: {
+          rua: '',
+          numeroCasa: '',
+          complementoCasa: '',
+          bairro: '',
+          cidade: '',
+          estado: '',
+          cep: ''
         },
         avatar: adminInfo.logo || '',
         createdBy: uid || '',
