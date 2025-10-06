@@ -539,7 +539,8 @@ export default function Colaboradores() {
         status: 'active',
         contato: {
           telefone: adminInfo.telefone || '',
-          instagram: adminInfo.instagram || ''
+          instagram: adminInfo.instagram || '',
+          tipoTelefone: (adminInfo as any)?.tipoTelefone || 'WhatsApp'
         },
         avatar: adminInfo.logo || '',
         createdBy: uid || '',
