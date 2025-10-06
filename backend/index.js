@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: 'keys.env' });
 import express from 'express';
-import cors from 'cors';
+// import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
 import { v2 as cloudinary } from 'cloudinary';
@@ -48,7 +48,7 @@ const FIREBASE_AUTH_PROVIDER_X509_CERT_URL = process.env.FIREBASE_AUTH_PROVIDER_
 const FIREBASE_CLIENT_X509_CERT_URL = process.env.FIREBASE_CLIENT_X509_CERT_URL;
 const FIREBASE_UNIVERSE_DOMAIN = process.env.FIREBASE_UNIVERSE_DOMAIN || "googleapis.com";
 
-// Configuração CORS (única) com whitelist para dev e produção
+// Configuração CORS com whitelist e resposta dinâmica por origin
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -57,21 +57,32 @@ const allowedOrigins = [
   'https://localhost:5173'
 ];
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Permitir requisições sem origin (Postman/healthchecks)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true,
-  optionsSuccessStatus: 204
-};
+const isDev = process.env.NODE_ENV !== 'production';
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // Permitir requisições sem origin (ex.: Postman, healthchecks)
+  if (!origin) {
+    return next();
+  }
+
+  const isAllowed = allowedOrigins.includes(origin) || (isDev && origin.startsWith('http://localhost'));
+
+  if (isAllowed) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 

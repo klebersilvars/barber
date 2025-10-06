@@ -87,7 +87,7 @@ export default function Plano() {
     
     setTesteGratisAtivo(true)
     setJaPegouPremiumGratis(true)
-    // Redirecionar para o dashboard para liberar as rotas
+    // Redirecionar para o dashboard   para liberar as rotas
     navigate(`/dashboard/${auth.currentUser.uid}`)
   }
 
@@ -97,8 +97,8 @@ export default function Plano() {
       name: "Bronze",
       description: "Para profissionais autônomos ou pequenos negócios",
       monthlyPrice: 59.90,  
-      quarterlyPrice: 79.90,
-      yearlyPrice: 299.00,
+      quarterlyPrice: 162.00,
+      yearlyPrice: 575.00,
       popular: false,
       features: [
         "1 colaborador (você)",
@@ -122,8 +122,8 @@ export default function Plano() {
       name: "Prata",
       description: "Para estabelecimentos em crescimento",
       monthlyPrice: 89.90,
-      quarterlyPrice: 164.90,
-      yearlyPrice: 599.00,
+      quarterlyPrice: 243.00,
+      yearlyPrice: 863.00,
       popular: false,
       features: [
         "2 colaboradores",
@@ -145,8 +145,8 @@ export default function Plano() {
       name: "Ouro",
       description: 'Perfeito para empresas em plena expansão.',
       monthlyPrice: 139.90,
-      quarterlyPrice: 164.90,
-      yearlyPrice: 599.00,
+      quarterlyPrice: 378.00,
+      yearlyPrice: 1343.00,
       popular: false,
       features: [
         "3 colaboradores",
@@ -169,8 +169,8 @@ export default function Plano() {
       name: "Diamante",
       description: 'Feito para líderes que buscam o máximo em desempenho e exclusividade.',
       monthlyPrice: 189.90,
-      quarterlyPrice: 164.90,
-      yearlyPrice: 599.00,
+      quarterlyPrice: 513.00,
+      yearlyPrice: 1823.00,
       popular: true,
       features: [
         "Colaboradores ilimitados",
