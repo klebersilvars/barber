@@ -27,6 +27,7 @@ import PageErro from "./pages/pageErro/pageErro"
 import LoginFundador from "./pages/fundador/LoginPage/LoginFundador"
 import DashboardFundador from "./pages/fundador/dashboardFundador/dashboardFundador"
 import VerAgendamento from "./pages/cliente/verAgendamento/VerAgendamento"
+import WhatsappAtendente from "./pages/whatsappAtendente/WhatsappAtendente"
 
 export default function AppRoutes() {
   return (
@@ -45,6 +46,7 @@ export default function AppRoutes() {
           <Route path="vendas" element={<RequireAuth><VendasAtendente /></RequireAuth>} />
           <Route path="clientes" element={<RequireAuth><ClienteAtendente /></RequireAuth>} />
           <Route path="agendaAtendente" element={<RequireAuth><AgendaAtendente /></RequireAuth>} />
+          <Route path="whatsappAtendente" element={<RequireAuth><WhatsappAtendente /></RequireAuth>} />
         </Route>
         <Route path="/dashboard/:uid" element={<RequireAuth><DashboardUser /></RequireAuth>} >
           <Route index element={<DashboardContent />} />
@@ -65,6 +67,7 @@ export default function AppRoutes() {
         <Route path="/fundador" element={<LoginFundador />} />
         <Route path="/dashboardFundador/:uid" element={<DashboardFundador />} />
         <Route path="/verAgendamento" element={<VerAgendamento />} />
+        
       </Routes>
     </BrowserRouter>
   )

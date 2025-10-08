@@ -134,6 +134,7 @@ export default function Plano() {
         "Suporte prioritário 24/7",
         "Treinamento incluído",
         "Gestão financeira completa",
+        'Placa personalizada da sua loja com QR Code'
       ],
       limitations: [
         'Whatsapp integrado',
@@ -158,7 +159,8 @@ export default function Plano() {
         "Treinamento incluído",
         "Gestão financeira completa",
         'Whatsapp integrado para o atendente.',
-        'Personalização da página de agendamento'
+        'Personalização da página de agendamento',
+        'Placa personalizada da sua loja com QR Code'
       ],
       limitations: [
         'Sem colaboradores ilimitados'
@@ -182,7 +184,8 @@ export default function Plano() {
         "Treinamento incluído",
         "Gestão financeira completa",
         'Whatsapp integrado para o atendente.',
-        'Personalização da página de agendamento'
+        'Personalização da página de agendamento',
+        'Placa personalizada da sua loja com QR Code'
       ],
       limitations: [
       ],

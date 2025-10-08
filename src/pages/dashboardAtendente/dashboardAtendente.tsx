@@ -12,6 +12,8 @@ import {
   ChevronRight,
   LogOut,
   Menu as MenuIcon,
+  MessageCircle,
+  
 } from "lucide-react"
 import { useParams, useNavigate, Outlet, useLocation } from "react-router-dom"
 import { firestore, auth } from "../../firebase/firebase"
@@ -31,6 +33,7 @@ const DashboardAtendente: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const menuItems = [
+    { icon: MessageCircle, label: "Whatsapp", path: `/acessoAtendente/${uid}/whatsappAtendente` },
     { icon: ShoppingCart, label: "Vendas", path: `/acessoAtendente/${uid}/vendas` },
     { icon: Users, label: "Clientes", path: `/acessoAtendente/${uid}/clientes` },
     { icon: Calendar, label: "Agenda Online", path: `/acessoAtendente/${uid}/agendaAtendente` },
