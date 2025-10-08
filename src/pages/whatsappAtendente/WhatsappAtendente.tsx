@@ -1,5 +1,6 @@
 import React, { useEffect } from "react"
 import { useState } from "react"
+import { useRef, useCallback } from "react"
 import {
   Box,
   Container,
@@ -46,6 +47,11 @@ export default function WhatsappAtendente() {
     footer: "",
     fullnumber: false,
   })
+
+  // Controle do ciclo de atualização do QR Code
+  const qrRefreshTimerRef = useRef<number | null>(null)
+  const qrFetchAbortRef = useRef<AbortController | null>(null)
+  const isUnmountedRef = useRef(false)
 
   // Buscar estabelecimento do atendente logado
   useEffect(() => {
@@ -133,67 +139,141 @@ export default function WhatsappAtendente() {
     } catch {}
   }, [])
 
-  const handleConnect = async () => {
-    if (!formData.sender) {
-      alert("Informe o número do dispositivo")
-      return
+  const stopQrLoop = useCallback(() => {
+    if (qrRefreshTimerRef.current !== null) {
+      window.clearTimeout(qrRefreshTimerRef.current)
+      qrRefreshTimerRef.current = null
     }
-    setIsGeneratingQR(true)
-    setQrImageUrl(null)
+    if (qrFetchAbortRef.current) {
+      try { qrFetchAbortRef.current.abort() } catch {}
+      qrFetchAbortRef.current = null
+    }
+  }, [])
+
+  const markConnected = useCallback(() => {
+    setIsConnected(true)
+    stopQrLoop()
     try {
-      // 1) Tenta GET primeiro (alguns provedores só permitem GET)
-      const url = new URL("https://api.prookit.com/generate-qr")
-      url.searchParams.set("device", formData.sender)
-      url.searchParams.set("api_key", formData.api_key)
-      url.searchParams.set("force", "true")
-      let response = await fetch(url.toString(), { method: "GET", headers: { Accept: "application/json,image/*" } })
+      localStorage.setItem("wa_connected", "1")
+      if (formData.sender) localStorage.setItem("wa_sender", formData.sender)
+    } catch {}
+    // Carregar clientes imediatamente após conectar
+    void loadClientsNow()
+  }, [formData.sender, loadClientsNow, stopQrLoop])
 
-      if (response.status === 405) {
-        // 2) Fallback para POST
-        response = await fetch("https://api.prookit.com/generate-qr", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json,image/*" },
-          body: JSON.stringify({ device: formData.sender, api_key: formData.api_key, force: true }),
-        })
-      }
+  const checkDeviceStatus = useCallback(async () => {
+    if (!formData.sender || isUnmountedRef.current) return false
+    
+    try {
+      const backendUrl = "https://barber-backend-qlt6.onrender.com"
+      const response = await fetch(`${backendUrl}/api/whatsapp/status/${formData.sender}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      })
 
-      const contentType = response.headers.get("content-type") || ""
-      if (!response.ok) throw new Error(`Erro ${response.status}`)
-
-      if (contentType.includes("application/json")) {
+      if (response.ok) {
         const data = await response.json()
-        const possible = data.qr || data.qrcode || data.qr_code || data.image || data.url || data.dataUrl
-        if (typeof possible === "string") {
-          if (possible.startsWith("data:")) {
-            setQrImageUrl(possible)
-          } else if (possible.startsWith("http")) {
-            // Buscar a imagem e transformar em blob para evitar novos 405s
-            const imgRes = await fetch(possible)
-            if (!imgRes.ok) throw new Error(`Erro ${imgRes.status}`)
-            const blob = await imgRes.blob()
-            setQrImageUrl(URL.createObjectURL(blob))
-          } else {
-            throw new Error("URL/base64 de QR inválida")
-          }
-        } else {
-          throw new Error("Resposta da API não contém o QR")
+        if (data.connected) {
+          markConnected()
+          return true
         }
-      } else if (contentType.startsWith("image/")) {
-        const blob = await response.blob()
-        setQrImageUrl(URL.createObjectURL(blob))
-      } else {
-        const blob = await response.blob()
-        setQrImageUrl(URL.createObjectURL(blob))
       }
+      return false
+    } catch (error) {
+      console.error("Erro ao verificar status:", error)
+      return false
+    }
+  }, [formData.sender, markConnected])
+
+  const scheduleStatusCheck = useCallback((delayMs: number) => {
+    if (qrRefreshTimerRef.current !== null) window.clearTimeout(qrRefreshTimerRef.current)
+    qrRefreshTimerRef.current = window.setTimeout(async () => {
+      if (!isUnmountedRef.current && !isConnected) {
+        const isConnected = await checkDeviceStatus()
+        if (!isConnected) {
+          scheduleStatusCheck(delayMs) // Continuar verificando
+        }
+      }
+    }, delayMs)
+  }, [checkDeviceStatus, isConnected])
+
+  // Cleanup ao desmontar componente
+  useEffect(() => {
+    return () => {
+      isUnmountedRef.current = true
+      stopQrLoop()
+    }
+  }, [stopQrLoop])
+
+  const generateQrOnce = useCallback(async () => {
+    if (!formData.sender || isUnmountedRef.current) return
+    setIsGeneratingQR(true)
+    // Abortar requisição anterior se existir
+    if (qrFetchAbortRef.current) {
+      try { qrFetchAbortRef.current.abort() } catch {}
+    }
+    const abortCtrl = new AbortController()
+    qrFetchAbortRef.current = abortCtrl
+
+    try {
+      // Usar endpoint local do backend
+      const backendUrl = "https://barber-backend-qlt6.onrender.com" // ou localhost em dev
+      const response = await fetch(`${backendUrl}/api/whatsapp/generate-qr`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          device: formData.sender,
+          api_key: formData.api_key,
+        }),
+        signal: abortCtrl.signal,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erro ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.connected) {
+        markConnected()
+        return
+      }
+
+      if (data.qrCode) {
+        setQrImageUrl(data.qrCode)
+        // Iniciar verificação de status a cada 2 segundos
+        if (!isUnmountedRef.current && !isConnected) {
+          scheduleStatusCheck(2000) // Verificar status do banco MySQL
+        }
+      } else {
+        throw new Error("QR code não retornado pelo servidor")
+      }
+
     } catch (err: any) {
+      if (err?.name === "AbortError") return
       const message = err?.message || "Falha ao gerar QR"
       alert(message)
     } finally {
       setIsGeneratingQR(false)
     }
+  }, [formData.sender, formData.api_key, isConnected, scheduleStatusCheck, markConnected])
+
+  const handleConnect = async () => {
+    if (!formData.sender) {
+      alert("Informe o número do dispositivo")
+      return
+    }
+    setQrImageUrl(null)
+    stopQrLoop()
+    await generateQrOnce()
   }
 
   const handleDisconnect = () => {
+    stopQrLoop()
     const doLogout = async () => {
       try {
         const res = await fetch("https://api.prookit.com/logout-device", {
@@ -206,7 +286,7 @@ export default function WhatsappAtendente() {
       } catch (e: any) {
         alert(e?.message || "Falha ao desconectar")
       } finally {
-    setIsConnected(false)
+        setIsConnected(false)
         try {
           localStorage.removeItem("wa_connected")
           localStorage.removeItem("wa_sender")
@@ -313,7 +393,7 @@ export default function WhatsappAtendente() {
               <Icon as={FaWhatsapp} boxSize={10} color="white" />
               </Flex>
             <Heading size="2xl" color="gray.800">
-                WhatsApp Atendente
+                Trezu Atendente
               </Heading>
             <Text color="gray.600" fontSize={{ base: "md", md: "lg" }}>
                 Sistema profissional de envio de mensagens
@@ -395,13 +475,7 @@ export default function WhatsappAtendente() {
                       colorScheme="whatsapp"
                       onClick={() => {
                         setQrImageUrl(null)
-                        setIsConnected(true)
-                        try {
-                          localStorage.setItem("wa_connected", "1")
-                          if (formData.sender) localStorage.setItem("wa_sender", formData.sender)
-                        } catch {}
-                        // Carregar clientes imediatamente após conectar
-                        loadClientsNow()
+                        markConnected()
                       }}
                     >
                       Já escaneei – Marcar como conectado
