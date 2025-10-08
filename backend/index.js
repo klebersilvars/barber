@@ -942,8 +942,7 @@ const dbConfig = {
   password: 'Arthur37729947',
   database: 'qcibbntd_wa',
   connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000
+  acquireTimeout: 60000
 };
 
 // Pool de conexões MySQL
