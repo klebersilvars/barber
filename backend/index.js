@@ -1069,7 +1069,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
       }
     };
 
-    // Retornar QR code imediatamente
+    // Retornar QR code e iniciar verificação contínua
     res.json({
       success: true,
       qrCode,
@@ -1095,8 +1095,18 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         clearInterval(statusInterval);
         console.log(`🎉 Device ${device} conectado com sucesso!`);
         
-        // Notificar via WebSocket ou Server-Sent Events se necessário
-        // Por enquanto, o frontend pode fazer polling no endpoint de status
+        // Atualizar status no banco para indicar que está conectado
+        try {
+          const connection = await mysqlPool.getConnection();
+          await connection.execute(
+            'UPDATE devices SET status = "connected", updated_at = NOW() WHERE body = ?',
+            [device]
+          );
+          connection.release();
+          console.log(`✅ Status atualizado no banco para device: ${device}`);
+        } catch (error) {
+          console.error('❌ Erro ao atualizar status no banco:', error.message);
+        }
       }
     }, 1000);
 

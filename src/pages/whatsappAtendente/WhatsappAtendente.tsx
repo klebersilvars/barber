@@ -31,6 +31,7 @@ export default function WhatsappAtendente() {
   const [isConnected, setIsConnected] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isGeneratingQR, setIsGeneratingQR] = useState(false)
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false)
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null)
   const [clients, setClients] = useState<Array<{ id: string; name: string; number: string }>>([])
   const [isLoadingClients, setIsLoadingClients] = useState(false)
@@ -151,6 +152,7 @@ export default function WhatsappAtendente() {
 
   const markConnected = useCallback(() => {
     setIsConnected(true)
+    setIsCheckingConnection(false)
     stopQrLoop()
     try {
       localStorage.setItem("wa_connected", "1")
@@ -188,9 +190,12 @@ export default function WhatsappAtendente() {
     if (qrRefreshTimerRef.current !== null) window.clearTimeout(qrRefreshTimerRef.current)
     qrRefreshTimerRef.current = window.setTimeout(async () => {
       if (!isUnmountedRef.current && !isConnected) {
+        setIsCheckingConnection(true)
         const isConnected = await checkDeviceStatus()
         if (!isConnected) {
           scheduleStatusCheck(delayMs) // Continuar verificando
+        } else {
+          setIsCheckingConnection(false)
         }
       }
     }, delayMs)
@@ -244,9 +249,9 @@ export default function WhatsappAtendente() {
 
       if (data.qrCode) {
         setQrImageUrl(data.qrCode)
-        // Iniciar verificação de status a cada 2 segundos
+        // Iniciar verificação de status a cada 1 segundo para detectar conexão mais rapidamente
         if (!isUnmountedRef.current && !isConnected) {
-          scheduleStatusCheck(2000) // Verificar status do banco MySQL
+          scheduleStatusCheck(1000) // Verificar status do banco MySQL a cada 1 segundo
         }
       } else {
         throw new Error("QR code não retornado pelo servidor")
@@ -286,6 +291,7 @@ export default function WhatsappAtendente() {
         alert(e?.message || "Falha ao desconectar")
       } finally {
         setIsConnected(false)
+        setIsCheckingConnection(false)
         try {
           localStorage.removeItem("wa_connected")
           localStorage.removeItem("wa_sender")
@@ -451,6 +457,11 @@ export default function WhatsappAtendente() {
                     <Text color="gray.600" textAlign="center">
                       Informe o dispositivo, gere e escaneie o QR com seu WhatsApp
                       </Text>
+                    {isCheckingConnection && (
+                      <Text color="whatsapp.500" fontSize="sm" fontWeight="medium">
+                        🔍 Verificando conexão... Aguarde alguns segundos
+                      </Text>
+                    )}
                     </VStack>
 
                     <Button
