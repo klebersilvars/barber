@@ -933,230 +933,230 @@ app.get('/api/test-firestore', async (req, res) => {
   }
 });
 
-// Configuração do MySQL para WhatsApp
-import mysql from 'mysql2/promise';
+// // Configuração do MySQL para WhatsApp
+// import mysql from 'mysql2/promise';
 
-const dbConfig = {
-  host: '104.168.174.216',
-  user: 'qcibbntd_wadm',
-  password: 'Arthur37729947',
-  database: 'qcibbntd_wa',
-  connectionLimit: 10,
-  acquireTimeout: 60000
-};
+// const dbConfig = {
+//   host: '104.168.174.216',
+//   user: 'qcibbntd_wadm',
+//   password: 'Arthur37729947',
+//   database: 'qcibbntd_wa',
+//   connectionLimit: 10,
+//   acquireTimeout: 60000
+// };
 
-// Pool de conexões MySQL
-const mysqlPool = mysql.createPool(dbConfig);
+// // Pool de conexões MySQL
+// const mysqlPool = mysql.createPool(dbConfig);
 
-// Endpoint para gerar QR Code do WhatsApp
-app.post('/api/whatsapp/generate-qr', async (req, res) => {
-  try {
-    const { device, api_key } = req.body;
+// // Endpoint para gerar QR Code do WhatsApp
+// app.post('/api/whatsapp/generate-qr', async (req, res) => {
+//   try {
+//     const { device, api_key } = req.body;
     
-    if (!device || !api_key) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'device e api_key são obrigatórios' 
-      });
-    }
+//     if (!device || !api_key) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: 'device e api_key são obrigatórios' 
+//       });
+//     }
 
-    console.log(`🔍 Gerando QR para device: ${device}`);
+//     console.log(`🔍 Gerando QR para device: ${device}`);
 
-    // Tentar diferentes combinações de parâmetros
-    const attempts = [
-      { device, api_key, force: true },
-      { device, api_key },
-      { sender: device, api_key, force: true },
-      { sender: device, api_key }
-    ];
+//     // Tentar diferentes combinações de parâmetros
+//     const attempts = [
+//       { device, api_key, force: true },
+//       { device, api_key },
+//       { sender: device, api_key, force: true },
+//       { sender: device, api_key }
+//     ];
 
-    let qrCode = null;
-    let lastError = null;
+//     let qrCode = null;
+//     let lastError = null;
 
-    for (const params of attempts) {
-      try {
-        // Tentar GET primeiro
-        const getUrl = new URL('https://api.prookit.com/generate-qr');
-        Object.entries(params).forEach(([k, v]) => getUrl.searchParams.set(k, String(v)));
-        getUrl.searchParams.set('t', String(Date.now()));
+//     for (const params of attempts) {
+//       try {
+//         // Tentar GET primeiro
+//         const getUrl = new URL('https://api.prookit.com/generate-qr');
+//         Object.entries(params).forEach(([k, v]) => getUrl.searchParams.set(k, String(v)));
+//         getUrl.searchParams.set('t', String(Date.now()));
 
-        let response = await fetch(getUrl.toString(), {
-          method: 'GET',
-          headers: { 'Accept': 'application/json,image/*' },
-          timeout: 30000
-        });
+//         let response = await fetch(getUrl.toString(), {
+//           method: 'GET',
+//           headers: { 'Accept': 'application/json,image/*' },
+//           timeout: 30000
+//         });
 
-        // Se 405, tentar POST
-        if (response.status === 405) {
-          response = await fetch('https://api.prookit.com/generate-qr', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json,image/*'
-            },
-            body: JSON.stringify({ ...params, t: Date.now() }),
-            timeout: 30000
-          });
-        }
+//         // Se 405, tentar POST
+//         if (response.status === 405) {
+//           response = await fetch('https://api.prookit.com/generate-qr', {
+//             method: 'POST',
+//             headers: { 
+//               'Content-Type': 'application/json',
+//               'Accept': 'application/json,image/*'
+//             },
+//             body: JSON.stringify({ ...params, t: Date.now() }),
+//             timeout: 30000
+//           });
+//         }
 
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
+//         if (response.ok) {
+//           const contentType = response.headers.get('content-type') || '';
           
-          if (contentType.includes('application/json')) {
-            const data = await response.json();
+//           if (contentType.includes('application/json')) {
+//             const data = await response.json();
             
-            // Verificar se já está conectado
-            if (data.connected === true || 
-                String(data.status || '').toLowerCase() === 'connected' ||
-                String(data.connectionStatus || '').toLowerCase() === 'connected') {
-              return res.json({
-                success: true,
-                connected: true,
-                message: 'Dispositivo já conectado'
-              });
-            }
+//             // Verificar se já está conectado
+//             if (data.connected === true || 
+//                 String(data.status || '').toLowerCase() === 'connected' ||
+//                 String(data.connectionStatus || '').toLowerCase() === 'connected') {
+//               return res.json({
+//                 success: true,
+//                 connected: true,
+//                 message: 'Dispositivo já conectado'
+//               });
+//             }
             
-            qrCode = data.qr || data.qrcode || data.qr_code || data.image || data.url || data.dataUrl;
-          } else if (contentType.startsWith('image/')) {
-            const blob = await response.blob();
-            qrCode = `data:${contentType};base64,${blob.toString('base64')}`;
-          }
+//             qrCode = data.qr || data.qrcode || data.qr_code || data.image || data.url || data.dataUrl;
+//           } else if (contentType.startsWith('image/')) {
+//             const blob = await response.blob();
+//             qrCode = `data:${contentType};base64,${blob.toString('base64')}`;
+//           }
           
-          if (qrCode) {
-            console.log(`✅ QR gerado com sucesso para device: ${device}`);
-            break;
-          }
-        } else {
-          const errorText = await response.text();
-          lastError = `HTTP ${response.status}: ${errorText}`;
-          console.log(`❌ Tentativa falhou: ${lastError}`);
-        }
-      } catch (error) {
-        lastError = error.message;
-        console.log(`❌ Erro na tentativa: ${error.message}`);
-      }
-    }
+//           if (qrCode) {
+//             console.log(`✅ QR gerado com sucesso para device: ${device}`);
+//             break;
+//           }
+//         } else {
+//           const errorText = await response.text();
+//           lastError = `HTTP ${response.status}: ${errorText}`;
+//           console.log(`❌ Tentativa falhou: ${lastError}`);
+//         }
+//       } catch (error) {
+//         lastError = error.message;
+//         console.log(`❌ Erro na tentativa: ${error.message}`);
+//       }
+//     }
 
-    if (!qrCode) {
-      return res.status(400).json({
-        success: false,
-        error: lastError || 'Falha ao gerar QR code'
-      });
-    }
+//     if (!qrCode) {
+//       return res.status(400).json({
+//         success: false,
+//         error: lastError || 'Falha ao gerar QR code'
+//       });
+//     }
 
-    // Iniciar verificação de status em background
-    const checkStatus = async () => {
-      try {
-        const connection = await mysqlPool.getConnection();
-        const [rows] = await connection.execute(
-          'SELECT status FROM devices WHERE body = ?',
-          [device]
-        );
-        connection.release();
+//     // Iniciar verificação de status em background
+//     const checkStatus = async () => {
+//       try {
+//         const connection = await mysqlPool.getConnection();
+//         const [rows] = await connection.execute(
+//           'SELECT status FROM devices WHERE body = ?',
+//           [device]
+//         );
+//         connection.release();
 
-        if (rows.length > 0) {
-          const status = rows[0].status;
-          console.log(`📱 Status do device ${device}: ${status}`);
+//         if (rows.length > 0) {
+//           const status = rows[0].status;
+//           console.log(`📱 Status do device ${device}: ${status}`);
           
-          if (status === 'connected' || status === 'authenticated') {
-            return true;
-          }
-        }
-        return false;
-      } catch (error) {
-        console.error('❌ Erro ao verificar status:', error.message);
-        return false;
-      }
-    };
+//           if (status === 'connected' || status === 'authenticated') {
+//             return true;
+//           }
+//         }
+//         return false;
+//       } catch (error) {
+//         console.error('❌ Erro ao verificar status:', error.message);
+//         return false;
+//       }
+//     };
 
-    // Retornar QR code e iniciar verificação contínua
-    res.json({
-      success: true,
-      qrCode,
-      device,
-      message: 'QR code gerado. Verificando status...'
-    });
+//     // Retornar QR code e iniciar verificação contínua
+//     res.json({
+//       success: true,
+//       qrCode,
+//       device,
+//       message: 'QR code gerado. Verificando status...'
+//     });
 
-    // Verificar status a cada 1 segundo por até 5 minutos
-    const maxChecks = 300; // 5 minutos
-    let checkCount = 0;
+//     // Verificar status a cada 1 segundo por até 5 minutos
+//     const maxChecks = 300; // 5 minutos
+//     let checkCount = 0;
     
-    const statusInterval = setInterval(async () => {
-      checkCount++;
+//     const statusInterval = setInterval(async () => {
+//       checkCount++;
       
-      if (checkCount >= maxChecks) {
-        clearInterval(statusInterval);
-        console.log(`⏰ Timeout na verificação de status para device: ${device}`);
-        return;
-      }
+//       if (checkCount >= maxChecks) {
+//         clearInterval(statusInterval);
+//         console.log(`⏰ Timeout na verificação de status para device: ${device}`);
+//         return;
+//       }
 
-      const isConnected = await checkStatus();
-      if (isConnected) {
-        clearInterval(statusInterval);
-        console.log(`🎉 Device ${device} conectado com sucesso!`);
+//       const isConnected = await checkStatus();
+//       if (isConnected) {
+//         clearInterval(statusInterval);
+//         console.log(`🎉 Device ${device} conectado com sucesso!`);
         
-        // Atualizar status no banco para indicar que está conectado
-        try {
-          const connection = await mysqlPool.getConnection();
-          await connection.execute(
-            'UPDATE devices SET status = "connected", updated_at = NOW() WHERE body = ?',
-            [device]
-          );
-          connection.release();
-          console.log(`✅ Status atualizado no banco para device: ${device}`);
-        } catch (error) {
-          console.error('❌ Erro ao atualizar status no banco:', error.message);
-        }
-      }
-    }, 1000);
+//         // Atualizar status no banco para indicar que está conectado
+//         try {
+//           const connection = await mysqlPool.getConnection();
+//           await connection.execute(
+//             'UPDATE devices SET status = "connected", updated_at = NOW() WHERE body = ?',
+//             [device]
+//           );
+//           connection.release();
+//           console.log(`✅ Status atualizado no banco para device: ${device}`);
+//         } catch (error) {
+//           console.error('❌ Erro ao atualizar status no banco:', error.message);
+//         }
+//       }
+//     }, 1000);
 
-  } catch (error) {
-    console.error('❌ Erro no endpoint generate-qr:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro interno do servidor'
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('❌ Erro no endpoint generate-qr:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Erro interno do servidor'
+//     });
+//   }
+// });
 
-// Endpoint para verificar status do dispositivo
-app.get('/api/whatsapp/status/:device', async (req, res) => {
-  try {
-    const { device } = req.params;
+// // Endpoint para verificar status do dispositivo
+// app.get('/api/whatsapp/status/:device', async (req, res) => {
+//   try {
+//     const { device } = req.params;
     
-    const connection = await mysqlPool.getConnection();
-    const [rows] = await connection.execute(
-      'SELECT status, updated_at FROM devices WHERE body = ?',
-      [device]
-    );
-    connection.release();
+//     const connection = await mysqlPool.getConnection();
+//     const [rows] = await connection.execute(
+//       'SELECT status, updated_at FROM devices WHERE body = ?',
+//       [device]
+//     );
+//     connection.release();
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Dispositivo não encontrado'
-      });
-    }
+//     if (rows.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Dispositivo não encontrado'
+//       });
+//     }
 
-    const deviceData = rows[0];
-    const isConnected = deviceData.status === 'connected' || deviceData.status === 'authenticated';
+//     const deviceData = rows[0];
+//     const isConnected = deviceData.status === 'connected' || deviceData.status === 'authenticated';
 
-    res.json({
-      success: true,
-      device,
-      status: deviceData.status,
-      connected: isConnected,
-      lastUpdate: deviceData.updated_at
-    });
+//     res.json({
+//       success: true,
+//       device,
+//       status: deviceData.status,
+//       connected: isConnected,
+//       lastUpdate: deviceData.updated_at
+//     });
 
-  } catch (error) {
-    console.error('❌ Erro ao verificar status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao verificar status'
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('❌ Erro ao verificar status:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Erro ao verificar status'
+//     });
+//   }
+// });
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
