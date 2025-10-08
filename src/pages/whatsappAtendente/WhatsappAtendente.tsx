@@ -22,7 +22,6 @@ import {
   Select,
 } from "@chakra-ui/react"
 import { FaWhatsapp, FaQrcode, FaPaperPlane, FaCheckCircle } from "react-icons/fa"
-import "./whatsappAtendente.css"
 import { firestore } from "../../firebase/firebase"
 import { collection, onSnapshot, doc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { useAuth } from "../../contexts/AuthContext"
