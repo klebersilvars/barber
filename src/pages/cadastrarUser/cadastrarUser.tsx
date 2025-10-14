@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth"
 import { auth, firestore } from "../../firebase/firebase"
 import { doc, setDoc } from "firebase/firestore"
 import { useNavigate } from "react-router-dom"
+import LogoBranca from "../../assets/logo_branca.png"
 import { Alert, Stack, AlertIcon, AlertTitle } from '@chakra-ui/react'
 
 export default function CadastrarUser() {
@@ -259,8 +260,7 @@ export default function CadastrarUser() {
         <div className="signup-right">
           <div className="signup-right-content">
             <div className="logo-large">
-              <Scissors className="scissors-icon-large" />
-              <span>Trezu</span>
+              <img src={LogoBranca} alt="Trezu" className="logo_branca" />
             </div>
             <h2>Transforme seu negócio</h2>
             <p>Junte-se a milhares de profissionais que já revolucionaram a gestão de seus estabelecimentos.</p>
@@ -292,21 +292,6 @@ export default function CadastrarUser() {
                   <h4>Gestão completa</h4>
                   <p>Controle total do seu estabelecimento</p>
                 </div>
-              </div>
-            </div>
-
-            <div className="stats">
-              <div className="stat">
-                <span className="stat-number">10k+</span>
-                <span style={{ color: 'white' }} className="stat-label">Profissionais</span>
-              </div>
-              <div className="stat">
-                <span className="stat-number">50k+</span>
-                <span style={{ color: 'white' }} className="stat-label">Agendamentos</span>
-              </div>
-              <div className="stat">
-                <span className="stat-number">98%</span>
-                <span style={{ color: 'white' }} className="stat-label">Satisfação</span>
               </div>
             </div>
           </div>

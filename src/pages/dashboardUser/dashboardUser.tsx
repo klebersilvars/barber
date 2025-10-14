@@ -11,7 +11,6 @@ import {
   TrendingDown,
   Package,
   Shield,
-  HelpCircle,
   Search,
   ChevronRight,
   User,
@@ -23,7 +22,8 @@ import {
   TrendingUp,
   Star,
   CheckCircle,
-  LogOut
+  LogOut,
+  UserCircle
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
@@ -524,7 +524,7 @@ export default function DashboardUser() {
     { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true },
     { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true },
     { icon: Shield, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true },
-    { icon: HelpCircle, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true },
+    { icon: UserCircle, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true },
     { icon: Package, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true },
     { icon: Clock, label: "Agenda Online", path: `/dashboard/${uid}/agenda`, premiumRequired: true },
     { icon: Search, label: "Configurações", path: `/dashboard/${uid}/configuracoes` },
@@ -647,13 +647,24 @@ export default function DashboardUser() {
         disabled: !allowedPathsBronze.includes(item.path)
       }));
     }
-  } else if ((tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
+  } else if (tipoPlano === '' ) {
+    // Sem plano: permitir apenas início e página de plano
+    const allowedPathsSemPlanoEstrito = [
+      `/dashboard/${uid}`,
+      `/dashboard/${uid}/plano`,
+      '#logout'
+    ];
+    filteredMenuItems = menuItems.map(item => ({
+      ...item,
+      disabled: !allowedPathsSemPlanoEstrito.includes(item.path)
+    }));
+  } else if ((tipoPlano === 'gratis') && isPremium && diasRestantesTeste && diasRestantesTeste > 0) {
     // Teste grátis ativo: libera as rotas do allowedPathsGratis
     filteredMenuItems = menuItems.map(item => ({
       ...item,
       disabled: !allowedPathsGratis.includes(item.path)
     }));
-  } else if (tipoPlano === 'gratis' || tipoPlano === '' || !tipoPlano) {
+  } else if (tipoPlano === 'gratis') {
     if (isPlanoExpirado('gratis', dataInicioTesteGratis)) {
       // Grátis expirado: só Plano
       filteredMenuItems = menuItems.map(item => ({
@@ -738,16 +749,15 @@ export default function DashboardUser() {
       }));
     }
   } else {
-    // Caso não tenha plano, permite apenas: início, plano e configurações
-    const allowedPathsSemPlano = [
+    // Fallback: tratar como sem plano estrito
+    const allowedPathsSemPlanoEstrito = [
       `/dashboard/${uid}`,
       `/dashboard/${uid}/plano`,
-      `/dashboard/${uid}/configuracoes`,
       '#logout'
     ];
     filteredMenuItems = menuItems.map(item => ({
       ...item,
-      disabled: !allowedPathsSemPlano.includes(item.path)
+      disabled: !allowedPathsSemPlanoEstrito.includes(item.path)
     }));
   }
 
@@ -777,8 +787,11 @@ export default function DashboardUser() {
   useEffect(() => {
     if (!uid || !tipoPlano) return;
 
-    // SEMPRE permitir acesso às páginas de plano e configurações
-    const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `#logout`];
+    // Permissões sempre liberadas variam conforme o plano
+    const isSemPlanoEstrito = tipoPlano === '';
+    const alwaysAllowedPaths = isSemPlanoEstrito
+      ? [`/dashboard/${uid}/plano`, `#logout`]
+      : [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `#logout`];
     
     // Se estiver em uma página sempre permitida, não fazer nada
     if (alwaysAllowedPaths.some(path => location.pathname.startsWith(path))) {
@@ -787,7 +800,14 @@ export default function DashboardUser() {
 
     let allowedPaths: string[] = [];
     
-    if (tipoPlano === 'vitalicio') {
+    if (tipoPlano === '') {
+      // Sem plano: apenas início e plano (e logout)
+      allowedPaths = [
+        `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}`,
+        `#logout`
+      ];
+    } else if (tipoPlano === 'vitalicio') {
       // Para plano vitalício, permitir tudo
       allowedPaths = [
         ...menuItems.map(item => item.path)

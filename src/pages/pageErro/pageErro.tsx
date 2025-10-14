@@ -33,7 +33,7 @@ export default function PageErro() {
 
           {/* Logo/Nome da loja */}
           <div className="brand-section">
-            <h1 className="brand-name">CliqAgenda</h1>
+            <h1 className="brand-name">Trezu</h1>
             <div className="brand-underline"></div>
           </div>
 
@@ -41,7 +41,7 @@ export default function PageErro() {
           <div className="error-message">
             <h2 className="error-title">Oops! Algo deu errado</h2>
             <p className="error-description">
-              Parece que esse estabelecimento não existe!
+              Parece que deu algo errado!
             </p>
           </div>
 
@@ -57,7 +57,7 @@ export default function PageErro() {
           {/* Informação adicional */}
           <div className="error-info">
             <p className="error-contact">
-              Se o problema persistir, entre em contato conosco
+              Se o problema persistir, entre em contato conosco!
               <a
                 href={whatsappUrl}
                 target="_blank"

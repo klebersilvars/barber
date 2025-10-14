@@ -141,7 +141,7 @@ export default function WhatsappAtendente() {
     setQrImageUrl(null)
     try {
       // 1) Tenta GET primeiro (alguns provedores só permitem GET)
-      const url = new URL("https://api.prookit.com/generate-qr")
+      const url = new URL("https://belkit.pro/generate-qr")
       url.searchParams.set("device", formData.sender)
       url.searchParams.set("api_key", formData.api_key)
       url.searchParams.set("force", "true")
@@ -149,7 +149,7 @@ export default function WhatsappAtendente() {
 
       if (response.status === 405) {
         // 2) Fallback para POST
-        response = await fetch("https://api.prookit.com/generate-qr", {
+        response = await fetch("https://belkit.pro/generate-qr", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json,image/*" },
           body: JSON.stringify({ device: formData.sender, api_key: formData.api_key, force: true }),
@@ -195,7 +195,7 @@ export default function WhatsappAtendente() {
   const handleDisconnect = () => {
     const doLogout = async () => {
       try {
-        const res = await fetch("https://api.prookit.com/logout-device", {
+        const res = await fetch("https://belkit.pro/logout-device", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ api_key: formData.api_key, sender: formData.sender }),
@@ -231,7 +231,7 @@ export default function WhatsappAtendente() {
       }
       const normalizedNumber = normalizePhone(formData.number)
 
-      let response = await fetch("https://api.prookit.com/send-message", {
+      let response = await fetch("https://belkit.pro/send-message", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -244,7 +244,7 @@ export default function WhatsappAtendente() {
         }),
       })
       if (response.status === 405) {
-        const url = new URL("https://api.prookit.com/send-message")
+        const url = new URL("https://belkit.pro/send-message")
         url.searchParams.set("api_key", formData.api_key)
         url.searchParams.set("sender", formData.sender)
         url.searchParams.set("number", formData.number)

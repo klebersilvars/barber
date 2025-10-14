@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { } from "react"
 import { useNavigate } from "react-router-dom"
 import "./pageHome.css"
 import barberImage from "../../assets/barber.jpg"
@@ -15,42 +15,20 @@ import {
   TrendingUp,
   Clock,
   ArrowRight,
-  Shield,
   Zap,
   Award,
+  MessageCircle,
 } from "lucide-react"
-import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody } from "@chakra-ui/react"
+import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody, Container, SimpleGrid, VStack, Text, Divider, Link as ChakraLink, Image } from "@chakra-ui/react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 
 export default function PageHome() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [contadorClientes, setContadorClientes] = useState(0)
-  const [contadorProfissionais, setContadorProfissionais] = useState(0)
-  const [contadorAgendamentos, setContadorAgendamentos] = useState(0)
+  // Contadores removidos (sem uso)
 
   const navigate = useNavigate()
 
-  useEffect(() => {
-    // Animação dos contadores
-    const animateCounter = (setter: any, target: number, duration: number) => {
-      let start = 0
-      const increment = target / (duration / 16)
-      const timer = setInterval(() => {
-        start += increment
-        if (start >= target) {
-          setter(target)
-          clearInterval(timer)
-        } else {
-          setter(Math.floor(start))
-        }
-      }, 16)
-    }
-
-    // Inicia a animação dos contadores
-    animateCounter(setContadorClientes, 500, 2000)
-    animateCounter(setContadorProfissionais, 50, 1500)
-    animateCounter(setContadorAgendamentos, 1000, 2500)
-  }, [])
+  // Removido: animação e contadores não utilizados
 
   const depoimentos = [
     {
@@ -217,10 +195,6 @@ export default function PageHome() {
       <section className="hero-section section" id="inicio">
         <div className="hero-container">
           <div className="hero-content">
-            <div className="badge-novo">
-              <Star size={16} />
-              <span>Sistema Completo de Gestão</span>
-            </div>
             <h1 className="hero-title">
               Escolha um sistema
               <span className="destaque-laranja"> completo </span>
@@ -238,35 +212,8 @@ export default function PageHome() {
                 <ArrowRight size={16} />
               </button>
             </div>
-            <div className="hero-stats">
-              <div className="stat">
-                <span className="stat-number">{contadorClientes}+</span>
-                <span className="stat-label">Clientes Satisfeitos</span>
-              </div>
-              <div className="stat">
-                <span className="stat-number">{contadorProfissionais}+</span>
-                <span className="stat-label">Profissionais</span>
-              </div>
-              <div className="stat">
-                <span className="stat-number">{contadorAgendamentos}+</span>
-                <span className="stat-label">Agendamentos</span>
-              </div>
-            </div>
+            
             <div className="social-proof">
-              <div className="avatars-group">
-                <div className="avatar">CS</div>
-                <div className="avatar">AM</div>
-                <div className="avatar">RL</div>
-                <div className="avatar">+</div>
-              </div>
-              <div className="proof-text">
-                <div className="stars">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="star-filled" />
-                  ))}
-                </div>
-                <span>Avaliação 5.0 de nossos clientes</span>
-              </div>
             </div>
           </div>
           <div className="hero-visual">
@@ -282,7 +229,6 @@ export default function PageHome() {
         <div className="container">
           <div className="section-header">
             <h2>Escolha um plano para começar</h2>
-            <p>Selecione um plano agora e conclua a compra dentro da plataforma após o cadastro.</p>
           </div>
           <div className="funcionalidades-grid">
             {planos.map((plano) => (
@@ -316,10 +262,6 @@ export default function PageHome() {
         <div className="container">
           <div className="dispositivos-container">
             <div className="dispositivos-content">
-              <div className="section-badge">
-                <Shield size={16} />
-                <span>Sistema Seguro e Confiável</span>
-              </div>
               <h2>
                 Dê adeus à comanda de papel no seu
                 <span className="destaque-roxo"> estabelecimento</span>
@@ -411,12 +353,7 @@ export default function PageHome() {
       <section className="funcionalidades-section section" id="funcionalidades">
         <div className="container">
           <div className="section-header">
-            <div className="section-badge">
-              <Award size={16} />
-              <span>Funcionalidades Premium</span>
-            </div>
             <h2>Tudo que seu estabelecimento precisa em um só lugar</h2>
-            <p>Ferramentas completas para otimizar sua gestão e aumentar seus lucros</p>
           </div>
           <div className="funcionalidades-grid">
             <div className="funcionalidade-card featured">
@@ -508,6 +445,24 @@ export default function PageHome() {
                 </div>
               </div> */}
             </div>
+
+            <div className="funcionalidade-card">
+              <div className="funcionalidade-icon">
+                <MessageCircle />
+              </div>
+              <h3>Whatsapp Integrado</h3>
+              <p>Envie mensagens para seus clientes dentro da plataforma.</p>
+              {/* <div className="card-features">
+                <div className="feature-item">
+                  <Check size={14} />
+                  <span>Avaliações automáticas</span>
+                </div>
+                <div className="feature-item">
+                  <Check size={14} />
+                  <span>Análise de satisfação</span>
+                </div>
+              </div> */}
+            </div>
           </div>
         </div>
       </section>
@@ -516,12 +471,7 @@ export default function PageHome() {
       <section className="depoimentos-section section" id="depoimentos">
         <div className="container">
           <div className="section-header">
-            <div className="section-badge">
-              <Star size={16} />
-              <span>Depoimentos Reais</span>
-            </div>
             <h2>O que nossos clientes dizem</h2>
-            <p>Experiências reais de quem já transformou seu negócio com o Trezu</p>
           </div>
           <div className="depoimentos-grid">
             {depoimentos.map((depoimento, index) => (
@@ -595,39 +545,52 @@ export default function PageHome() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="home-footer" id="contato">
-        <div className="footer-content">
-          <div className="footer-section">
-            <div className="logo">
-              <img src={logoTrezu} alt="Trezu Logo" className="logo-image" />
-            </div>
-            <p>O sistema completo para gestão de barbearias e salões de beleza</p>
-            {/* <div className="footer-social">
-              <div className="social-link">IG</div>
-            </div> */}
-          </div>
-          <div className="footer-section">
-            <h4>Contato</h4>
-            <div className="contato-item">
-              <Phone size={16} />
-              <span>(21) 98241-0516</span>
-            </div>
-            <div className="contato-item">
-              <Mail size={16} />
-              <span>contato.trezu@gmail.com</span>
-            </div>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <p>&copy; 2025 Trezu. Todos os direitos reservados.</p>
-          <div className="footer-links">
-            <a href="#privacidade">Privacidade</a>
-            <a href="#termos">Termos</a>
-            <a href="#cookies">Cookies</a>
-          </div>
-        </div>
-      </footer>
+      {/* Footer (Chakra UI) */}
+      <Box as="footer" id="contato" bg="gray.900" color="gray.200" mt={16} pt={{ base: 10, md: 14 }} pb={{ base: 8, md: 10 }} borderTopWidth="1px" borderColor="gray.800">
+        <Container maxW="1200px" px={{ base: 4, md: 6 }}>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={{ base: 8, md: 10 }} alignItems="flex-start">
+            {/* Brand */}
+            <VStack align="start" spacing={4}>
+              <Image src={logoTrezu} alt="Trezu" h={{ base: 10, md: 12, lg: 14 }} maxW={{ base: '160px', md: '200px', lg: '220px' }} objectFit="contain" />
+              <Text color="gray.400" maxW="md">
+                O sistema completo para gestão de barbearias e salões de beleza
+              </Text>
+            </VStack>
+
+            {/* Contact */}
+            <VStack align="start" spacing={3}>
+              <Text fontWeight={700} color="white">Contato</Text>
+              <HStack spacing={3} color="gray.300">
+                <Phone size={16} />
+                <Text>(21) 98241-0516</Text>
+              </HStack>
+              <HStack spacing={3} color="gray.300">
+                <Mail size={16} />
+                <Text>contato.trezu@gmail.com</Text>
+              </HStack>
+            </VStack>
+
+            {/* Links */}
+            <VStack align="start" spacing={3}>
+              <Text fontWeight={700} color="white">Legal</Text>
+              <ChakraLink href="#privacidade" color="gray.300" _hover={{ color: 'white' }}>Privacidade</ChakraLink>
+              <ChakraLink href="#termos" color="gray.300" _hover={{ color: 'white' }}>Termos</ChakraLink>
+              <ChakraLink href="#cookies" color="gray.300" _hover={{ color: 'white' }}>Cookies</ChakraLink>
+            </VStack>
+          </SimpleGrid>
+
+          <Divider my={{ base: 8, md: 10 }} borderColor="gray.800" />
+
+          <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align="center" gap={3}>
+            <Text fontSize="sm" color="gray.400">&copy; 2025 Trezu. Todos os direitos reservados.</Text>
+            <HStack spacing={6} color="gray.400" fontSize="sm">
+              <ChakraLink href="#privacidade" _hover={{ color: 'white' }}>Privacidade</ChakraLink>
+              <ChakraLink href="#termos" _hover={{ color: 'white' }}>Termos</ChakraLink>
+              <ChakraLink href="#cookies" _hover={{ color: 'white' }}>Cookies</ChakraLink>
+            </HStack>
+          </Flex>
+        </Container>
+      </Box>
     </div>
   )
 }
