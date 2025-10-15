@@ -128,7 +128,7 @@ export default function Plano() {
       yearlyPrice: 863.00,
       popular: false,
       features: [
-        "2 colaboradoresd adicionais",
+        "2 colaboradores adicionais",
         "Relatórios avançados",
         "Relatórios personalizados",
         "Suporte prioritário 24/7",
