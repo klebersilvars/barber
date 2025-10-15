@@ -79,15 +79,15 @@ const DashboardAtendente: React.FC = () => {
     run()
   }, [estabelecimento])
 
-  const isWhatsappBlocked = tipoPlano === 'gratis' || tipoPlano === 'bronze' || tipoPlano === 'prata'
+  const isWhatsappAllowed = tipoPlano === 'ouro' || tipoPlano === 'diamante'
 
   // Bloquear acesso direto via URL
   useEffect(() => {
     if (!uid) return
-    if (isWhatsappBlocked && location.pathname.startsWith(`/acessoAtendente/${uid}/whatsappAtendente`)) {
+    if (!isWhatsappAllowed && location.pathname.startsWith(`/acessoAtendente/${uid}/whatsappAtendente`)) {
       navigate(`/acessoAtendente/${uid}`)
     }
-  }, [isWhatsappBlocked, uid, location.pathname])
+  }, [isWhatsappAllowed, uid, location.pathname])
 
   useEffect(() => {
     if (!auth.currentUser || !auth.currentUser.email) return;
@@ -151,7 +151,7 @@ const DashboardAtendente: React.FC = () => {
           <nav style={{ flex: 1, padding: '16px 0' }}>
             {menuItems.map((item, index) => {
               const isWhatsapp = item.path.includes('/whatsappAtendente')
-              const disabled = isWhatsapp && isWhatsappBlocked
+              const disabled = isWhatsapp && !isWhatsappAllowed
               return (
                 <button
                   key={index}
@@ -222,7 +222,7 @@ const DashboardAtendente: React.FC = () => {
           <nav className="sidebar-nav">
             {menuItems.map((item, index) => {
               const isWhatsapp = item.path.includes('/whatsappAtendente')
-              const disabled = isWhatsapp && isWhatsappBlocked
+              const disabled = isWhatsapp && !isWhatsappAllowed
               return (
                 <a
                   key={index}
