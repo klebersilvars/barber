@@ -31,6 +31,7 @@ const DashboardAtendente: React.FC = () => {
   const [estabelecimento, setEstabelecimento] = useState<string>("")
   const [colaboradorNome, setColaboradorNome] = useState<string>("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [tipoPlano, setTipoPlano] = useState<string | null>(null)
 
   const menuItems = [
     { icon: MessageCircle, label: "Whatsapp", path: `/acessoAtendente/${uid}/whatsappAtendente` },
@@ -56,6 +57,37 @@ const DashboardAtendente: React.FC = () => {
     }
     fetchDados()
   }, [uid])
+
+  // Buscar tipoPlano da conta dona do estabelecimento
+  useEffect(() => {
+    const run = async () => {
+      if (!estabelecimento) return
+      try {
+        const contasRef = collection(firestore, 'contas')
+        const q = query(contasRef, where('nomeEstabelecimento', '==', estabelecimento))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          const data = snap.docs[0].data() as any
+          setTipoPlano((data?.tipoPlano ?? null) as string | null)
+        } else {
+          setTipoPlano(null)
+        }
+      } catch {
+        setTipoPlano(null)
+      }
+    }
+    run()
+  }, [estabelecimento])
+
+  const isWhatsappBlocked = tipoPlano === 'gratis' || tipoPlano === 'bronze' || tipoPlano === 'prata'
+
+  // Bloquear acesso direto via URL
+  useEffect(() => {
+    if (!uid) return
+    if (isWhatsappBlocked && location.pathname.startsWith(`/acessoAtendente/${uid}/whatsappAtendente`)) {
+      navigate(`/acessoAtendente/${uid}`)
+    }
+  }, [isWhatsappBlocked, uid, location.pathname])
 
   useEffect(() => {
     if (!auth.currentUser || !auth.currentUser.email) return;
@@ -117,38 +149,45 @@ const DashboardAtendente: React.FC = () => {
             <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}><X /></button>
           </div>
           <nav style={{ flex: 1, padding: '16px 0' }}>
-            {menuItems.map((item, index) => (
-              <button
-                key={index}
-                className={`dashboard-mobile-menu-item${item.className ? ' ' + item.className : ''}`}
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  padding: '12px 24px',
-                  fontSize: 16,
-                  color: '#222',
-                  opacity: 1,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-                onClick={e => {
-                  e.preventDefault();
-                  setMobileMenuOpen(false);
-                  if (item.path === "#logout") {
-                    handleLogout();
-                  } else {
-                    navigate(item.path);
-                  }
-                }}
-              >
-                <item.icon className="nav-icon" />
-                <span>{item.label}</span>
-              </button>
-            ))}
+            {menuItems.map((item, index) => {
+              const isWhatsapp = item.path.includes('/whatsappAtendente')
+              const disabled = isWhatsapp && isWhatsappBlocked
+              return (
+                <button
+                  key={index}
+                  className={`dashboard-mobile-menu-item${item.className ? ' ' + item.className : ''}`}
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    padding: '12px 24px',
+                    fontSize: 16,
+                    color: '#222',
+                    opacity: disabled ? 0.5 : 1,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                  onClick={e => {
+                    e.preventDefault();
+                    setMobileMenuOpen(false);
+                    if (disabled) {
+                      return
+                    }
+                    if (item.path === "#logout") {
+                      handleLogout();
+                    } else {
+                      navigate(item.path);
+                    }
+                  }}
+                >
+                  <item.icon className="nav-icon" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
           </nav>
           <div style={{ padding: 16, borderTop: '1px solid #eee', fontSize: 14, color: '#888' }}>
             <div style={{ fontWeight: 600 }}>{colaboradorNome || 'Carregando...'}</div>
@@ -181,24 +220,34 @@ const DashboardAtendente: React.FC = () => {
           </div>
 
           <nav className="sidebar-nav">
-            {menuItems.map((item, index) => (
-              <a
-                key={index}
-                href="#"
-                className={`nav-item ${isMenuItemActive(item.path) ? "active" : ""} ${item.className || ""}`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (item.path === "#logout") {
-                    handleLogout()
-                  } else {
-                    navigate(item.path)
-                  }
-                }}
-              >
-                <item.icon className="nav-icon" />
-                {!sidebarCollapsed && <span>{item.label}</span>}
-              </a>
-            ))}
+            {menuItems.map((item, index) => {
+              const isWhatsapp = item.path.includes('/whatsappAtendente')
+              const disabled = isWhatsapp && isWhatsappBlocked
+              return (
+                <a
+                  key={index}
+                  href="#"
+                  className={`nav-item ${isMenuItemActive(item.path) ? "active" : ""} ${item.className || ""} ${disabled ? 'nav-item-disabled' : ''}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (disabled) {
+                      return
+                    }
+                    if (item.path === "#logout") {
+                      handleLogout()
+                    } else {
+                      navigate(item.path)
+                    }
+                  }}
+                  style={disabled ? { pointerEvents: 'auto', opacity: 0.5, cursor: 'not-allowed' } : {}}
+                  aria-disabled={disabled}
+                  tabIndex={disabled ? -1 : 0}
+                >
+                  <item.icon className="nav-icon" />
+                  {!sidebarCollapsed && <span>{item.label}</span>}
+                </a>
+              )
+            })}
           </nav>
 
           <div className="sidebar-footer">
