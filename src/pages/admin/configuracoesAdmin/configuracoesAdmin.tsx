@@ -631,8 +631,8 @@ const ConfiguracoesAdmin = () => {
             <HStack spacing={4}>
               <Icon as={Settings} boxSize={6} color="purple.500" />
               <Box>
-                <Heading size="lg" color="gray.800">Configurações do Sistema</Heading>
-                <Text color="gray.600" fontSize="sm">Personalize seu salão e defina suas políticas de atendimento</Text>
+                <Heading size="lg" color="gray.800">Meu perfil</Heading>
+                <Text color="gray.600" fontSize="sm">Personalize seu estabelecimento e defina suas políticas de atendimento</Text>
               </Box>
             </HStack>
             <Button

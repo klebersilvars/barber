@@ -10,23 +10,21 @@ import {
   ShoppingCart,
   TrendingDown,
   Package,
-  Shield,
-  Search,
-  ChevronRight,
   User,
   X,
-  Clock,
   Calendar,
   Users,
   DollarSign,
   TrendingUp,
   Star,
   CheckCircle,
-  LogOut,
-  UserCircle
+  UserCircle,
+  UserRound,
+  Play,
+  DoorOpen
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
-import trezuLogo from "../../assets/LOGOTIPO TREZU.svg"
+import trezuLogotipo from "../../assets/trezu_logotipo.svg"
 import favRoxo from "../../assets/fav_roxo.png"
 
 
@@ -519,16 +517,17 @@ export default function DashboardUser() {
   // Removido: const formatCurrency = (value: number) => { ... }
 
   const menuItems = [
-    { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true },
-    { icon: CreditCard, label: "Plano e Pagamento", path: `/dashboard/${uid}/plano` },
-    { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true },
-    { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true },
-    { icon: Shield, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true },
-    { icon: UserCircle, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true },
-    { icon: Package, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true },
-    { icon: Clock, label: "Agenda Online", path: `/dashboard/${uid}/agenda`, premiumRequired: true },
-    { icon: Search, label: "Configurações", path: `/dashboard/${uid}/configuracoes` },
-    { icon: LogOut, label: "Sair da Conta", path: "#logout", className: "logout-item" },
+    { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true, group: "main" },
+    { icon: Calendar, label: "Agenda", path: `/dashboard/${uid}/agenda`, premiumRequired: true, group: "main" },
+    { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true, group: "sales" },
+    { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true, group: "sales" },
+    { icon: Users, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true, group: "management" },
+    { icon: UserCircle, label: "Colaboradores", path: `/dashboard/${uid}/colaboradores`, premiumRequired: true, group: "management" },
+    { icon: Scissors, label: "Serviços", path: `/dashboard/${uid}/servicos`, premiumRequired: true, group: "management" },
+    { icon: Play, label: "Tutoriais", path: "#tutoriais", group: "support", badge: "EM BREVE" },
+    { icon: CreditCard, label: "Planos e Pagamentos", path: `/dashboard/${uid}/plano`, group: "support" },
+    { icon: UserRound, label: "Meu perfil", path: `/dashboard/${uid}/configuracoes`, group: "profile" },
+    { icon: X, label: "Sair da conta", path: "#logout", className: "logout-item", group: "profile" },
   ]
 
   // NOVA LÓGICA DE ROTAS POR PLANO
@@ -766,12 +765,7 @@ export default function DashboardUser() {
     item.path === '#logout' ? { ...item, disabled: false } : item
   );
 
-  const isMenuItemActive = (itemPath: string) => {
-    if (itemPath === `/dashboard/${uid}`) {
-      return location.pathname === itemPath || location.pathname === `/dashboard/${uid}/`;
-    }
-    return location.pathname.startsWith(itemPath);
-  };
+  // estado de ativo do menu removido para evitar impacto na responsividade
 
   // Função para lidar com o logout
   const handleLogout = () => {
@@ -919,7 +913,7 @@ export default function DashboardUser() {
             <VStack align="center" spacing={4}>
               <HStack spacing={3}>
                 <img 
-                  src={trezuLogo} 
+                  src={trezuLogotipo} 
                   alt="Trezu Logo" 
                   className="logo-icon-no-bg"
                   onError={(e) => {
@@ -937,41 +931,86 @@ export default function DashboardUser() {
           </DrawerHeader>
           <DrawerBody>
             <VStack spacing={4}>
+              {/* Botão Fechar */}
+              <Button
+                variant="ghost"
+                w="100%"
+                justifyContent="start"
+                onClick={onClose}
+                _hover={{ bg: borderColor }}
+                _active={{ bg: borderColor }}
+                p={3}
+                borderRadius="md"
+                fontWeight="normal"
+                color={textColor}
+                fontSize="md"
+                textAlign="left"
+                display="flex"
+                alignItems="center"
+                gap={3}
+              >
+                <DoorOpen size={20} />
+                Fechar
+              </Button>
+              
+              <Box w="100%" h="1px" bg={borderColor} />
+              
               {filteredMenuItems.map((item, index) => {
                 const isDisabled = item.disabled;
-              return (
-                  <Button
-                  key={index}
-                    variant="ghost"
-                    w="100%"
-                    justifyContent="start"
-                    onClick={() => {
-                      onClose();
-                    if (isDisabled) {
-                      return;
-                    }
-                    if (item.path === "#logout") {
-                      handleLogout();
-                    } else {
-                      navigate(item.path);
-                    }
-                  }}
-                  disabled={isDisabled}
-                    _hover={{ bg: borderColor }}
-                    _active={{ bg: borderColor }}
-                    p={3}
-                    borderRadius="md"
-                    fontWeight="normal"
-                    color={isDisabled ? secondaryTextColor : textColor}
-                    fontSize="md"
-                    textAlign="left"
-                    display="flex"
-                    alignItems="center"
-                    gap={3}
-                  >
-                    <item.icon size={20} />
-                    {item.label}
-                  </Button>
+                const previousItem = index > 0 ? filteredMenuItems[index - 1] : null;
+                const shouldShowSeparator = previousItem && previousItem.group !== item.group;
+                
+                return (
+                  <Box key={index}>
+                    {shouldShowSeparator && <Box w="100%" h="1px" bg={borderColor} my={2} />}
+                    <Button
+                      variant="ghost"
+                      w="100%"
+                      justifyContent="start"
+                      onClick={() => {
+                        if (isDisabled) {
+                          return;
+                        }
+                        if (item.path === "#logout") {
+                          handleLogout();
+                        } else if (item.path === "#tutoriais") {
+                          // Não fazer nada para tutoriais por enquanto
+                          return;
+                        } else {
+                          navigate(item.path);
+                        }
+                      }}
+                      disabled={isDisabled || item.path === "#tutoriais"}
+                      _hover={{ bg: borderColor }}
+                      _active={{ bg: borderColor }}
+                      p={3}
+                      borderRadius="md"
+                      fontWeight="normal"
+                      color={isDisabled || item.path === "#tutoriais" ? secondaryTextColor : textColor}
+                      fontSize="md"
+                      textAlign="left"
+                      display="flex"
+                      alignItems="center"
+                      gap={3}
+                    >
+                      <item.icon size={20} />
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Text>{item.label}</Text>
+                        {item.badge && (
+                          <Badge 
+                            colorScheme="blue" 
+                            size="sm" 
+                            fontSize="xs"
+                            px={2}
+                            py={1}
+                            borderRadius="full"
+                          >
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </Box>
+                    </Button>
+                  </Box>
                 );
               })}
             </VStack>
@@ -1008,7 +1047,7 @@ export default function DashboardUser() {
           <div className="sidebar-header">
             <div className="logo">
               <img 
-                src={trezuLogo} 
+                src={trezuLogotipo} 
                 alt="Trezu Logo" 
                 className={`logo-icon-no-bg logo-img-full ${sidebarCollapsed ? 'hidden' : 'visible'}`}
                 onError={(e) => {
@@ -1022,42 +1061,65 @@ export default function DashboardUser() {
               />
               <img 
                 src={favRoxo}
-                alt="Trezu Icone"
+                alt="Trezu Ícone"
                 className={`logo-icon-fav logo-img-fav ${sidebarCollapsed ? 'visible' : 'hidden'}`}
               />
               <Scissors className="logo-icon logo-fallback" style={{ display: 'none' }} />
             </div>
-            <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-              <ChevronRight className={sidebarCollapsed ? "" : "rotated"} />
-            </button>
+            
           </div>
 
           <nav className="sidebar-nav">
+            {/* Botão Fechar */}
+            <a
+              href="#"
+              className="nav-item"
+              onClick={e => {
+                e.preventDefault();
+                setSidebarCollapsed(!sidebarCollapsed);
+              }}
+            >
+              <DoorOpen className="nav-icon" />
+              {!sidebarCollapsed && <span>Fechar</span>}
+            </a>
+            
+            <div className="nav-separator"></div>
+            
             {filteredMenuItems.map((item, index) => {
               const isDisabled = item.disabled;
+              const previousItem = index > 0 ? filteredMenuItems[index - 1] : null;
+              const shouldShowSeparator = previousItem && previousItem.group !== item.group;
+              
               return (
-                <a
-                  key={index}
-                  href="#"
-                  className={`nav-item ${isMenuItemActive(item.path) ? "active" : ""} ${item.className || ""} ${isDisabled ? "nav-item-disabled" : ""}`}
-                  onClick={e => {
-                    e.preventDefault();
-                    if (isDisabled) {
-                      return;
-                    }
-                    if (item.path === "#logout") {
-                      handleLogout();
-                    } else {
-                      navigate(item.path);
-                    }
-                  }}
-                  style={isDisabled ? { pointerEvents: 'auto', opacity: 0.5, cursor: 'not-allowed' } : {}}
-                  tabIndex={isDisabled ? -1 : 0}
-                  aria-disabled={isDisabled}
-                >
-                  <item.icon className="nav-icon" />
-                  {!sidebarCollapsed && <span>{item.label}</span>}
-                </a>
+                <div key={index}>
+                  {shouldShowSeparator && <div className="nav-separator"></div>}
+                  <a
+                    href="#"
+                    className={`nav-item ${item.className || ""} ${isDisabled || item.path === "#tutoriais" ? "nav-item-disabled" : ""}`}
+                    onClick={e => {
+                      e.preventDefault();
+                      if (isDisabled || item.path === "#tutoriais") {
+                        return;
+                      }
+                      if (item.path === "#logout") {
+                        handleLogout();
+                      } else {
+                        navigate(item.path);
+                      }
+                    }}
+                    style={isDisabled || item.path === "#tutoriais" ? { pointerEvents: 'auto', opacity: 0.5, cursor: 'not-allowed' } : {}}
+                    tabIndex={isDisabled || item.path === "#tutoriais" ? -1 : 0}
+                    aria-disabled={isDisabled || item.path === "#tutoriais"}
+                  >
+                    <item.icon className="nav-icon" />
+                    {!sidebarCollapsed && (
+                      <div className="nav-item-content">
+                        <span>{item.label}</span>
+                        {item.badge && <span className="nav-badge">{item.badge}</span>}
+                      </div>
+                    )}
+                  </a>
+                </div>
               )
             })}
           </nav>
@@ -1105,7 +1167,7 @@ export default function DashboardUser() {
               />
               <div className="header-mobile-logo">
                 <img 
-                  src={trezuLogo} 
+                  src={trezuLogotipo} 
                   alt="Trezu Logo" 
                   className="header-logo-no-bg"
                   onError={(e) => {
