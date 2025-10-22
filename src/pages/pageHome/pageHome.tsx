@@ -3,7 +3,6 @@
 import { } from "react"
 import { useNavigate } from "react-router-dom"
 import "./pageHome.css"
-import barberImage from "../../assets/barber.jpg"
 import logoTrezu from "../../assets/LOGOTIPO-TREZU-BLUE.png"
 import {
   Calendar,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react"
 import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody, Container, SimpleGrid, VStack, Text, Divider, Link as ChakraLink, Image } from "@chakra-ui/react"
 import { HamburgerIcon } from "@chakra-ui/icons"
+import HeroImg from '../../assets/HERO-IMGs.png'
 
 export default function PageHome() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -112,14 +112,14 @@ export default function PageHome() {
     <div className="page-home">
       {/* Header Chakra UI */}
       <Box as="header" bg="white" boxShadow="sm" position="sticky" top={0} zIndex={100} w="100%">
-        <Flex maxW="1200px" mx="auto" px={4} h="70px" align="center" justify="space-between">
-          {/* Logo */}
-          <HStack spacing={3}>
+        <Box maxW="1200px" mx="auto" px={4} h="70px" position="relative">
+          {/* Logo - Esquerda */}
+          <HStack spacing={3} position="absolute" left={-200} top="50%" transform="translateY(-50%)">
             <img src={logoTrezu} alt="Trezu Logo" className="logo-image" />
           </HStack>
 
-          {/* Menu Desktop */}
-          <HStack as="nav" spacing={8} display={{ base: "none", md: "flex" }}>
+          {/* Menu Desktop - Centro */}
+          <HStack as="nav" spacing={8} display={{ base: "none", md: "flex" }} position="absolute" left="50%" top="50%" transform="translate(-50%, -50%)">
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#inicio">Início</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#solucoes">Soluções</Button>
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#planos">Planos</Button>
@@ -128,8 +128,8 @@ export default function PageHome() {
             <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#contato">Contato</Button>
           </HStack>
 
-          {/* Ações e Menu Mobile */}
-          <HStack spacing={3}>
+          {/* Ações e Menu Mobile - Direita */}
+          <HStack spacing={3} position="absolute" right={-270} top="50%" transform="translateY(-50%)">
             <Button
               colorScheme="purple"
               bgGradient="linear(to-r, #5d3fd3, #4c32b3)"
@@ -170,7 +170,7 @@ export default function PageHome() {
               fontSize="2xl"
             />
           </HStack>
-        </Flex>
+        </Box>
         {/* Drawer Mobile */}
         <Drawer placement="top" onClose={onClose} isOpen={isOpen} size="full">
           <DrawerOverlay />
@@ -216,9 +216,9 @@ export default function PageHome() {
             <div className="social-proof">
             </div>
           </div>
-          <div className="hero-visual">
-            <div className="hero-image">
-              <img src={barberImage} alt="Profissional trabalhando" />
+          <div>
+            <div>
+              <img style={{filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.5))'}} src={HeroImg} alt="Profissional trabalhando" />
             </div>
           </div>
         </div>
