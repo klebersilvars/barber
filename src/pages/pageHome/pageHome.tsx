@@ -116,10 +116,10 @@ export default function PageHome() {
     <div className="page-home">
       {/* Header Chakra UI */}
       <Box as="header" bg="white" boxShadow="sm" position="sticky" top={0} zIndex={100} w="100%">
-        <Box maxW="1200px" mx="auto" px={4} h="70px" position="relative">
+        <Box maxW="1200px" mx="auto" px={4} h="80px" position="relative">
           {/* Logo - Esquerda */}
           <HStack spacing={3} position="absolute" left={-200} top="50%" transform="translateY(-50%)">
-            <img src={logoTrezu} alt="Trezu Logo" className="logo-image" />
+            <img src={logoTrezu} alt="Trezu Logo" className="logo-image" style={{ height: '240px', width: '240px' }} />
           </HStack>
 
           {/* Menu Desktop - Centro */}
@@ -555,7 +555,7 @@ export default function PageHome() {
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={{ base: 8, md: 10 }} alignItems="flex-start">
             {/* Brand */}
             <VStack align="start" spacing={4}>
-              <Image src={logoTrezu} alt="Trezu" h={{ base: 10, md: 12, lg: 14 }} maxW={{ base: '160px', md: '200px', lg: '220px' }} objectFit="contain" />
+              <Image src={logoTrezu} alt="Trezu" h={{ base: 10, md: 12, lg: 14 }} maxW={{ base: '200px', md: '250px', lg: '280px' }} objectFit="contain" />
               <Text color="gray.400" maxW="md">
                 O sistema completo para gestão de barbearias e salões de beleza
               </Text>
