@@ -8,6 +8,11 @@ import { auth } from '../../../firebase/firebase'
 import { firestore } from '../../../firebase/firebase'
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
 import { useNavigate } from "react-router-dom"
+import Bronze from '../../../assets/Bronze.svg'
+import Prata from '../../../assets/Prata.svg'
+import Ouro from '../../../assets/Ouro.svg'
+import Diamante from '../../../assets/Diamond.svg'
+
 
 export default function Plano() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
@@ -416,7 +421,7 @@ export default function Plano() {
                 <VStack spacing={3} align="start">
                   <HStack spacing={2} align="center">
                     <Box bg={plan.id === "bronze" ? "purple.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
-                      <Icon as={plan.icon} color="white" boxSize={6} />
+                      <img src={plan.id === "bronze" ? Bronze : plan.id === 'prata' ? Prata : plan.id === 'ouro' ? Ouro : Diamante} alt="bronze" />
                     </Box>
                     <Text fontWeight={700} fontSize="2xl" color={plan.id === "bronze" ? "purple.700" : "blue.700"}>{plan.name}</Text>
                   </HStack>

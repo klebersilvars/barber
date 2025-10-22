@@ -21,6 +21,10 @@ import {
 import { Box, Flex, HStack, IconButton, Button, useDisclosure, Stack, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader, DrawerBody, Container, SimpleGrid, VStack, Text, Divider, Link as ChakraLink, Image } from "@chakra-ui/react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import HeroImg from '../../assets/HERO-IMGs.png'
+import Bronze from '../../assets/Bronze.svg'
+import Prata from '../../assets/Prata.svg'
+import Ouro from '../../assets/Ouro.svg'
+import Diamante from '../../assets/Diamond.svg'
 
 export default function PageHome() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -239,7 +243,7 @@ export default function PageHome() {
                 onClick={selecionarPlano}
               >
                 <div className="funcionalidade-icon">
-                  <plano.icon />
+                  <img src={plano.id === 'bronze' ? Bronze : plano.id === 'prata' ? Prata : plano.id === 'ouro' ? Ouro : Diamante} alt="" />
                 </div>
                 <h3>{plano.name}</h3>
                 <p>{plano.description}</p>
