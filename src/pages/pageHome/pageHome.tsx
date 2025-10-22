@@ -114,37 +114,134 @@ export default function PageHome() {
 
   return (
     <div className="page-home">
-      {/* Header Chakra UI */}
+      {/* Header Chakra UI - Responsivo */}
       <Box as="header" bg="white" boxShadow="sm" position="sticky" top={0} zIndex={100} w="100%">
-        <Box maxW="1200px" mx="auto" px={4} h="80px" position="relative">
+        <Box 
+          maxW={{ base: "100%", sm: "100%", md: "1200px", lg: "1200px", xl: "1200px" }} 
+          mx="auto" 
+          px={{ base: 4, sm: 4, md: 6, lg: 8, xl: 8 }} 
+          h={{ base: "70px", sm: "70px", md: "80px", lg: "80px", xl: "80px" }} 
+          position="relative"
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           {/* Logo - Esquerda */}
-          <HStack spacing={3} position="absolute" left={-200} top="50%" transform="translateY(-50%)">
-            <img src={logoTrezu} alt="Trezu Logo" className="logo-image" style={{ height: '240px', width: '240px' }} />
-          </HStack>
+          <Box flex="0 0 auto">
+            <img 
+              src={logoTrezu} 
+              alt="Trezu Logo" 
+              className="logo-image" 
+              style={{ 
+                height: 'auto', 
+                width: 'auto',
+                maxHeight: '150px',
+                maxWidth: '150px'
+              }} 
+            />
+          </Box>
 
           {/* Menu Desktop - Centro */}
-          <HStack as="nav" spacing={8} display={{ base: "none", md: "flex" }} position="absolute" left="50%" top="50%" transform="translate(-50%, -50%)">
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#inicio">Início</Button>
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#solucoes">Soluções</Button>
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#planos">Planos</Button>
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#funcionalidades">Funcionalidades</Button>
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#depoimentos">Depoimentos</Button>
-            <Button variant="ghost" fontWeight={500} color="#374151" _hover={{ color: "#5d3fd3" }} as="a" href="#contato">Contato</Button>
+          <HStack 
+            as="nav" 
+            spacing={{ base: 4, sm: 4, md: 6, lg: 8, xl: 8 }} 
+            display={{ base: "none", sm: "none", md: "flex", lg: "flex", xl: "flex" }}
+            flex="1"
+            justifyContent="center"
+            maxW="600px"
+          >
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#inicio"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Início
+            </Button>
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#solucoes"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Soluções
+            </Button>
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#planos"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Planos
+            </Button>
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#funcionalidades"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Funcionalidades
+            </Button>
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#depoimentos"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Depoimentos
+            </Button>
+            <Button 
+              variant="ghost" 
+              fontWeight={500} 
+              color="#374151" 
+              _hover={{ color: "#5d3fd3" }} 
+              as="a" 
+              href="#contato"
+              fontSize={{ base: "14px", sm: "14px", md: "15px", lg: "16px", xl: "16px" }}
+              px={{ base: 2, sm: 2, md: 3, lg: 4, xl: 4 }}
+            >
+              Contato
+            </Button>
           </HStack>
 
           {/* Ações e Menu Mobile - Direita */}
-          <HStack spacing={3} position="absolute" right={-270} top="50%" transform="translateY(-50%)">
+          <HStack 
+            spacing={{ base: 2, sm: 2, md: 3, lg: 3, xl: 3 }} 
+            flex="0 0 auto"
+            alignItems="center"
+          >
             <Button
               colorScheme="purple"
               bgGradient="linear(to-r, #5d3fd3, #4c32b3)"
               color="white"
               fontWeight={700}
-              px={6}
+              px={{ base: 3, sm: 4, md: 5, lg: 6, xl: 6 }}
               py={2}
               borderRadius="md"
               boxShadow="md"
-              display={{ base: "none", md: "inline-flex" }}
+              display={{ base: "none", sm: "none", md: "inline-flex", lg: "inline-flex", xl: "inline-flex" }}
               onClick={irCadastroTeste}
+              fontSize={{ base: "12px", sm: "13px", md: "14px", lg: "14px", xl: "14px" }}
             >
               TESTE GRÁTIS
             </Button>
@@ -152,15 +249,16 @@ export default function PageHome() {
               variant="outline"
               colorScheme="purple"
               fontWeight={700}
-              px={6}
+              px={{ base: 3, sm: 4, md: 5, lg: 6, xl: 6 }}
               py={2}
               borderRadius="md"
               borderWidth={2}
               borderColor="#5d3fd3"
               color="#5d3fd3"
               _hover={{ bg: "#5d3fd3", color: "white" }}
-              display={{ base: "none", md: "inline-flex" }}
+              display={{ base: "none", sm: "none", md: "inline-flex", lg: "inline-flex", xl: "inline-flex" }}
               onClick={navegarLogin}
+              fontSize={{ base: "12px", sm: "13px", md: "14px", lg: "14px", xl: "14px" }}
             >
               JÁ SOU CLIENTE
             </Button>
@@ -168,10 +266,11 @@ export default function PageHome() {
             <IconButton
               aria-label="Abrir menu"
               icon={<HamburgerIcon />}
-              display={{ base: "inline-flex", md: "none" }}
+              display={{ base: "inline-flex", sm: "inline-flex", md: "none", lg: "none", xl: "none" }}
               onClick={onOpen}
               variant="ghost"
-              fontSize="2xl"
+              fontSize={{ base: "xl", sm: "xl", md: "2xl", lg: "2xl", xl: "2xl" }}
+              size={{ base: "sm", sm: "sm", md: "md", lg: "md", xl: "md" }}
             />
           </HStack>
         </Box>

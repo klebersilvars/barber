@@ -1176,10 +1176,137 @@ body {
     color: #a0d2eb;
   }
   
-/* MOBILE RESPONSIVE */
+/* RESPONSIVE BREAKPOINTS */
 
-/* Tablets and Mobile (768px and below) */
-@media screen and (max-width: 768px) {
+/* ===== DESKTOP LARGE (1200px and above) ===== */
+@media screen and (min-width: 1200px) {
+  .logo-image {
+    max-height: 60px;
+    max-width: 180px;
+  }
+  
+  .nav-menu {
+    gap: 40px;
+  }
+  
+  .nav-menu a {
+    font-size: 16px;
+    padding: 0 8px;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+}
+
+/* ===== DESKTOP MEDIUM (992px to 1199px) ===== */
+@media screen and (min-width: 992px) and (max-width: 1199px) {
+  .logo-image {
+    max-height: 55px;
+    max-width: 160px;
+  }
+  
+  .nav-menu {
+    gap: 32px;
+  }
+  
+  .nav-menu a {
+    font-size: 15px;
+    padding: 0 6px;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+/* ===== TABLET LANDSCAPE (768px to 991px) ===== */
+@media screen and (min-width: 768px) and (max-width: 991px) {
+  .header-container {
+    padding: 0 20px 0 30px;
+  }
+  
+  .logo-image {
+    max-height: 50px;
+    max-width: 140px;
+  }
+  
+  .nav-menu {
+    gap: 24px;
+  }
+  
+  .nav-menu a {
+    font-size: 14px;
+    padding: 0 4px;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  
+  .header-actions {
+    gap: 8px;
+  }
+}
+
+/* ===== TABLET PORTRAIT (481px to 767px) ===== */
+@media screen and (min-width: 481px) and (max-width: 767px) {
+  .header-container {
+    padding: 0 16px 0 20px;
+  }
+  
+  .logo-image {
+    max-height: 45px;
+    max-width: 120px;
+  }
+  
+  .nav-menu {
+    display: none;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    display: none;
+  }
+  
+  .menu-toggle {
+    display: block;
+  }
+}
+
+/* ===== MOBILE LANDSCAPE (481px to 767px) ===== */
+@media screen and (max-width: 767px) and (orientation: landscape) {
+  .header-container {
+    padding: 0 16px 0 20px;
+  }
+  
+  .logo-image {
+    max-height: 40px;
+    max-width: 100px;
+  }
+  
+  .nav-menu {
+    display: none;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    display: none;
+  }
+  
+  .menu-toggle {
+    display: block;
+  }
+}
+
+/* ===== MOBILE PORTRAIT (480px and below) ===== */
+@media screen and (max-width: 480px) {
   body {
     overflow-x: hidden;
   }
@@ -1196,32 +1323,39 @@ body {
   
   /* Header mobile */
   .header-container {
-    padding: 0 16px 0 30px;
-    }
+    padding: 0 12px 0 16px;
+    height: 60px;
+  }
   
-    .nav-menu {
+  .logo-image {
+    max-height: 35px;
+    max-width: 100px;
+  }
+  
+  .nav-menu {
     display: flex;
     position: fixed;
-    top: 70px;
-      left: 0;
-      right: 0;
+    top: 60px;
+    left: 0;
+    right: 0;
     background: white;
-      flex-direction: column;
-      padding: 20px;
+    flex-direction: column;
+    padding: 20px;
     gap: 20px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     height: auto;
-      transform: translateY(-100%);
-      opacity: 0;
-      visibility: hidden;
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
     transition: all 0.3s ease-in-out;
-    }
+    z-index: 99;
+  }
   
   .nav-menu.active {
-      transform: translateY(0);
-      opacity: 1;
-      visibility: visible;
-    }
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
   
   .nav-menu a {
     width: 100%;
@@ -1231,6 +1365,7 @@ body {
     transform: translateX(-20px);
     opacity: 0;
     transition: all 0.3s ease-in-out;
+    font-size: 16px;
   }
   
   .nav-menu.active a {
@@ -1243,6 +1378,7 @@ body {
   .nav-menu a:nth-child(3) { transition-delay: 0.2s; }
   .nav-menu a:nth-child(4) { transition-delay: 0.25s; }
   .nav-menu a:nth-child(5) { transition-delay: 0.3s; }
+  .nav-menu a:nth-child(6) { transition-delay: 0.35s; }
   
   .nav-menu a:hover {
     background: rgba(93, 63, 211, 0.1);
@@ -1250,26 +1386,13 @@ body {
   
   .menu-toggle {
     display: block;
-  }
-  
-  .logo {
     font-size: 20px;
-  }
-
-  .logo-icon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .logo-image {
-    height: 35px;
-    max-width: 120px;
+    padding: 8px;
   }
   
   .btn-teste,
   .btn-cliente {
-    padding: 8px 12px;
-    font-size: 12px;
+    display: none;
   }
   
   /* Hero section mobile */
@@ -1570,16 +1693,41 @@ body {
   }
 }
 
-/* Small mobile phones (480px and below) */
-@media screen and (max-width: 480px) {
-    .header-container {
-      padding: 0 15px 0 25px;
-    }
-  .btn-teste,
-  .btn-cliente {
-    font-size: 12px;
-    padding: 8px 12px;
+/* ===== SMALL MOBILE (360px to 480px) ===== */
+@media screen and (min-width: 360px) and (max-width: 480px) {
+  .header-container {
+    padding: 0 12px 0 16px;
+    height: 60px;
   }
+  
+  .logo-image {
+    max-height: 32px;
+    max-width: 90px;
+  }
+  
+  .menu-toggle {
+    font-size: 18px;
+    padding: 6px;
+  }
+}
+
+/* ===== EXTRA SMALL MOBILE (below 360px) ===== */
+@media screen and (max-width: 359px) {
+  .header-container {
+    padding: 0 8px 0 12px;
+    height: 55px;
+  }
+  
+  .logo-image {
+    max-height: 28px;
+    max-width: 80px;
+  }
+  
+  .menu-toggle {
+    font-size: 16px;
+    padding: 4px;
+  }
+}
     .hero-section {
       padding: 40px 0;
     }
@@ -1644,7 +1792,64 @@ body {
   }
   }
 
-/* Extra small devices (360px and below) */
+/* ===== NAVBAR SPECIFIC IMPROVEMENTS ===== */
+
+/* Fix for intermediate screen sizes */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+  .header-container {
+    padding: 0 24px 0 32px;
+  }
+  
+  .logo-image {
+    max-height: 52px;
+    max-width: 150px;
+  }
+  
+  .nav-menu {
+    gap: 28px;
+  }
+  
+  .nav-menu a {
+    font-size: 15px;
+    padding: 0 5px;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    padding: 11px 18px;
+    font-size: 13px;
+  }
+}
+
+/* Fix for very wide screens */
+@media screen and (min-width: 1400px) {
+  .header-container {
+    max-width: 1400px;
+    padding: 0 40px 0 50px;
+  }
+  
+  .logo-image {
+    max-height: 65px;
+    max-width: 200px;
+  }
+  
+  .nav-menu {
+    gap: 48px;
+  }
+  
+  .nav-menu a {
+    font-size: 17px;
+    padding: 0 10px;
+  }
+  
+  .btn-teste,
+  .btn-cliente {
+    padding: 16px 28px;
+    font-size: 16px;
+  }
+}
+
+/* ===== LEGACY MOBILE STYLES (keeping for compatibility) ===== */
 @media screen and (max-width: 360px) {
   .hero-title {
     font-size: 24px;
@@ -1660,11 +1865,6 @@ body {
   .btn-demo {
     font-size: 14px;
     padding: 12px 16px;
-  }
-
-  .logo-image {
-    height: 25px;
-    max-width: 80px;
   }
 }
 
