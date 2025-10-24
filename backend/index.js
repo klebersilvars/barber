@@ -888,6 +888,234 @@ app.post('/api/test-decrement', async (req, res) => {
   }
 });
 
+// Endpoint para gerar QR Code do WhatsApp
+app.post('/api/generate-qr', async (req, res) => {
+  try {
+    console.log('=== GERANDO QR CODE WHATSAPP ===');
+    console.log('Body recebido:', req.body);
+    
+    const { device, api_key } = req.body;
+    
+    if (!device || !api_key) {
+      return res.status(400).json({ 
+        error: 'Parâmetros obrigatórios: device e api_key' 
+      });
+    }
+    
+    console.log(`🔍 Gerando QR para dispositivo: ${device}`);
+    
+    // Tentar múltiplas abordagens para gerar o QR
+    const approaches = [
+      // 1. Tentar GET primeiro
+      async () => {
+        const url = new URL("https://belkit.pro/generate-qr");
+        url.searchParams.set("device", device);
+        url.searchParams.set("api_key", api_key);
+        url.searchParams.set("force", "true");
+        
+        console.log('🔄 Tentando GET:', url.toString());
+        return await axios.get(url.toString(), {
+          headers: { 
+            'Accept': 'application/json,image/*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          timeout: 30000
+        });
+      },
+      // 2. Fallback para POST
+      async () => {
+        console.log('🔄 Tentando POST...');
+        return await axios.post("https://belkit.pro/generate-qr", {
+          device: device,
+          api_key: api_key,
+          force: true
+        }, {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json,image/*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          timeout: 30000
+        });
+      }
+    ];
+    
+    let lastError = null;
+    
+    for (let i = 0; i < approaches.length; i++) {
+      try {
+        console.log(`🔄 Tentativa ${i + 1}...`);
+        const response = await approaches[i]();
+        
+        if (response.status === 200) {
+          const contentType = response.headers['content-type'] || '';
+          console.log('✅ Resposta recebida:', contentType);
+          
+          if (contentType.includes('application/json')) {
+            const data = response.data;
+            console.log('📄 Resposta JSON:', data);
+            
+            const qrCode = data.qr || data.qrcode || data.qr_code || data.image || data.url || data.dataUrl;
+            
+            if (typeof qrCode === 'string') {
+              if (qrCode.startsWith('data:')) {
+                console.log('✅ QR Code base64 encontrado');
+                return res.json({
+                  success: true,
+                  qr_code: qrCode,
+                  message: data.message || 'Scan this QR code with your WhatsApp',
+                  status: data.status || 'qrcode'
+                });
+              } else if (qrCode.startsWith('http')) {
+                console.log('🔄 Buscando imagem da URL...');
+                const imgResponse = await axios.get(qrCode, {
+                  responseType: 'arraybuffer',
+                  timeout: 30000
+                });
+                const base64 = Buffer.from(imgResponse.data).toString('base64');
+                const dataUrl = `data:${imgResponse.headers['content-type']};base64,${base64}`;
+                
+                console.log('✅ QR Code convertido para base64');
+                return res.json({
+                  success: true,
+                  qr_code: dataUrl,
+                  message: data.message || 'Scan this QR code with your WhatsApp',
+                  status: data.status || 'qrcode'
+                });
+              }
+            }
+          } else if (contentType.startsWith('image/')) {
+            console.log('🔄 Convertendo imagem direta...');
+            const base64 = Buffer.from(response.data).toString('base64');
+            const dataUrl = `data:${contentType};base64,${base64}`;
+            
+            console.log('✅ QR Code convertido para base64');
+            return res.json({
+              success: true,
+              qr_code: dataUrl,
+              message: 'Scan this QR code with your WhatsApp',
+              status: 'qrcode'
+            });
+          }
+        }
+        
+        lastError = new Error(`Tentativa ${i + 1} falhou: ${response.status}`);
+      } catch (err) {
+        lastError = err;
+        console.log(`❌ Tentativa ${i + 1} falhou:`, err.message);
+      }
+    }
+    
+    throw lastError || new Error('Todas as tentativas falharam');
+    
+  } catch (error) {
+    console.error('❌ Erro ao gerar QR Code:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Erro ao gerar QR Code',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para desconectar dispositivo WhatsApp
+app.post('/api/logout-whatsapp', async (req, res) => {
+  try {
+    console.log('=== DESCONECTANDO WHATSAPP ===');
+    
+    const { api_key, sender } = req.body;
+    
+    if (!api_key || !sender) {
+      return res.status(400).json({ 
+        error: 'Parâmetros obrigatórios: api_key e sender' 
+      });
+    }
+    
+    console.log(`🔍 Desconectando dispositivo: ${sender}`);
+    
+    const response = await axios.post("https://belkit.pro/logout-device", {
+      api_key: api_key,
+      sender: sender
+    }, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 30000
+    });
+    
+    if (response.status === 200) {
+      console.log('✅ Dispositivo desconectado com sucesso');
+      return res.json({
+        success: true,
+        message: 'Dispositivo desconectado com sucesso'
+      });
+    } else {
+      throw new Error(`Erro ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao desconectar:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Erro ao desconectar dispositivo',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para enviar mensagem WhatsApp
+app.post('/api/send-whatsapp-message', async (req, res) => {
+  try {
+    console.log('=== ENVIANDO MENSAGEM WHATSAPP ===');
+    
+    const { api_key, sender, number, message, footer, full } = req.body;
+    
+    if (!api_key || !sender || !number || !message) {
+      return res.status(400).json({ 
+        error: 'Parâmetros obrigatórios: api_key, sender, number e message' 
+      });
+    }
+    
+    console.log(`📱 Enviando mensagem para: ${number}`);
+    
+    const response = await axios.post("https://belkit.pro/send-message", {
+      api_key: api_key,
+      sender: sender,
+      number: number,
+      message: message,
+      footer: footer || '',
+      full: full ? 1 : 0
+    }, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 30000
+    });
+    
+    if (response.status === 200) {
+      console.log('✅ Mensagem enviada com sucesso');
+      return res.json({
+        success: true,
+        message: 'Mensagem enviada com sucesso'
+      });
+    } else {
+      throw new Error(`Erro ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Erro ao enviar mensagem',
+      details: error.message
+    });
+  }
+});
+
 // Endpoint de teste para verificar conectividade com Firestore
 app.get('/api/test-firestore', async (req, res) => {
   try {

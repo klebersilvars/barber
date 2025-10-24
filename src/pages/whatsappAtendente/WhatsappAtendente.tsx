@@ -43,7 +43,7 @@ export default function WhatsappAtendente() {
   // Alerts padrão do navegador no lugar de toasts customizados
 
   const [formData, setFormData] = useState({
-    api_key: "2esiF44O0U8gKEMXLITathxSYKUuca",
+    api_key: "Iw3Ldw6Kw36Spcrefyn1hgqCiYAoZS",
     sender: "",
     number: "",
     message: "",
@@ -241,51 +241,33 @@ export default function WhatsappAtendente() {
     setIsGeneratingQR(true)
     setQrImageUrl(null)
     try {
-      // 1) Tenta GET primeiro (alguns provedores só permitem GET)
-      const url = new URL("https://belkit.pro/generate-qr")
-      url.searchParams.set("device", formData.sender)
-      url.searchParams.set("api_key", formData.api_key)
-      url.searchParams.set("force", "true")
-      let response = await fetch(url.toString(), { method: "GET", headers: { Accept: "application/json,image/*" } })
-
-      if (response.status === 405) {
-        // 2) Fallback para POST
-        response = await fetch("https://belkit.pro/generate-qr", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json,image/*" },
-          body: JSON.stringify({ device: formData.sender, api_key: formData.api_key, force: true }),
+      console.log('🔄 Gerando QR Code via backend...')
+      
+      const response = await fetch('/api/generate-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device: formData.sender,
+          api_key: formData.api_key
         })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}`)
       }
 
-      const contentType = response.headers.get("content-type") || ""
-      if (!response.ok) throw new Error(`Erro ${response.status}`)
-
-      if (contentType.includes("application/json")) {
-        const data = await response.json()
-        const possible = data.qr || data.qrcode || data.qr_code || data.image || data.url || data.dataUrl
-        if (typeof possible === "string") {
-          if (possible.startsWith("data:")) {
-            setQrImageUrl(possible)
-          } else if (possible.startsWith("http")) {
-            // Buscar a imagem e transformar em blob para evitar novos 405s
-            const imgRes = await fetch(possible)
-            if (!imgRes.ok) throw new Error(`Erro ${imgRes.status}`)
-            const blob = await imgRes.blob()
-            setQrImageUrl(URL.createObjectURL(blob))
-          } else {
-            throw new Error("URL/base64 de QR inválida")
-          }
-        } else {
-          throw new Error("Resposta da API não contém o QR")
-        }
-      } else if (contentType.startsWith("image/")) {
-        const blob = await response.blob()
-        setQrImageUrl(URL.createObjectURL(blob))
+      const data = await response.json()
+      
+      if (data.success && data.qr_code) {
+        console.log('✅ QR Code gerado com sucesso')
+        setQrImageUrl(data.qr_code)
       } else {
-        const blob = await response.blob()
-        setQrImageUrl(URL.createObjectURL(blob))
+        throw new Error(data.error || 'Falha ao gerar QR Code')
       }
     } catch (err: any) {
+      console.error('❌ Erro ao gerar QR:', err)
       const message = err?.message || "Falha ao gerar QR"
       alert(message)
     } finally {
@@ -293,27 +275,44 @@ export default function WhatsappAtendente() {
     }
   }
 
-  const handleDisconnect = () => {
-    const doLogout = async () => {
-      try {
-        const res = await fetch("https://belkit.pro/logout-device", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ api_key: formData.api_key, sender: formData.sender }),
+  const handleDisconnect = async () => {
+    try {
+      console.log('🔄 Desconectando dispositivo via backend...')
+      
+      const response = await fetch('/api/logout-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: formData.api_key,
+          sender: formData.sender
         })
-        if (!res.ok) throw new Error(`Erro ${res.status}`)
-        alert("Desconectado do WhatsApp")
-      } catch (e: any) {
-        alert(e?.message || "Falha ao desconectar")
-      } finally {
-        setIsConnected(false)
-        try {
-          localStorage.removeItem("wa_connected")
-          localStorage.removeItem("wa_sender")
-        } catch {}
+      })
+
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}`)
       }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        console.log('✅ Dispositivo desconectado com sucesso')
+        alert("Desconectado do WhatsApp")
+      } else {
+        throw new Error(data.error || 'Falha ao desconectar')
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao desconectar:', err)
+      alert(err?.message || "Falha ao desconectar")
+    } finally {
+      setIsConnected(false)
+      try {
+        localStorage.removeItem("wa_connected")
+        localStorage.removeItem("wa_sender")
+      } catch {}
+      setQrImageUrl(null)
     }
-    doLogout()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -332,33 +331,39 @@ export default function WhatsappAtendente() {
       }
       const normalizedNumber = normalizePhone(formData.number)
 
-      let response = await fetch("https://belkit.pro/send-message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+      console.log('📱 Enviando mensagem via backend...')
+      
+      const response = await fetch('/api/send-whatsapp-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           api_key: formData.api_key,
           sender: formData.sender,
           number: normalizedNumber,
           message: formData.message,
           footer: formData.footer,
-          full: formData.fullnumber ? 1 : 0,
-        }),
+          full: formData.fullnumber ? 1 : 0
+        })
       })
-      if (response.status === 405) {
-        const url = new URL("https://belkit.pro/send-message")
-        url.searchParams.set("api_key", formData.api_key)
-        url.searchParams.set("sender", formData.sender)
-        url.searchParams.set("number", formData.number)
-        url.searchParams.set("message", formData.message)
-        if (formData.footer) url.searchParams.set("footer", formData.footer)
-        if (formData.fullnumber) url.searchParams.set("full", "1")
-        response = await fetch(url.toString(), { method: "GET", headers: { Accept: "application/json" } })
+
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}`)
       }
-      if (!response.ok) throw new Error(`Erro ${response.status}`)
-      alert(`Mensagem enviada para ${normalizedNumber}`)
-      setFormData({ ...formData, number: "", message: "", footer: "" })
-      setSelectedClientId("")
+
+      const data = await response.json()
+      
+      if (data.success) {
+        console.log('✅ Mensagem enviada com sucesso')
+        alert(`Mensagem enviada para ${normalizedNumber}`)
+        setFormData({ ...formData, number: "", message: "", footer: "" })
+        setSelectedClientId("")
+      } else {
+        throw new Error(data.error || 'Falha ao enviar mensagem')
+      }
     } catch (err: any) {
+      console.error('❌ Erro ao enviar mensagem:', err)
       alert(err?.message || "Falha ao enviar mensagem")
     } finally {
       setIsSending(false)
@@ -549,10 +554,19 @@ export default function WhatsappAtendente() {
 
                   <Box className="qr-code-container" w="100%" display="flex" justifyContent="center">
                     {isGeneratingQR ? (
-                        <VStack spacing={4}>
-                          <Spinner size="xl" color="whatsapp.500" thickness="4px" speed="0.8s" />
-                        <Text color="gray.600" fontWeight="medium">
-                          Gerando QR...
+                        <VStack spacing={4} w="100%" minH="200px" justify="center">
+                          <Spinner 
+                            size="xl" 
+                            color="purple.500" 
+                            thickness="4px" 
+                            speed="0.8s"
+                            emptyColor="purple.100"
+                          />
+                          <Text color="purple.600" fontWeight="bold" fontSize="lg">
+                            Gerando QR Code...
+                          </Text>
+                          <Text color="gray.500" fontSize="sm" textAlign="center">
+                            Aguarde enquanto conectamos com o WhatsApp
                           </Text>
                         </VStack>
                     ) : qrImageUrl ? (
