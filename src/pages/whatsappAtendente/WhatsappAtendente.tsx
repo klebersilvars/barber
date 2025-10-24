@@ -75,22 +75,29 @@ export default function WhatsappAtendente() {
 
     setIsGeneratingQR(true)
     try {
-      const response = await fetch('/api/whatsapp/generate-qr', {
+      const response = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/generate-qr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           device: phoneNumber,
-          api_key: API_KEY
+          api_key: API_KEY,
+          force: true
         })
       })
 
       const data = await response.json()
       
       if (response.ok) {
-        setQrCodeUrl(data.qr_code_url)
-        showAlertMessage("QR Code gerado com sucesso! Escaneie com seu WhatsApp", "success")
+        if (data.qrcode) {
+          setQrCodeUrl(data.qrcode)
+          showAlertMessage("QR Code gerado com sucesso! Escaneie com seu WhatsApp", "success")
+        } else if (data.msg) {
+          showAlertMessage(data.msg, "info")
+        } else {
+          showAlertMessage(data.message || "QR Code gerado com sucesso!", "success")
+        }
       } else {
         showAlertMessage(data.error || "Erro ao gerar QR Code", "error")
       }
@@ -117,7 +124,7 @@ export default function WhatsappAtendente() {
 
     setIsSendingMessage(true)
     try {
-      const response = await fetch('/api/whatsapp/send-message', {
+      const response = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/send-message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +160,7 @@ export default function WhatsappAtendente() {
   const disconnectDevice = async () => {
     setIsDisconnecting(true)
     try {
-      const response = await fetch('/api/whatsapp/disconnect', {
+      const response = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/disconnect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

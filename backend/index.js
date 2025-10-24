@@ -945,7 +945,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     console.log('=== GERANDO QR CODE WHATSAPP ===');
     console.log('Dados recebidos:', req.body);
     
-    const { device, api_key } = req.body;
+    const { device, api_key, force } = req.body;
     
     if (!device) {
       return res.status(400).json({ error: 'Número do dispositivo é obrigatório' });
@@ -957,11 +957,17 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     
     console.log(`Gerando QR Code para dispositivo: ${device}`);
     
-    const response = await axios.post(`${WHATSAPP_BASE_URL}/generate-qr`, {
+    const payload = {
       device: device,
-      api_key: api_key,
-      force: true // Criar dispositivo se não existir
-    }, {
+      api_key: api_key
+    };
+    
+    // Adicionar force se fornecido
+    if (force !== undefined) {
+      payload.force = force;
+    }
+    
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/generate-qr`, payload, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -969,19 +975,20 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     
     console.log('Resposta da API WhatsApp:', response.data);
     
-    if (response.data && response.data.qr_code_url) {
+    if (response.data) {
       console.log('✅ QR Code gerado com sucesso');
       return res.json({
         success: true,
-        qr_code_url: response.data.qr_code_url,
-        device: device,
-        message: 'QR Code gerado com sucesso'
+        status: response.data.status,
+        qrcode: response.data.qrcode,
+        message: response.data.message || 'QR Code gerado com sucesso',
+        device: device
       });
     } else {
-      console.log('❌ Resposta da API não contém QR Code');
+      console.log('❌ Resposta da API vazia');
       return res.status(500).json({ 
         error: 'Erro ao gerar QR Code',
-        details: 'Resposta da API não contém QR Code válido'
+        details: 'Resposta da API vazia'
       });
     }
     
@@ -1009,7 +1016,7 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
     console.log('=== ENVIANDO MENSAGEM WHATSAPP ===');
     console.log('Dados recebidos:', req.body);
     
-    const { api_key, sender, number, message, footer } = req.body;
+    const { api_key, sender, number, message, footer, msgid, full } = req.body;
     
     if (!api_key || !sender || !number || !message) {
       return res.status(400).json({ 
@@ -1026,9 +1033,17 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
       message: message
     };
     
-    // Adicionar footer se fornecido
+    // Adicionar parâmetros opcionais se fornecidos
     if (footer && footer.trim()) {
       payload.footer = footer.trim();
+    }
+    
+    if (msgid && msgid.trim()) {
+      payload.msgid = msgid.trim();
+    }
+    
+    if (full !== undefined) {
+      payload.full = full;
     }
     
     const response = await axios.post(`${WHATSAPP_BASE_URL}/send-message`, payload, {
