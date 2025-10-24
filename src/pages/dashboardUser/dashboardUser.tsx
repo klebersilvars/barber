@@ -21,7 +21,8 @@ import {
   UserCircle,
   UserRound,
   Play,
-  DoorOpen
+  DoorOpen,
+  MessageCircle
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogotipo from "../../assets/trezu_logotipo.svg"
@@ -519,6 +520,7 @@ export default function DashboardUser() {
   const menuItems = [
     { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true, group: "main" },
     { icon: Calendar, label: "Agenda", path: `/dashboard/${uid}/agenda`, premiumRequired: true, group: "main" },
+    { icon: MessageCircle, label: "Whatsapp", path: `/dashboard/${uid}/whatsappAdmin`, premiumRequired: true, group: "main" },
     { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true, group: "sales" },
     { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true, group: "sales" },
     { icon: Users, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true, group: "management" },
@@ -537,6 +539,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/servicos`,
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/agenda`,
+    `/dashboard/${uid}/whatsappAdmin`,
     `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}`
   ];
@@ -574,6 +577,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/agenda`,
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/whatsappAdmin`,
     `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}/vendas`,
     `/dashboard/${uid}/despesas`,
@@ -585,6 +589,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/agenda`,
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/whatsappAdmin`,
     `/dashboard/${uid}/cliente`,
     `/dashboard/${uid}/vendas`,
     `/dashboard/${uid}/despesas`,
@@ -817,13 +822,14 @@ export default function DashboardUser() {
         `#logout`
       ];
     } else if (tipoPlano === 'gratis' || tipoPlano === '') {
-      // Para plano grátis, sempre permitir cliente, serviços, agenda e configurações
+      // Para plano grátis, sempre permitir cliente, serviços, agenda, whatsapp e configurações
       allowedPaths = [
         `/dashboard/${uid}/plano`,
         `/dashboard/${uid}/cliente`,
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/configuracoes`,
         `/dashboard/${uid}/agenda`,
+        `/dashboard/${uid}/whatsappAdmin`,
         `/dashboard/${uid}`,
         `#logout`
       ];
@@ -853,13 +859,14 @@ export default function DashboardUser() {
         `#logout`
       ];
     } else if (tipoPlano === 'ouro') {
-      // Para plano ouro, permitir todas as funcionalidades (incluindo personalização da página de agendamentos)
+      // Para plano ouro, permitir todas as funcionalidades (incluindo personalização da página de agendamentos e WhatsApp)
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
         `/dashboard/${uid}/agenda`,
         `/dashboard/${uid}/configuracoes`,
         `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/whatsappAdmin`,
         `/dashboard/${uid}/vendas`,
         `/dashboard/${uid}/despesas`,
         `/dashboard/${uid}/colaboradores`,
@@ -867,13 +874,14 @@ export default function DashboardUser() {
         `#logout`
       ];
     } else if (tipoPlano === 'diamante') {
-      // Para plano diamante, permitir todas as funcionalidades (incluindo colaboradores ilimitados)
+      // Para plano diamante, permitir todas as funcionalidades (incluindo colaboradores ilimitados e WhatsApp)
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
         `/dashboard/${uid}/agenda`,
         `/dashboard/${uid}/configuracoes`,
         `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/whatsappAdmin`,
         `/dashboard/${uid}/vendas`,
         `/dashboard/${uid}/despesas`,
         `/dashboard/${uid}/colaboradores`,

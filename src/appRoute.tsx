@@ -58,6 +58,7 @@ export default function AppRoutes() {
           <Route path="servicos" element={<Servicos />} />
           <Route path="agenda" element={<AgendaAdmin />} />
           <Route path="configuracoes" element={<ConfiguracoesAdmin />} />
+          <Route path="whatsappAdmin" element={<RequireAuth><WhatsappAtendente /></RequireAuth>} />
         </Route>
         <Route path="/profissional/:uid" element={<RequireAuth><DashboardProfissional /></RequireAuth>} >
           <Route path="agendaProfissional" element={<AgendaProfissional />} />

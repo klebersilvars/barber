@@ -370,6 +370,14 @@ export default function Plano() {
                       </HStack>
                       <HStack spacing={2}>
                         <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Whatsapp integrado.</Text>
+                      </HStack>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
+                        <Text fontSize="sm">Controle de clientes.</Text>
+                      </HStack>
+                      <HStack spacing={2}>
+                        <Icon as={Check} color="green.500" boxSize={4} />
                         <Text fontSize="sm">Não precisa cadastrar cartão de crédito</Text>
                       </HStack>
                     </VStack>

@@ -79,7 +79,7 @@ const DashboardAtendente: React.FC = () => {
     run()
   }, [estabelecimento])
 
-  const isWhatsappAllowed = tipoPlano === 'ouro' || tipoPlano === 'diamante'
+  const isWhatsappAllowed = tipoPlano === 'gratis' || tipoPlano === 'ouro' || tipoPlano === 'diamante'
 
   // Bloquear acesso direto via URL
   useEffect(() => {
