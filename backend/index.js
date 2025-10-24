@@ -957,17 +957,17 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     
     console.log(`Gerando QR Code para dispositivo: ${device}`);
     
-    const payload = {
+    // A API do Belkit usa GET para generate-qr, então vamos usar query parameters
+    const params = new URLSearchParams({
       device: device,
       api_key: api_key
-    };
+    });
     
-    // Adicionar force se fornecido
     if (force !== undefined) {
-      payload.force = force;
+      params.append('force', force.toString());
     }
     
-    const response = await axios.post(`${WHATSAPP_BASE_URL}/generate-qr`, payload, {
+    const response = await axios.get(`${WHATSAPP_BASE_URL}/generate-qr?${params.toString()}`, {
       headers: {
         'Content-Type': 'application/json'
       }
