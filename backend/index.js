@@ -90,6 +90,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const MP_ACCESS_TOKEN = process.env.API_KEY_MERCADO_PAGO
 const MP_BASE_URL = 'https://api.mercadopago.com/checkout/preferences';
 
+// WhatsApp API Configuration
+const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFlmT96UBs3'
+const WHATSAPP_BASE_URL = 'https://belkit.pro'
+
 // Criar preferência de pagamento
 app.post('/api/create-preference', async (req, res) => {
   const { planId, email, planName, price, dataTermino } = req.body;
@@ -932,6 +936,202 @@ app.get('/api/test-firestore', async (req, res) => {
     });
   }
 });
+
+// ==================== ENDPOINTS WHATSAPP ====================
+
+// Endpoint para gerar QR Code
+app.post('/api/whatsapp/generate-qr', async (req, res) => {
+  try {
+    console.log('=== GERANDO QR CODE WHATSAPP ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const { device, api_key } = req.body;
+    
+    if (!device) {
+      return res.status(400).json({ error: 'Número do dispositivo é obrigatório' });
+    }
+    
+    if (!api_key) {
+      return res.status(400).json({ error: 'API Key é obrigatória' });
+    }
+    
+    console.log(`Gerando QR Code para dispositivo: ${device}`);
+    
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/generate-qr`, {
+      device: device,
+      api_key: api_key,
+      force: true // Criar dispositivo se não existir
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Resposta da API WhatsApp:', response.data);
+    
+    if (response.data && response.data.qr_code_url) {
+      console.log('✅ QR Code gerado com sucesso');
+      return res.json({
+        success: true,
+        qr_code_url: response.data.qr_code_url,
+        device: device,
+        message: 'QR Code gerado com sucesso'
+      });
+    } else {
+      console.log('❌ Resposta da API não contém QR Code');
+      return res.status(500).json({ 
+        error: 'Erro ao gerar QR Code',
+        details: 'Resposta da API não contém QR Code válido'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao gerar QR Code:', error.response?.data || error.message);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: 'Erro da API WhatsApp',
+        details: error.response.data?.message || error.response.data?.error || 'Erro desconhecido',
+        status: error.response.status
+      });
+    }
+    
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para enviar mensagem
+app.post('/api/whatsapp/send-message', async (req, res) => {
+  try {
+    console.log('=== ENVIANDO MENSAGEM WHATSAPP ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const { api_key, sender, number, message, footer } = req.body;
+    
+    if (!api_key || !sender || !number || !message) {
+      return res.status(400).json({ 
+        error: 'Campos obrigatórios: api_key, sender, number, message' 
+      });
+    }
+    
+    console.log(`Enviando mensagem de ${sender} para ${number}`);
+    
+    const payload = {
+      api_key: api_key,
+      sender: sender,
+      number: number,
+      message: message
+    };
+    
+    // Adicionar footer se fornecido
+    if (footer && footer.trim()) {
+      payload.footer = footer.trim();
+    }
+    
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/send-message`, payload, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Resposta da API WhatsApp:', response.data);
+    
+    if (response.data) {
+      console.log('✅ Mensagem enviada com sucesso');
+      return res.json({
+        success: true,
+        message: 'Mensagem enviada com sucesso',
+        data: response.data
+      });
+    } else {
+      console.log('❌ Resposta da API vazia');
+      return res.status(500).json({ 
+        error: 'Erro ao enviar mensagem',
+        details: 'Resposta da API vazia'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem:', error.response?.data || error.message);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: 'Erro da API WhatsApp',
+        details: error.response.data?.message || error.response.data?.error || 'Erro desconhecido',
+        status: error.response.status
+      });
+    }
+    
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para desconectar dispositivo
+app.post('/api/whatsapp/disconnect', async (req, res) => {
+  try {
+    console.log('=== DESCONECTANDO DISPOSITIVO WHATSAPP ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const { api_key, sender } = req.body;
+    
+    if (!api_key || !sender) {
+      return res.status(400).json({ 
+        error: 'Campos obrigatórios: api_key, sender' 
+      });
+    }
+    
+    console.log(`Desconectando dispositivo: ${sender}`);
+    
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/logout-device`, {
+      api_key: api_key,
+      sender: sender
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Resposta da API WhatsApp:', response.data);
+    
+    if (response.data) {
+      console.log('✅ Dispositivo desconectado com sucesso');
+      return res.json({
+        success: true,
+        message: 'Dispositivo desconectado com sucesso',
+        data: response.data
+      });
+    } else {
+      console.log('❌ Resposta da API vazia');
+      return res.status(500).json({ 
+        error: 'Erro ao desconectar dispositivo',
+        details: 'Resposta da API vazia'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao desconectar dispositivo:', error.response?.data || error.message);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: 'Erro da API WhatsApp',
+        details: error.response.data?.message || error.response.data?.error || 'Erro desconhecido',
+        status: error.response.status
+      });
+    }
+    
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+});
+
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {

@@ -11,8 +11,19 @@ import {
   Flex,
   Icon,
   Spinner,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Textarea,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  Divider,
+  Badge,
+  HStack,
 } from "@chakra-ui/react"
-import { FaWhatsapp, FaEnvelope } from "react-icons/fa"
+import { FaWhatsapp, FaQrcode, FaPhone, FaPaperPlane, FaSignOutAlt } from "react-icons/fa"
 import { firestore } from "../../firebase/firebase"
 import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { useAuth } from "../../contexts/AuthContext"
@@ -25,6 +36,151 @@ export default function WhatsappAtendente() {
   const [estabelecimento, setEstabelecimento] = useState<string>("")
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [isLoadingPlano, setIsLoadingPlano] = useState(true)
+
+  // Estados para o sistema de WhatsApp
+  const [phoneNumber, setPhoneNumber] = useState<string>("")
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("")
+  const [isGeneratingQR, setIsGeneratingQR] = useState<boolean>(false)
+  const [isDisconnecting, setIsDisconnecting] = useState<boolean>(false)
+  
+  // Estados para envio de mensagens
+  const [recipientNumber, setRecipientNumber] = useState<string>("")
+  const [messageText, setMessageText] = useState<string>("")
+  const [messageFooter, setMessageFooter] = useState<string>("")
+  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false)
+  
+  // Estados de feedback
+  const [alertMessage, setAlertMessage] = useState<string>("")
+  const [alertType, setAlertType] = useState<"success" | "error" | "info" | "warning">("info")
+  const [showAlert, setShowAlert] = useState<boolean>(false)
+
+  // API Key do WhatsApp (configurada diretamente)
+  const API_KEY = "Lyu6H6ADzWn3KqqQofyhFlmT96UBs3"
+
+  // Função para mostrar alertas
+  const showAlertMessage = (message: string, type: "success" | "error" | "info" | "warning") => {
+    setAlertMessage(message)
+    setAlertType(type)
+    setShowAlert(true)
+    setTimeout(() => setShowAlert(false), 5000)
+  }
+
+  // Função para gerar QR Code
+  const generateQRCode = async () => {
+    if (!phoneNumber.trim()) {
+      showAlertMessage("Por favor, insira um número de telefone", "warning")
+      return
+    }
+
+    setIsGeneratingQR(true)
+    try {
+      const response = await fetch('/api/whatsapp/generate-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device: phoneNumber,
+          api_key: API_KEY
+        })
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        setQrCodeUrl(data.qr_code_url)
+        showAlertMessage("QR Code gerado com sucesso! Escaneie com seu WhatsApp", "success")
+      } else {
+        showAlertMessage(data.error || "Erro ao gerar QR Code", "error")
+      }
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error)
+      showAlertMessage("Erro de conexão ao gerar QR Code", "error")
+    } finally {
+      setIsGeneratingQR(false)
+    }
+  }
+
+  // Função para confirmar conexão
+  const confirmConnection = () => {
+    setIsConnected(true)
+    showAlertMessage("Conexão confirmada! Agora você pode enviar mensagens", "success")
+  }
+
+  // Função para enviar mensagem
+  const sendMessage = async () => {
+    if (!recipientNumber.trim() || !messageText.trim()) {
+      showAlertMessage("Por favor, preencha o número e a mensagem", "warning")
+      return
+    }
+
+    setIsSendingMessage(true)
+    try {
+      const response = await fetch('/api/whatsapp/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: API_KEY,
+          sender: phoneNumber,
+          number: recipientNumber,
+          message: messageText,
+          footer: messageFooter || undefined
+        })
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        showAlertMessage("Mensagem enviada com sucesso!", "success")
+        setRecipientNumber("")
+        setMessageText("")
+        setMessageFooter("")
+      } else {
+        showAlertMessage(data.error || "Erro ao enviar mensagem", "error")
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error)
+      showAlertMessage("Erro de conexão ao enviar mensagem", "error")
+    } finally {
+      setIsSendingMessage(false)
+    }
+  }
+
+  // Função para desconectar dispositivo
+  const disconnectDevice = async () => {
+    setIsDisconnecting(true)
+    try {
+      const response = await fetch('/api/whatsapp/disconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: API_KEY,
+          sender: phoneNumber
+        })
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        setIsConnected(false)
+        setQrCodeUrl("")
+        setPhoneNumber("")
+        showAlertMessage("Dispositivo desconectado com sucesso!", "success")
+      } else {
+        showAlertMessage(data.error || "Erro ao desconectar dispositivo", "error")
+      }
+    } catch (error) {
+      console.error('Erro ao desconectar:', error)
+      showAlertMessage("Erro de conexão ao desconectar", "error")
+    } finally {
+      setIsDisconnecting(false)
+    }
+  }
 
 
 
@@ -208,6 +364,7 @@ export default function WhatsappAtendente() {
     )
   }
 
+
   // Mostrar tela de bloqueio se não tiver acesso
   if (!isWhatsappAllowed) {
     return (
@@ -270,94 +427,209 @@ export default function WhatsappAtendente() {
     >
       <Container maxW="100%" px={{ base: 4, md: 8 }}>
         <VStack spacing={8} align="center" w="100%">
-          {/* Header (sem animação) */}
+          {/* Header */}
           <VStack spacing={4} textAlign="center" className="header-section" w="100%">
-              <Flex
-                align="center"
-                justify="center"
+            <Flex
+              align="center"
+              justify="center"
               w={20}
               h={20}
-                bg="whatsapp.500"
-                rounded="full"
+              bg="whatsapp.500"
+              rounded="full"
               boxShadow="lg"
               mx="auto"
-              >
-              <Icon as={FaWhatsapp} boxSize={10} color="white" />
-              </Flex>
-            <Heading size="2xl" color="gray.800">
-                Trezu Atendente
-              </Heading>
-            <Text color="gray.600" fontSize={{ base: "md", md: "lg" }}>
-                Sistema profissional de envio de mensagens
-              </Text>
-            </VStack>
-
-          {/* Main Content */}
-            <Card
-             className="contact-support-card"
-              w="100%"
-              maxW="720px"
-              mx="auto"
-              bg="white"
-              borderWidth="1px"
-              borderColor="gray.200"
-              boxShadow="lg"
-              rounded="xl"
             >
-             <CardBody p={{ base: 8, md: 12 }}>
-               <VStack spacing={8} textAlign="center">
-                        <VStack spacing={4}>
-                   <Flex
-                     align="center"
-                     justify="center"
-                     w={16}
-                     h={16}
-                     bg="blue.500"
-                     rounded="full"
-                     boxShadow="lg"
-                     mx="auto"
-                   >
-                     <Icon as={FaEnvelope} boxSize={8} color="white" />
-                   </Flex>
-                   
-                   <Heading size="xl" color="gray.800">
-                     Entre em Contato com o Suporte
-                      </Heading>
-                   
-                   <Text color="gray.600" fontSize="lg" maxW="500px" lineHeight="1.6">
-                     Para criarmos sua conta na plataforma de envio de mensagens, 
-                     entre em contato conosco através do WhatsApp.
-                      </Text>
-                    </VStack>
+              <Icon as={FaWhatsapp} boxSize={10} color="white" />
+            </Flex>
+            <Heading size="2xl" color="gray.800">
+              Trezu Atendente
+            </Heading>
+            <Text color="gray.600" fontSize={{ base: "md", md: "lg" }}>
+              Sistema profissional de envio de mensagens
+            </Text>
+          </VStack>
+
+          {/* Alert de feedback */}
+          {showAlert && (
+            <Alert status={alertType} maxW="600px" w="100%">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>{alertType === "success" ? "Sucesso!" : alertType === "error" ? "Erro!" : "Informação"}</AlertTitle>
+                <AlertDescription>{alertMessage}</AlertDescription>
+              </Box>
+            </Alert>
+          )}
+
+          {/* Status da conexão */}
+          <Card w="100%" maxW="600px" mx="auto">
+            <CardBody>
+              <HStack justify="space-between" align="center">
+                <HStack>
+                  <Icon as={FaPhone} color={isConnected ? "green.500" : "gray.400"} />
+                  <Text fontWeight="bold">
+                    {isConnected ? "Conectado" : "Desconectado"}
+                  </Text>
+                </HStack>
+                <Badge colorScheme={isConnected ? "green" : "gray"}>
+                  {isConnected ? "Online" : "Offline"}
+                </Badge>
+              </HStack>
+            </CardBody>
+          </Card>
+
+          {/* Seção de Conexão - Só aparece se não estiver conectado */}
+          {!isConnected && (
+            <Card w="100%" maxW="600px" mx="auto">
+              <CardBody>
+                <VStack spacing={6}>
+                  <VStack spacing={4}>
+                    <Icon as={FaQrcode} boxSize={12} color="whatsapp.500" />
+                    <Heading size="lg" color="gray.800">
+                      Conectar WhatsApp
+                    </Heading>
+                    <Text color="gray.600" textAlign="center">
+                      Digite seu número de telefone para gerar o QR Code de conexão
+                    </Text>
+                  </VStack>
+
+                  <VStack spacing={4} w="100%">
+                    <InputGroup>
+                      <InputLeftElement>
+                        <Icon as={FaPhone} color="gray.400" />
+                      </InputLeftElement>
+                      <Input
+                        placeholder="Digite seu número (ex: 5521987654321)"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        isDisabled={isGeneratingQR}
+                      />
+                    </InputGroup>
 
                     <Button
                       colorScheme="whatsapp"
                       size="lg"
-                   leftIcon={<FaEnvelope />}
-                      onClick={() => {
-                     const phoneNumber = "5521982410516"
-                     const message = "Olá! Gostaria de criar minha conta na plataforma de envio de mensagens WhatsApp."
-                     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
-                     window.open(whatsappUrl, "_blank")
-                   }}
-              w="100%"
-                   maxW="400px"
-              mx="auto"
-                   h="60px"
-                   fontSize="lg"
-                   fontWeight="bold"
-                   boxShadow="md"
-                   _hover={{
-                     transform: "translateY(-2px)",
-                     boxShadow: "lg"
-                   }}
-                   transition="all 0.2s"
-                 >
-                   Enviar Mensagem pro Suporte
-                        </Button>
+                      leftIcon={<FaQrcode />}
+                      onClick={generateQRCode}
+                      isLoading={isGeneratingQR}
+                      loadingText="Gerando QR Code..."
+                      w="100%"
+                      isDisabled={!phoneNumber.trim()}
+                    >
+                      Gerar QR Code
+                    </Button>
                   </VStack>
-                </CardBody>
-              </Card>
+
+                  {/* QR Code */}
+                  {qrCodeUrl && (
+                    <VStack spacing={4}>
+                      <Divider />
+                      <VStack spacing={3}>
+                        <Text fontWeight="bold" color="gray.700">
+                          Escaneie o QR Code com seu WhatsApp:
+                        </Text>
+                        <Box
+                          p={4}
+                          border="2px solid"
+                          borderColor="gray.200"
+                          rounded="lg"
+                          bg="white"
+                        >
+                          <img 
+                            src={qrCodeUrl} 
+                            alt="QR Code WhatsApp" 
+                            style={{ maxWidth: "200px", height: "auto" }}
+                          />
+                        </Box>
+                        <Button
+                          colorScheme="green"
+                          size="md"
+                          onClick={confirmConnection}
+                          leftIcon={<FaWhatsapp />}
+                        >
+                          Já Escaneei o QR Code
+                        </Button>
+                      </VStack>
+                    </VStack>
+                  )}
+                </VStack>
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Seção de Envio de Mensagens - Só aparece se estiver conectado */}
+          {isConnected && (
+            <Card w="100%" maxW="600px" mx="auto">
+              <CardBody>
+                <VStack spacing={6}>
+                  <VStack spacing={4}>
+                    <Icon as={FaPaperPlane} boxSize={12} color="whatsapp.500" />
+                    <Heading size="lg" color="gray.800">
+                      Enviar Mensagem
+                    </Heading>
+                    <Text color="gray.600" textAlign="center">
+                      Preencha os dados para enviar uma mensagem via WhatsApp
+                    </Text>
+                  </VStack>
+
+                  <VStack spacing={4} w="100%">
+                    <InputGroup>
+                      <InputLeftElement>
+                        <Icon as={FaPhone} color="gray.400" />
+                      </InputLeftElement>
+                      <Input
+                        placeholder="Número do destinatário (ex: 5521987654321)"
+                        value={recipientNumber}
+                        onChange={(e) => setRecipientNumber(e.target.value)}
+                        isDisabled={isSendingMessage}
+                      />
+                    </InputGroup>
+
+                    <Textarea
+                      placeholder="Digite sua mensagem aqui..."
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      isDisabled={isSendingMessage}
+                      rows={4}
+                    />
+
+                    <Input
+                      placeholder="Rodapé da mensagem (opcional)"
+                      value={messageFooter}
+                      onChange={(e) => setMessageFooter(e.target.value)}
+                      isDisabled={isSendingMessage}
+                    />
+
+                    <HStack w="100%" spacing={4}>
+                      <Button
+                        colorScheme="whatsapp"
+                        size="lg"
+                        leftIcon={<FaPaperPlane />}
+                        onClick={sendMessage}
+                        isLoading={isSendingMessage}
+                        loadingText="Enviando..."
+                        flex={1}
+                        isDisabled={!recipientNumber.trim() || !messageText.trim()}
+                      >
+                        Enviar Mensagem
+                      </Button>
+
+                      <Button
+                        colorScheme="red"
+                        size="lg"
+                        leftIcon={<FaSignOutAlt />}
+                        onClick={disconnectDevice}
+                        isLoading={isDisconnecting}
+                        loadingText="Desconectando..."
+                        variant="outline"
+                      >
+                        Desconectar
+                      </Button>
+                    </HStack>
+                  </VStack>
+                </VStack>
+              </CardBody>
+            </Card>
+          )}
         </VStack>
       </Container>
     </Box>
