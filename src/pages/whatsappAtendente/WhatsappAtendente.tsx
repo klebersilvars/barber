@@ -1,5 +1,4 @@
-import React, { useEffect } from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Box,
   Container,
@@ -7,22 +6,15 @@ import {
   Heading,
   Text,
   Button,
-  FormControl,
-  FormLabel,
-  Input,
-  Textarea,
-  Switch,
   Card,
   CardBody,
   Flex,
   Icon,
   Spinner,
-  Image,
-  Select,
 } from "@chakra-ui/react"
-import { FaWhatsapp, FaQrcode, FaPaperPlane, FaCheckCircle } from "react-icons/fa"
+import { FaWhatsapp, FaEnvelope } from "react-icons/fa"
 import { firestore } from "../../firebase/firebase"
-import { collection, onSnapshot, doc, getDoc, query, where, getDocs } from "firebase/firestore"
+import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { useAuth } from "../../contexts/AuthContext"
 import { useNavigate, useParams } from "react-router-dom"
 
@@ -30,26 +22,11 @@ export default function WhatsappAtendente() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { uid } = useParams()
-  const [isConnected, setIsConnected] = useState(false)
-  const [isSending, setIsSending] = useState(false)
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false)
-  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null)
-  const [clients, setClients] = useState<Array<{ id: string; name: string; number: string }>>([])
-  const [isLoadingClients, setIsLoadingClients] = useState(false)
   const [estabelecimento, setEstabelecimento] = useState<string>("")
-  const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [isLoadingPlano, setIsLoadingPlano] = useState(true)
-  // Alerts padrão do navegador no lugar de toasts customizados
 
-  const [formData, setFormData] = useState({
-    api_key: "Iw3Ldw6Kw36Spcrefyn1hgqCiYAoZS",
-    sender: "",
-    number: "",
-    message: "",
-    footer: "",
-    fullnumber: false,
-  })
+
 
   // Buscar estabelecimento do atendente logado
   useEffect(() => {
@@ -144,7 +121,7 @@ export default function WhatsappAtendente() {
             console.log("TipoPlano encontrado via conta principal:", tipoPlanoData)
           }
         }
-      } catch (e) {
+    } catch (e) {
         console.error("Erro na verificação alternativa:", e)
       }
     }
@@ -157,55 +134,16 @@ export default function WhatsappAtendente() {
     return () => clearTimeout(timeoutId)
   }, [user?.uid, estabelecimento])
 
-  // Listar clientes do estabelecimento
-  useEffect(() => {
-    if (!estabelecimento) return
-    setIsLoadingClients(true)
-    try {
-      const q = query(collection(firestore, "clienteUser"), where("estabelecimento", "==", estabelecimento))
-      const unsub = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map((doc) => {
-          const d = doc.data() as any
-          const name = `${d?.nome || d?.nomeClinte || "Cliente"}${d?.sobrenome || d?.sobreNomeClinte ? " " + (d?.sobrenome || d?.sobreNomeClinte) : ""}`.trim()
-          const number = (d?.whatsapp || d?.whatsappContato || d?.telefone || d?.telefoneContato || "").toString()
-          return { id: doc.id, name, number }
-        })
-        setClients(data.filter((c) => !!c.number))
-        setIsLoadingClients(false)
-      })
-      return () => unsub()
-    } catch (e) {
-      setIsLoadingClients(false)
-    }
-  }, [estabelecimento])
 
-  // Carregamento imediato sob demanda (ex.: ao conectar)
-  const loadClientsNow = async () => {
-    try {
-      const est = estabelecimento || (typeof window !== "undefined" ? (window as any).nomeEstabelecimentoAtendente : "")
-      if (!est) return
-      setIsLoadingClients(true)
-      const q = query(collection(firestore, "clienteUser"), where("estabelecimento", "==", est))
-      const snap = await getDocs(q)
-      const data = snap.docs.map((doc) => {
-        const d = doc.data() as any
-        const name = `${d?.nome || d?.nomeClinte || "Cliente"}${d?.sobrenome || d?.sobreNomeClinte ? " " + (d?.sobrenome || d?.sobreNomeClinte) : ""}`.trim()
-        const number = (d?.whatsapp || d?.whatsappContato || d?.telefone || d?.telefoneContato || "").toString()
-        return { id: doc.id, name, number }
-      })
-      setClients(data.filter((c) => !!c.number))
-    } finally {
-      setIsLoadingClients(false)
-    }
-  }
-
+  // Debug: verificar estado do usuário
   useEffect(() => {
-    if (isConnected) {
-      try {
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      } catch {}
-    }
-  }, [isConnected])
+    console.log("=== DEBUG USUÁRIO ===")
+    console.log("User object:", user)
+    console.log("User UID:", user?.uid)
+    console.log("User email:", user?.email)
+    console.log("Estabelecimento:", estabelecimento)
+    console.log("===================")
+  }, [user, estabelecimento])
 
   // Verificar se o acesso ao WhatsApp é permitido baseado no tipo de plano
   const isWhatsappAllowed = tipoPlano === 'gratis' || tipoPlano === 'ouro' || tipoPlano === 'diamante'
@@ -221,175 +159,7 @@ export default function WhatsappAtendente() {
     }
   }, [isLoadingPlano, isWhatsappAllowed, uid, tipoPlano])
 
-  // Restaurar conexão persistida (até desconectar)
-  useEffect(() => {
-    try {
-      const wasConnected = localStorage.getItem("wa_connected") === "1"
-      const savedSender = localStorage.getItem("wa_sender") || ""
-      if (wasConnected) {
-        setIsConnected(true)
-        if (savedSender) setFormData((p) => ({ ...p, sender: savedSender }))
-      }
-    } catch {}
-  }, [])
 
-  const handleConnect = async () => {
-    if (!formData.sender) {
-      alert("Informe o número do dispositivo")
-      return
-    }
-    setIsGeneratingQR(true)
-    setQrImageUrl(null)
-    try {
-      console.log('🔄 Gerando QR Code via backend...')
-      
-      const response = await fetch('/api/generate-qr', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          device: formData.sender,
-          api_key: formData.api_key
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success && data.qr_code) {
-        console.log('✅ QR Code gerado com sucesso')
-        setQrImageUrl(data.qr_code)
-      } else {
-        throw new Error(data.error || 'Falha ao gerar QR Code')
-      }
-    } catch (err: any) {
-      console.error('❌ Erro ao gerar QR:', err)
-      const message = err?.message || "Falha ao gerar QR"
-      alert(message)
-    } finally {
-      setIsGeneratingQR(false)
-    }
-  }
-
-  const handleDisconnect = async () => {
-    try {
-      console.log('🔄 Desconectando dispositivo via backend...')
-      
-      const response = await fetch('/api/logout-whatsapp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          api_key: formData.api_key,
-          sender: formData.sender
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success) {
-        console.log('✅ Dispositivo desconectado com sucesso')
-        alert("Desconectado do WhatsApp")
-      } else {
-        throw new Error(data.error || 'Falha ao desconectar')
-      }
-    } catch (err: any) {
-      console.error('❌ Erro ao desconectar:', err)
-      alert(err?.message || "Falha ao desconectar")
-    } finally {
-      setIsConnected(false)
-      try {
-        localStorage.removeItem("wa_connected")
-        localStorage.removeItem("wa_sender")
-      } catch {}
-      setQrImageUrl(null)
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSending(true)
-    try {
-      if (!formData.sender) {
-        alert("Informe o número do dispositivo")
-        setIsSending(false)
-        return
-      }
-      if (!formData.number) {
-        alert("Selecione um cliente ou informe o número")
-        setIsSending(false)
-        return
-      }
-      const normalizedNumber = normalizePhone(formData.number)
-
-      console.log('📱 Enviando mensagem via backend...')
-      
-      const response = await fetch('/api/send-whatsapp-message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          api_key: formData.api_key,
-          sender: formData.sender,
-          number: normalizedNumber,
-          message: formData.message,
-          footer: formData.footer,
-          full: formData.fullnumber ? 1 : 0
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success) {
-        console.log('✅ Mensagem enviada com sucesso')
-        alert(`Mensagem enviada para ${normalizedNumber}`)
-        setFormData({ ...formData, number: "", message: "", footer: "" })
-        setSelectedClientId("")
-      } else {
-        throw new Error(data.error || 'Falha ao enviar mensagem')
-      }
-    } catch (err: any) {
-      console.error('❌ Erro ao enviar mensagem:', err)
-      alert(err?.message || "Falha ao enviar mensagem")
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  // Normalização simples para E.164 sem o sinal de '+' (regras da API)
-  function normalizePhone(input: string): string {
-    const original = input || ""
-    const trimmed = original.trim()
-    const hadPlus = trimmed.startsWith("+")
-    let digits = trimmed.replace(/\D/g, "")
-    if (trimmed.startsWith("00")) {
-      // Remover o 00 internacional
-      digits = digits.replace(/^00+/, "")
-    }
-    // Se veio com código de país (+xx ou 00xx), mantemos
-    const hasCountryCode = hadPlus || /^\d{1,3}\d{6,}$/.test(digits) && (digits.length > 11)
-    if (!hasCountryCode) {
-      // Heurística: tratar como BR local -> prefixar 55
-      if (digits.length === 10 || digits.length === 11) {
-        digits = `55${digits}`
-      }
-    }
-    return digits
-  }
 
   // Mostrar loading enquanto verifica o plano
   if (isLoadingPlano) {
@@ -523,9 +293,8 @@ export default function WhatsappAtendente() {
             </VStack>
 
           {/* Main Content */}
-          {!isConnected ? (
             <Card
-              className="connection-card"
+             className="contact-support-card"
               w="100%"
               maxW="720px"
               mx="auto"
@@ -535,222 +304,60 @@ export default function WhatsappAtendente() {
               boxShadow="lg"
               rounded="xl"
             >
-              <CardBody p={{ base: 6, md: 8 }}>
-                <VStack spacing={6}>
-                  <FormControl isRequired>
-                    <FormLabel color="gray.700">Número do Dispositivo</FormLabel>
-                    <Input
-                      placeholder="Ex: 5511999999999"
-                      value={formData.sender}
-                      onChange={(e) => setFormData({ ...formData, sender: e.target.value })}
-                      variant="filled"
-                      size="lg"
-                      bg="gray.100"
-                      _focus={{ bg: "gray.200" }}
-                    />
-                  </FormControl>
-
-                  {/* API Key mantida apenas no estado interno; não exibida na interface */}
-
-                  <Box className="qr-code-container" w="100%" display="flex" justifyContent="center">
-                    {isGeneratingQR ? (
-                        <VStack spacing={4} w="100%" minH="200px" justify="center">
-                          <Spinner 
-                            size="xl" 
-                            color="purple.500" 
-                            thickness="4px" 
-                            speed="0.8s"
-                            emptyColor="purple.100"
-                          />
-                          <Text color="purple.600" fontWeight="bold" fontSize="lg">
-                            Gerando QR Code...
-                          </Text>
-                          <Text color="gray.500" fontSize="sm" textAlign="center">
-                            Aguarde enquanto conectamos com o WhatsApp
-                          </Text>
-                        </VStack>
-                    ) : qrImageUrl ? (
-                      <Image src={qrImageUrl} alt="QR Code" boxSize={{ base: "240px", md: "280px" }} />
-                      ) : (
-                      <Icon as={FaQrcode} boxSize={32} color="gray.500" />
-                      )}
-                    </Box>
-
-                    <VStack spacing={2}>
-                    <Heading size="lg" color="gray.800">
-                        Conecte seu WhatsApp
+             <CardBody p={{ base: 8, md: 12 }}>
+               <VStack spacing={8} textAlign="center">
+                        <VStack spacing={4}>
+                   <Flex
+                     align="center"
+                     justify="center"
+                     w={16}
+                     h={16}
+                     bg="blue.500"
+                     rounded="full"
+                     boxShadow="lg"
+                     mx="auto"
+                   >
+                     <Icon as={FaEnvelope} boxSize={8} color="white" />
+                   </Flex>
+                   
+                   <Heading size="xl" color="gray.800">
+                     Entre em Contato com o Suporte
                       </Heading>
-                    <Text color="gray.600" textAlign="center">
-                      Informe o dispositivo, gere e escaneie o QR com seu WhatsApp
+                   
+                   <Text color="gray.600" fontSize="lg" maxW="500px" lineHeight="1.6">
+                     Para criarmos sua conta na plataforma de envio de mensagens, 
+                     entre em contato conosco através do WhatsApp.
                       </Text>
                     </VStack>
 
                     <Button
                       colorScheme="whatsapp"
                       size="lg"
-                      leftIcon={<FaWhatsapp />}
-                      onClick={handleConnect}
-                    isLoading={isGeneratingQR}
-                    loadingText="Gerando..."
-                    w="100%"
-                    maxW="360px"
-                      className="connect-button"
-                    mx="auto"
-                  >
-                    Gerar QR Code
-                  </Button>
-
-                  {qrImageUrl && (
-                    <Button
-                      variant="outline"
-                      colorScheme="whatsapp"
+                   leftIcon={<FaEnvelope />}
                       onClick={() => {
-                        setQrImageUrl(null)
-                        setIsConnected(true)
-                        try {
-                          localStorage.setItem("wa_connected", "1")
-                          if (formData.sender) localStorage.setItem("wa_sender", formData.sender)
-                        } catch {}
-                        // Carregar clientes imediatamente após conectar
-                        loadClientsNow()
-                      }}
-                    >
-                      Já escaneei – Marcar como conectado
-                    </Button>
-                  )}
-                  </VStack>
-                </CardBody>
-              </Card>
-          ) : (
-            <Card
-              className="message-form-card"
+                     const phoneNumber = "5521982410516"
+                     const message = "Olá! Gostaria de criar minha conta na plataforma de envio de mensagens WhatsApp."
+                     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
+                     window.open(whatsappUrl, "_blank")
+                   }}
               w="100%"
-              maxW="860px"
+                   maxW="400px"
               mx="auto"
-              bg="white"
-              borderWidth="1px"
-              borderColor="gray.200"
-              boxShadow="lg"
-              rounded="xl"
-            >
-              <CardBody p={{ base: 6, md: 8 }}>
-                <VStack spacing={6} w="100%">
-                    {/* Connection Status */}
-                  <Flex className="connection-status" w="100%" justify="space-between" align="center">
-                      <Flex align="center" gap={3}>
-                        <Icon as={FaCheckCircle} color="whatsapp.400" boxSize={5} />
-                        <Text color="whatsapp.400" fontWeight="medium">
-                          WhatsApp Conectado
-                        </Text>
-                      </Flex>
-                      <Button size="sm" variant="ghost" colorScheme="red" onClick={handleDisconnect}>
-                        Desconectar
-                      </Button>
-                    </Flex>
-
-                    {/* Message Form */}
-                    <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-                      <VStack spacing={5} w="full">
-                      <FormControl>
-                        <FormLabel color="gray.700">Selecionar Cliente</FormLabel>
-                        <Select
-                          placeholder={isLoadingClients ? "Carregando clientes..." : "Escolha um cliente"}
-                          value={selectedClientId}
-                          onChange={(e) => {
-                            const id = e.target.value
-                            setSelectedClientId(id)
-                            const client = clients.find((c) => c.id === id)
-                            if (client) {
-                              const normalized = normalizePhone(client.number)
-                              setFormData({ ...formData, number: normalized })
-                            }
-                          }}
-                          isDisabled={isLoadingClients}
-                          bg="gray.100"
-                          size="lg"
-                        >
-                          {clients.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name} — {normalizePhone(c.number)}
-                            </option>
-                          ))}
-                        </Select>
-                        </FormControl>
-
-
-                        <FormControl isRequired>
-                        <FormLabel color="gray.700">Número do Destinatário</FormLabel>
-                          <Input
-                            placeholder="Ex: 5511888888888"
-                            value={formData.number}
-                            onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                            className="form-input"
-                          variant="filled"
-                          size="lg"
-                          bg="gray.100"
-                          _focus={{ bg: "gray.200" }}
-                          />
-                        </FormControl>
-
-                        <FormControl isRequired>
-                        <FormLabel color="gray.700">Mensagem</FormLabel>
-                          <Textarea
-                            placeholder="Digite sua mensagem aqui..."
-                            value={formData.message}
-                            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                            className="form-textarea"
-                            rows={4}
-                          variant="filled"
-                          size="lg"
-                          bg="gray.100"
-                          _focus={{ bg: "gray.200" }}
-                          />
-                        </FormControl>
-
-                        <FormControl>
-                        <FormLabel color="gray.700">Rodapé (Opcional)</FormLabel>
-                          <Input
-                            placeholder="Texto do rodapé"
-                            value={formData.footer}
-                            onChange={(e) => setFormData({ ...formData, footer: e.target.value })}
-                            className="form-input"
-                          variant="filled"
-                          size="lg"
-                          bg="gray.100"
-                          _focus={{ bg: "gray.200" }}
-                          />
-                        </FormControl>
-
-                        <FormControl display="flex" alignItems="center">
-                          <FormLabel color="gray.300" mb={0}>
-                            Mostrar resposta completa do WhatsApp
-                          </FormLabel>
-                          <Switch
-                            colorScheme="whatsapp"
-                            isChecked={formData.fullnumber}
-                            onChange={(e) => setFormData({ ...formData, fullnumber: e.target.checked })}
-                          />
-                        </FormControl>
-
-                        <Button
-                          type="submit"
-                          colorScheme="whatsapp"
-                          size="lg"
-                        w="100%"
-                          leftIcon={<FaPaperPlane />}
-                          isLoading={isSending}
-                          loadingText="Enviando..."
-                          className="send-button"
-                        boxShadow="md"
-                        >
-                          Enviar Mensagem
+                   h="60px"
+                   fontSize="lg"
+                   fontWeight="bold"
+                   boxShadow="md"
+                   _hover={{
+                     transform: "translateY(-2px)",
+                     boxShadow: "lg"
+                   }}
+                   transition="all 0.2s"
+                 >
+                   Enviar Mensagem pro Suporte
                         </Button>
-                      </VStack>
-                    </form>
                   </VStack>
                 </CardBody>
               </Card>
-          )}
         </VStack>
       </Container>
     </Box>
