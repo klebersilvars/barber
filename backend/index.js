@@ -1117,24 +1117,56 @@ app.post('/api/whatsapp/check-status', async (req, res) => {
     if (response.data && response.data.status === true && response.data.info && response.data.info.length > 0) {
       const deviceInfo = response.data.info[0];
       const isConnected = deviceInfo.status === 'Connected';
+      const statusDevice = deviceInfo.status; // 'Connected' ou 'Disconnect'
       
       console.log(`✅ Status do dispositivo verificado: ${deviceInfo.status}`);
       console.log(`📱 Dispositivo: ${deviceInfo.body}`);
       console.log(`🔗 Conectado: ${isConnected}`);
       
+      // Salvar status no Firestore se o UID for fornecido
+      if (req.body.uid) {
+        try {
+          const contasRef = db.collection('contas').doc(req.body.uid);
+          await contasRef.update({
+            status_device: statusDevice,
+            last_status_check: new Date().toISOString()
+          });
+          console.log(`✅ Status salvo no Firestore para UID: ${req.body.uid}`);
+        } catch (firebaseError) {
+          console.error('❌ Erro ao salvar no Firestore:', firebaseError);
+        }
+      }
+      
       return res.json({
         success: true,
         connected: isConnected,
         status: deviceInfo.status,
+        status_device: statusDevice,
         deviceInfo: deviceInfo,
         message: isConnected ? 'Dispositivo conectado' : 'Dispositivo desconectado'
       });
     } else {
       console.log('❌ Nenhum dispositivo encontrado ou resposta inválida');
+      
+      // Salvar status como 'Not Found' no Firestore se o UID for fornecido
+      if (req.body.uid) {
+        try {
+          const contasRef = db.collection('contas').doc(req.body.uid);
+          await contasRef.update({
+            status_device: 'Not Found',
+            last_status_check: new Date().toISOString()
+          });
+          console.log(`✅ Status 'Not Found' salvo no Firestore para UID: ${req.body.uid}`);
+        } catch (firebaseError) {
+          console.error('❌ Erro ao salvar no Firestore:', firebaseError);
+        }
+      }
+      
       return res.json({
         success: true,
         connected: false,
         status: 'Not Found',
+        status_device: 'Not Found',
         deviceInfo: null,
         message: 'Dispositivo não encontrado'
       });
@@ -1210,6 +1242,59 @@ app.post('/api/whatsapp/disconnect', async (req, res) => {
         status: error.response.status
       });
     }
+    
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para buscar status do dispositivo no Firestore
+app.post('/api/whatsapp/get-status', async (req, res) => {
+  try {
+    console.log('=== BUSCANDO STATUS WHATSAPP NO FIRESTORE ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const { uid } = req.body;
+    
+    if (!uid) {
+      return res.status(400).json({ 
+        error: 'UID é obrigatório' 
+      });
+    }
+    
+    console.log(`Buscando status para UID: ${uid}`);
+    
+    const contasRef = db.collection('contas').doc(uid);
+    const doc = await contasRef.get();
+    
+    if (!doc.exists) {
+      console.log('❌ Conta não encontrada no Firestore');
+      return res.status(404).json({
+        success: false,
+        error: 'Conta não encontrada',
+        status_device: 'Not Found'
+      });
+    }
+    
+    const data = doc.data();
+    const statusDevice = data.status_device || 'Not Found';
+    const isConnected = statusDevice === 'Connected';
+    
+    console.log(`✅ Status encontrado no Firestore: ${statusDevice}`);
+    console.log(`🔗 Conectado: ${isConnected}`);
+    
+    return res.json({
+      success: true,
+      connected: isConnected,
+      status_device: statusDevice,
+      last_status_check: data.last_status_check || null,
+      message: isConnected ? 'Dispositivo conectado' : 'Dispositivo desconectado'
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar status no Firestore:', error);
     
     return res.status(500).json({
       error: 'Erro interno do servidor',

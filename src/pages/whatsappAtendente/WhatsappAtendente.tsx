@@ -28,12 +28,10 @@ import {
 } from "@chakra-ui/react"
 import { FaWhatsapp, FaQrcode, FaPhone, FaPaperPlane, FaSignOutAlt, FaUser } from "react-icons/fa"
 import { firestore } from "../../firebase/firebase"
-import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore"
-import { useAuth } from "../../contexts/AuthContext"
+import { collection, doc, getDoc, query, where, getDocs, updateDoc } from "firebase/firestore"
 import { useNavigate, useParams } from "react-router-dom"
 
 export default function WhatsappAtendente() {
-  const { user } = useAuth()
   const navigate = useNavigate()
   const { uid } = useParams()
   const [estabelecimento, setEstabelecimento] = useState<string>("")
@@ -50,7 +48,7 @@ export default function WhatsappAtendente() {
   // Estados para envio de mensagens
   const [recipientNumber, setRecipientNumber] = useState<string>("")
   const [messageText, setMessageText] = useState<string>("")
-  const [messageFooter, setMessageFooter] = useState<string>("")
+  const [messageFooter, setMessageFooter] = useState<string>("MENSAGEM DO SISTEMA")
   const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false)
   
   // Estados de feedback
@@ -95,62 +93,39 @@ export default function WhatsappAtendente() {
   // Função para buscar clientes do estabelecimento
   const buscarClientes = async (nomeEstabelecimento: string) => {
     if (!nomeEstabelecimento || !nomeEstabelecimento.trim()) {
-      console.log('❌ Nome do estabelecimento não fornecido ou vazio')
       setClientes([])
       return
     }
 
-    console.log('🔍 Buscando clientes para estabelecimento:', nomeEstabelecimento)
-    console.log('🔍 Tipo do estabelecimento:', typeof nomeEstabelecimento)
-    console.log('🔍 Tamanho do estabelecimento:', nomeEstabelecimento.length)
     setIsLoadingClientes(true)
     
     try {
-      console.log('📡 Conectando ao Firestore...')
       const clientesRef = collection(firestore, 'clienteUser')
-      console.log('📡 Referência da coleção criada')
-      
       const q = query(clientesRef, where('estabelecimento', '==', nomeEstabelecimento))
-      console.log('📡 Query criada com filtro:', nomeEstabelecimento)
-      
       const snapshot = await getDocs(q)
-      console.log('📊 Total de documentos na coleção clienteUser:', snapshot.docs.length)
       
       if (snapshot.docs.length === 0) {
-        console.log('⚠️ Nenhum documento encontrado na coleção clienteUser')
         setClientes([])
         showAlertMessage(`Nenhum cliente encontrado para "${nomeEstabelecimento}"`, "info")
         return
       }
       
-      const clientesData = snapshot.docs.map((doc, index) => {
+      const clientesData = snapshot.docs.map((doc) => {
         const data = doc.data()
-        console.log(`📋 Cliente ${index + 1}:`, { 
-          id: doc.id, 
-          nome: data.nome, 
-          telefone: data.telefone, 
-          estabelecimento: data.estabelecimento,
-          email: data.email 
-        })
         return {
           id: doc.id,
           ...data
         }
       })
       
-      console.log('✅ Processando clientes...')
       setClientes(clientesData)
-      console.log('✅ Total de clientes encontrados:', clientesData.length)
       
       if (clientesData.length === 0) {
-        console.log('⚠️ Nenhum cliente encontrado para o estabelecimento:', nomeEstabelecimento)
         showAlertMessage(`Nenhum cliente encontrado para "${nomeEstabelecimento}"`, "info")
       } else {
         showAlertMessage(`${clientesData.length} cliente(s) encontrado(s)`, "success")
       }
     } catch (error) {
-      console.error('❌ Erro ao buscar clientes:', error)
-      console.error('❌ Stack trace:', (error as Error).stack)
       showAlertMessage("Erro ao carregar lista de clientes", "error")
       setClientes([])
     } finally {
@@ -178,6 +153,33 @@ export default function WhatsappAtendente() {
     }
   }
 
+  // Função para buscar status do Firestore
+  const getStatusFromFirestore = async (uid: string) => {
+    if (!uid) return false
+
+    try {
+      const response = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/get-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: uid
+        })
+      })
+
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        return data.connected
+      } else {
+        return false
+      }
+    } catch (error) {
+      return false
+    }
+  }
+
   // Função para verificar status de conexão do WhatsApp
   const checkWhatsAppStatus = async (phoneNumber: string) => {
     if (!phoneNumber.trim()) return
@@ -191,7 +193,8 @@ export default function WhatsappAtendente() {
         },
         body: JSON.stringify({
           api_key: API_KEY,
-          number: phoneNumber
+          number: phoneNumber,
+          uid: uid // Adiciona o UID para salvar no Firestore
         })
       })
 
@@ -209,12 +212,10 @@ export default function WhatsappAtendente() {
           showAlertMessage(`WhatsApp não está conectado. Status: ${data.status || 'Desconhecido'}`, "info")
         }
       } else {
-        console.log('Erro ao verificar status:', data.error)
         // Se der erro, assume que não está conectado
         setIsConnected(false)
       }
     } catch (error) {
-      console.error('Erro ao verificar status:', error)
       setIsConnected(false)
     } finally {
       setIsCheckingStatus(false)
@@ -265,7 +266,6 @@ export default function WhatsappAtendente() {
         showAlertMessage(data.error || "Erro ao gerar QR Code", "error")
       }
     } catch (error) {
-      console.error('Erro ao gerar QR Code:', error)
       showAlertMessage("Erro de conexão ao gerar QR Code", "error")
     } finally {
       setIsGeneratingQR(false)
@@ -273,8 +273,22 @@ export default function WhatsappAtendente() {
   }
 
   // Função para confirmar conexão
-  const confirmConnection = () => {
+  const confirmConnection = async () => {
     setIsConnected(true)
+    
+    // Atualiza o status no Firestore para 'Connected'
+    if (uid) {
+      try {
+        const contasRef = doc(firestore, 'contas', uid)
+        await updateDoc(contasRef, {
+          status_device: 'Connected',
+          last_status_check: new Date().toISOString()
+        })
+      } catch (firebaseError) {
+        // Erro silencioso
+      }
+    }
+    
     showAlertMessage("Conexão confirmada! Agora você pode enviar mensagens", "success")
   }
 
@@ -307,12 +321,11 @@ export default function WhatsappAtendente() {
         showAlertMessage("Mensagem enviada com sucesso!", "success")
         setRecipientNumber("")
         setMessageText("")
-        setMessageFooter("")
+        setMessageFooter("MENSAGEM DO SISTEMA")
       } else {
         showAlertMessage(data.error || "Erro ao enviar mensagem", "error")
       }
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
       showAlertMessage("Erro de conexão ao enviar mensagem", "error")
     } finally {
       setIsSendingMessage(false)
@@ -337,6 +350,32 @@ export default function WhatsappAtendente() {
       const data = await response.json()
       
       if (response.ok) {
+        // Atualiza o status no Firestore para 'Disconnect'
+        if (uid) {
+          try {
+            const responseStatus = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/get-status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                uid: uid
+              })
+            })
+            
+            if (responseStatus.ok) {
+              // Atualiza o status no Firestore
+              const contasRef = doc(firestore, 'contas', uid)
+              await updateDoc(contasRef, {
+                status_device: 'Disconnect',
+                last_status_check: new Date().toISOString()
+              })
+            }
+          } catch (firebaseError) {
+            // Erro silencioso
+          }
+        }
+        
         setIsConnected(false)
         setQrCodeUrl("")
         setPhoneNumber("")
@@ -348,7 +387,6 @@ export default function WhatsappAtendente() {
         showAlertMessage(data.error || "Erro ao desconectar dispositivo", "error")
       }
     } catch (error) {
-      console.error('Erro ao desconectar:', error)
       showAlertMessage("Erro de conexão ao desconectar", "error")
     } finally {
       setIsDisconnecting(false)
@@ -361,23 +399,17 @@ export default function WhatsappAtendente() {
   useEffect(() => {
     const fetchEstabelecimento = async () => {
       if (!uid) {
-        console.log('❌ UID não fornecido na URL')
         return
       }
       
-      console.log('🔍 Iniciando busca do estabelecimento para UID:', uid)
-      
       try {
         // Primeiro tenta buscar como colaborador
-        console.log('🔍 Buscando como colaborador...')
         const colabRef = doc(firestore, "colaboradores", uid)
         const colabSnap = await getDoc(colabRef)
         
         if (colabSnap.exists()) {
           const colabData = colabSnap.data() as any
           const estabelecimentoData = colabData?.estabelecimento || ""
-          console.log('🏢 Dados do colaborador:', colabData)
-          console.log('🏢 Estabelecimento encontrado via colaborador:', estabelecimentoData)
           
           if (estabelecimentoData && estabelecimentoData.trim()) {
             setEstabelecimento(estabelecimentoData)
@@ -385,33 +417,24 @@ export default function WhatsappAtendente() {
             window.nomeEstabelecimentoAtendente = estabelecimentoData
             return
           }
-        } else {
-          console.log('❌ Usuário não é colaborador')
         }
 
         // Se não for colaborador, tenta buscar como conta principal (admin)
-        console.log('🔍 Buscando como conta principal...')
         const contaRef = doc(firestore, "contas", uid)
         const contaSnap = await getDoc(contaRef)
         
         if (contaSnap.exists()) {
           const contaData = contaSnap.data() as any
           const estabelecimentoData = contaData?.nomeEstabelecimento || ""
-          console.log('🏢 Dados da conta:', contaData)
-          console.log('🏢 Estabelecimento encontrado via conta principal:', estabelecimentoData)
           
           if (estabelecimentoData && estabelecimentoData.trim()) {
             setEstabelecimento(estabelecimentoData)
             // @ts-ignore
             window.nomeEstabelecimentoAtendente = estabelecimentoData
-          } else {
-            console.log('❌ Nome do estabelecimento vazio na conta principal')
           }
-        } else {
-          console.log('❌ Usuário não encontrado na coleção contas')
         }
       } catch (e) {
-        console.error("❌ Erro ao buscar estabelecimento:", e)
+        // Erro silencioso
       }
     }
     
@@ -425,39 +448,46 @@ export default function WhatsappAtendente() {
 
   // Buscar clientes quando o estabelecimento for carregado
   useEffect(() => {
-    console.log('🏢 Estabelecimento mudou:', estabelecimento)
     if (estabelecimento && estabelecimento.trim()) {
-      console.log('📞 Iniciando busca de clientes...')
       buscarClientes(estabelecimento)
     } else {
-      console.log('❌ Estabelecimento vazio ou inválido')
       setClientes([])
     }
   }, [estabelecimento])
 
   // Verificar status de conexão automaticamente quando o componente carregar
   useEffect(() => {
-    // Verifica se há um número salvo no localStorage ou sessionStorage
-    const savedPhone = localStorage.getItem('whatsapp_phone') || sessionStorage.getItem('whatsapp_phone')
-    if (savedPhone && savedPhone.trim()) {
-      setPhoneNumber(savedPhone)
-      // Verifica o status automaticamente
-      checkWhatsAppStatus(savedPhone)
+    const checkInitialStatus = async () => {
+      if (uid) {
+        // Primeiro verifica o status no Firestore
+        const isConnectedFromFirestore = await getStatusFromFirestore(uid)
+        if (isConnectedFromFirestore) {
+          setIsConnected(true)
+          // Verifica se há um número salvo no localStorage
+          const savedPhone = localStorage.getItem('whatsapp_phone') || sessionStorage.getItem('whatsapp_phone')
+          if (savedPhone && savedPhone.trim()) {
+            setPhoneNumber(savedPhone)
+            setLastCheckedPhone(savedPhone)
+          }
+          showAlertMessage("WhatsApp já está conectado! Você pode enviar mensagens.", "success")
+          return
+        }
+      }
+      
+      // Se não estiver conectado no Firestore, verifica o localStorage
+      const savedPhone = localStorage.getItem('whatsapp_phone') || sessionStorage.getItem('whatsapp_phone')
+      if (savedPhone && savedPhone.trim()) {
+        setPhoneNumber(savedPhone)
+        // Verifica o status automaticamente
+        checkWhatsAppStatus(savedPhone)
+      }
     }
-  }, [])
 
-  // Verificação automática de status em tempo real
-  useEffect(() => {
-    if (!phoneNumber.trim() || !isConnected) return
+    checkInitialStatus()
+  }, [uid])
 
-    // Verifica o status a cada 30 segundos se estiver conectado
-    const intervalId = setInterval(() => {
-      console.log('🔄 Verificação automática de status...')
-      checkWhatsAppStatus(phoneNumber)
-    }, 30000) // 30 segundos
-
-    return () => clearInterval(intervalId)
-  }, [phoneNumber, isConnected])
+  // Verificação automática removida para evitar lag
+  // A verificação agora é feita apenas ao entrar na página
 
   // Buscar tipoPlano da conta dona do estabelecimento
   useEffect(() => {
@@ -478,13 +508,10 @@ export default function WhatsappAtendente() {
           const data = snap.docs[0].data() as any
           const tipoPlanoData = (data?.tipoPlano ?? null) as string | null
           setTipoPlano(tipoPlanoData)
-          console.log("TipoPlano encontrado:", tipoPlanoData)
         } else {
-          console.log("Nenhuma conta encontrada para o estabelecimento:", estabelecimento)
           setTipoPlano(null)
         }
       } catch (e) {
-        console.error("Erro ao buscar tipoPlano:", e)
         setTipoPlano(null)
       } finally {
         setIsLoadingPlano(false)
@@ -494,7 +521,6 @@ export default function WhatsappAtendente() {
     // Adicionar timeout para evitar travamento
     const timeoutId = setTimeout(() => {
       if (isLoadingPlano) {
-        console.log("Timeout na verificação do plano, permitindo acesso")
         setTipoPlano('ouro') // Fallback para ouro
         setIsLoadingPlano(false)
       }
@@ -510,7 +536,6 @@ export default function WhatsappAtendente() {
     // @ts-ignore
     const est = typeof window !== 'undefined' ? window.nomeEstabelecimentoAtendente : ""
     if (est && !estabelecimento) {
-      console.log('🔄 Usando estabelecimento do window:', est)
       setEstabelecimento(est)
     }
   }, [estabelecimento])
@@ -521,19 +546,17 @@ export default function WhatsappAtendente() {
       if (!uid || estabelecimento) return // Só executa se não tiver estabelecimento
       
       try {
-        console.log('🔄 Tentativa alternativa de buscar estabelecimento...')
         const contaRef = doc(firestore, "contas", uid)
         const contaSnap = await getDoc(contaRef)
         if (contaSnap.exists()) {
           const data = contaSnap.data() as any
           const estabelecimentoData = data?.nomeEstabelecimento || ""
           if (estabelecimentoData) {
-            console.log('✅ Estabelecimento encontrado via busca alternativa:', estabelecimentoData)
             setEstabelecimento(estabelecimentoData)
           }
         }
       } catch (e) {
-        console.error("Erro na busca alternativa de estabelecimento:", e)
+        // Erro silencioso
       }
     }
     
@@ -562,11 +585,10 @@ export default function WhatsappAtendente() {
           if (tipoPlanoData) {
             setTipoPlano(tipoPlanoData)
             setIsLoadingPlano(false)
-            console.log("TipoPlano encontrado via conta principal:", tipoPlanoData)
           }
         }
     } catch (e) {
-        console.error("Erro na verificação alternativa:", e)
+        // Erro silencioso
       }
     }
     
@@ -579,16 +601,7 @@ export default function WhatsappAtendente() {
   }, [uid, estabelecimento])
 
 
-  // Debug: verificar estado do usuário
-  useEffect(() => {
-    console.log("=== DEBUG USUÁRIO ===")
-    console.log("UID da URL:", uid)
-    console.log("User object:", user)
-    console.log("User UID:", user?.uid)
-    console.log("User email:", user?.email)
-    console.log("Estabelecimento:", estabelecimento)
-    console.log("===================")
-  }, [uid, user, estabelecimento])
+  // Debug removido para limpeza do código
 
   // Verificar se o acesso ao WhatsApp é permitido baseado no tipo de plano
   const isWhatsappAllowed = tipoPlano === 'gratis' || tipoPlano === 'ouro' || tipoPlano === 'diamante'
@@ -596,11 +609,8 @@ export default function WhatsappAtendente() {
   // Bloquear acesso se o plano não permitir WhatsApp
   useEffect(() => {
     if (!isLoadingPlano && !isWhatsappAllowed && uid) {
-      console.log("Acesso negado. TipoPlano:", tipoPlano)
       // Redirecionar para o dashboard do atendente
       navigate(`/acessoAtendente/${uid}`)
-    } else if (!isLoadingPlano && isWhatsappAllowed) {
-      console.log("Acesso permitido. TipoPlano:", tipoPlano)
     }
   }, [isLoadingPlano, isWhatsappAllowed, uid, tipoPlano])
 
@@ -709,13 +719,14 @@ export default function WhatsappAtendente() {
       className="whatsapp-atendente-container"
       w="100%"
       minH="100vh"
-      maxH="100vh"
+      maxH={{ base: "none", md: "100vh" }}
       overflowY="auto"
       bg='white'
-      py={{ base: 8, md: 12 }}
+      py={{ base: 4, md: 12 }}
+      pb={{ base: 8, md: 12 }}
     >
       <Container maxW="100%" px={{ base: 4, md: 8 }}>
-        <VStack spacing={8} align="center" w="100%">
+        <VStack spacing={{ base: 6, md: 8 }} align="center" w="100%">
           {/* Header */}
           <VStack spacing={4} textAlign="center" className="header-section" w="100%">
             <Flex
@@ -753,7 +764,7 @@ export default function WhatsappAtendente() {
 
           {/* Status da conexão */}
           <Card w="100%" maxW="600px" mx="auto">
-            <CardBody>
+            <CardBody p={{ base: 4, md: 6 }}>
               <HStack justify="space-between" align="center">
                 <HStack>
                   <Icon as={FaPhone} color={isConnected ? "green.500" : "gray.400"} />
@@ -783,8 +794,8 @@ export default function WhatsappAtendente() {
           {/* Seção de Conexão - Só aparece se não estiver conectado */}
           {!isConnected && (
             <Card w="100%" maxW="600px" mx="auto">
-              <CardBody>
-                <VStack spacing={6}>
+              <CardBody p={{ base: 4, md: 6 }}>
+                <VStack spacing={{ base: 4, md: 6 }}>
                   <VStack spacing={4}>
                     <Icon as={FaQrcode} boxSize={12} color="whatsapp.500" />
                     <Heading size="lg" color="gray.800">
@@ -808,15 +819,15 @@ export default function WhatsappAtendente() {
                       />
                     </InputGroup>
 
-                    <HStack w="100%" spacing={3}>
+                    <VStack w="100%" spacing={3}>
                       <Button
                         colorScheme="whatsapp"
-                        size="lg"
+                        size={{ base: "md", md: "lg" }}
                         leftIcon={<FaQrcode />}
                         onClick={generateQRCode}
                         isLoading={isGeneratingQR || isCheckingStatus}
                         loadingText={isCheckingStatus ? "Verificando..." : "Gerando QR Code..."}
-                        flex={1}
+                        w="100%"
                         isDisabled={!phoneNumber.trim()}
                       >
                         {isCheckingStatus ? "Verificando Status" : "Gerar QR Code"}
@@ -824,32 +835,36 @@ export default function WhatsappAtendente() {
                       
                       <Button
                         colorScheme="blue"
-                        size="lg"
+                        size={{ base: "md", md: "lg" }}
                         variant="outline"
                         onClick={() => checkWhatsAppStatus(phoneNumber)}
                         isLoading={isCheckingStatus}
                         loadingText="Verificando..."
                         isDisabled={!phoneNumber.trim() || isGeneratingQR}
+                        w="100%"
                       >
                         Verificar Status
                       </Button>
-                    </HStack>
+                    </VStack>
                   </VStack>
 
                   {/* QR Code */}
                   {qrCodeUrl && (
-                    <VStack spacing={4}>
+                    <VStack spacing={{ base: 6, md: 4 }} w="100%">
                       <Divider />
-                      <VStack spacing={3}>
-                        <Text fontWeight="bold" color="gray.700">
+                      <VStack spacing={{ base: 4, md: 3 }} w="100%">
+                        <Text fontWeight="bold" color="gray.700" textAlign="center">
                           Escaneie o QR Code com seu WhatsApp:
                         </Text>
                         <Box
-                          p={4}
+                          p={{ base: 3, md: 4 }}
                           border="2px solid"
                           borderColor="gray.200"
                           rounded="lg"
                           bg="white"
+                          w="100%"
+                          display="flex"
+                          justifyContent="center"
                         >
                           <img 
                             src={qrCodeUrl} 
@@ -859,9 +874,11 @@ export default function WhatsappAtendente() {
                         </Box>
                         <Button
                           colorScheme="green"
-                          size="md"
+                          size={{ base: "lg", md: "md" }}
                           onClick={confirmConnection}
                           leftIcon={<FaWhatsapp />}
+                          w="100%"
+                          maxW="300px"
                         >
                           Já Escaneei o QR Code
                         </Button>
@@ -876,8 +893,8 @@ export default function WhatsappAtendente() {
           {/* Seção de Envio de Mensagens - Só aparece se estiver conectado */}
           {isConnected && (
             <Card w="100%" maxW="600px" mx="auto">
-              <CardBody>
-                <VStack spacing={6}>
+              <CardBody p={{ base: 4, md: 6 }}>
+                <VStack spacing={{ base: 4, md: 6 }}>
                   <VStack spacing={4}>
                     <Icon as={FaPaperPlane} boxSize={12} color="whatsapp.500" />
                     <Heading size="lg" color="gray.800">
@@ -995,15 +1012,15 @@ export default function WhatsappAtendente() {
                       </Button>
                     )}
 
-                    <HStack w="100%" spacing={4}>
+                    <VStack w="100%" spacing={3}>
                       <Button
                         colorScheme="whatsapp"
-                        size="lg"
+                        size={{ base: "md", md: "lg" }}
                         leftIcon={<FaPaperPlane />}
                         onClick={sendMessage}
                         isLoading={isSendingMessage}
                         loadingText="Enviando..."
-                        flex={1}
+                        w="100%"
                         isDisabled={!recipientNumber.trim() || !messageText.trim()}
                       >
                         Enviar Mensagem
@@ -1011,21 +1028,25 @@ export default function WhatsappAtendente() {
 
                       <Button
                         colorScheme="red"
-                        size="lg"
+                        size={{ base: "md", md: "lg" }}
                         leftIcon={<FaSignOutAlt />}
                         onClick={disconnectDevice}
                         isLoading={isDisconnecting}
                         loadingText="Desconectando..."
                         variant="outline"
+                        w="100%"
                       >
                         Desconectar
                       </Button>
-                    </HStack>
+                    </VStack>
                   </VStack>
                 </VStack>
               </CardBody>
             </Card>
           )}
+
+          {/* Espaçamento extra para mobile */}
+          <Box h={{ base: 16, md: 0 }} />
         </VStack>
       </Container>
     </Box>

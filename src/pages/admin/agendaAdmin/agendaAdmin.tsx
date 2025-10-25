@@ -20,7 +20,7 @@ import {
   MessageCircle,
 } from "lucide-react"
 import { firestore } from '../../../firebase/firebase'
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, getDoc, deleteDoc, getDocs, serverTimestamp } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
 import {
@@ -55,6 +55,10 @@ import {
   ModalCloseButton,
   Input,
   Textarea,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from '@chakra-ui/react'
 import type { ResponsiveValue } from '@chakra-ui/react'
 
@@ -89,6 +93,50 @@ const AgendaAdmin = () => {
 
   // Buscar nome do estabelecimento do admin logado
   const [estabelecimento, setEstabelecimento] = useState("")
+
+  // Estados para agendamento manual (sistema de steps como atendente)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
+  const [modalStep, setModalStep] = useState(1)
+  const [appointmentData, setAppointmentData] = useState({
+    clientId: "",
+    clientName: "",
+    clientPhone: "",
+    clientEmail: "",
+    service: "",
+    professional: "",
+    date: "",
+    time: "",
+    duration: 60,
+    price: 0,
+    notes: "",
+    paymentMethod: "",
+    reminderEnabled: true,
+  })
+  const [services, setServices] = useState<any[]>([])
+  const [submittingManualBooking, setSubmittingManualBooking] = useState(false)
+  const [clientesEstab, setClientesEstab] = useState<any[]>([])
+  const [clientesLoading, setClientesLoading] = useState(true)
+  const [busyTimes, setBusyTimes] = useState<string[]>([])
+  
+  // Estados para sistema de alert
+  const [alertMessage, setAlertMessage] = useState<string>("")
+  const [alertType, setAlertType] = useState<"success" | "error" | "info" | "warning">("info")
+  const [showAlert, setShowAlert] = useState<boolean>(false)
+
+  // Função para mostrar alertas
+  const showAlertMessage = (message: string, type: "success" | "error" | "info" | "warning") => {
+    setAlertMessage(message)
+    setAlertType(type)
+    setShowAlert(true)
+    setTimeout(() => setShowAlert(false), 5000)
+  }
+
+  // Available times
+  const availableTimes = [
+    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+    "11:00", "11:30", "14:00", "14:30", "15:00", "15:30",
+    "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
+  ]
   
   // Responsive values
   const headerDirection = useBreakpointValue({ base: 'column', md: 'row' }) as ResponsiveValue<'row' | 'column'>
@@ -147,6 +195,78 @@ const AgendaAdmin = () => {
     })
     return () => unsub()
   }, [auth.currentUser])
+
+  // Buscar clientes do estabelecimento
+  useEffect(() => {
+    if (!estabelecimento) return
+    setClientesLoading(true)
+    const clientesRef = collection(firestore, 'clienteUser')
+    const q = query(clientesRef, where('estabelecimento', '==', estabelecimento))
+    const unsub = onSnapshot(q, (snapshot) => {
+      setClientesEstab(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+      setClientesLoading(false)
+    })
+    return () => unsub()
+  }, [estabelecimento])
+
+  // Buscar serviços do estabelecimento
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!auth.currentUser?.uid) {
+        return
+      }
+      try {
+        // Primeiro tenta buscar pelo UID do proprietário
+        const servicosRef = collection(firestore, "servicosAdmin")
+        const servicosQuery = query(servicosRef, where("uidProprietario", "==", auth.currentUser.uid))
+        const servicosSnapshot = await getDocs(servicosQuery)
+        
+        if (servicosSnapshot.empty) {
+          // Se não encontrar pelo UID, tenta pelo email
+          const servicosQueryEmail = query(servicosRef, where("emailProprietario", "==", auth.currentUser.email))
+          const servicosSnapshotEmail = await getDocs(servicosQueryEmail)
+          const servicosData = servicosSnapshotEmail.docs.map((doc: any) => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          setServices(servicosData)
+        } else {
+          const servicosData = servicosSnapshot.docs.map((doc: any) => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          setServices(servicosData)
+        }
+      } catch (error) {
+        console.error("Erro ao buscar serviços:", error)
+        setServices([])
+      }
+    }
+    fetchServices()
+  }, [auth.currentUser])
+
+  // Buscar horários ocupados quando a data for selecionada
+  useEffect(() => {
+    const fetchBusyTimes = async () => {
+      setBusyTimes([])
+      if (!appointmentData.date || !estabelecimento) return
+      try {
+        const agendaRef = collection(firestore, 'agendaAdmin')
+        const q = query(
+          agendaRef,
+          where('nomeEstabelecimento', '==', estabelecimento),
+          where('date', '==', appointmentData.date)
+        )
+        const snapshot = await getDocs(q)
+        const times = snapshot.docs.map((doc: any) => doc.data().time)
+        setBusyTimes(times)
+      } catch (err) {
+        setBusyTimes([])
+      }
+    }
+    fetchBusyTimes()
+  }, [appointmentData.date, estabelecimento])
+
 
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
   const [isPremium, setIsPremium] = useState<boolean>(true)
@@ -338,6 +458,118 @@ const AgendaAdmin = () => {
     }
   }
 
+  // Funções para agendamento manual (sistema de steps)
+  const handleModalClose = () => {
+    setShowAppointmentModal(false)
+    setModalStep(1)
+    setAppointmentData({
+      clientId: "",
+      clientName: "",
+      clientPhone: "",
+      clientEmail: "",
+      service: "",
+      professional: "",
+      date: "",
+      time: "",
+      duration: 60,
+      price: 0,
+      notes: "",
+      paymentMethod: "",
+      reminderEnabled: true,
+    })
+  }
+
+  const handleNextStep = () => {
+    if (modalStep < 4) {
+      setModalStep(modalStep + 1)
+    }
+  }
+
+  const handlePrevStep = () => {
+    if (modalStep > 1) {
+      setModalStep(modalStep - 1)
+    }
+  }
+
+  const handleSubmitAppointment = async () => {
+    if (submittingManualBooking) return
+    
+    try {
+      setSubmittingManualBooking(true)
+      
+      // Validar dados obrigatórios
+      if (!appointmentData.clientId || !appointmentData.service || 
+          !appointmentData.professional || !appointmentData.date || !appointmentData.time) {
+        toast({
+          title: "Erro",
+          description: "Preencha todos os campos obrigatórios",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        })
+        return
+      }
+
+      const servicoSelecionado = services.find(s => s.nomeServico === appointmentData.service)
+      if (!servicoSelecionado) {
+        toast({
+          title: "Erro",
+          description: "Serviço não encontrado!",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        })
+        return
+      }
+
+      const emailProprietario = servicoSelecionado?.emailProprietario || auth.currentUser?.email
+      const uidProprietario = servicoSelecionado?.uidProprietario || auth.currentUser?.uid
+      const nomeEstabelecimento = servicoSelecionado?.nomeEstabelecimento || estabelecimento
+      const admin = [emailProprietario, uidProprietario, nomeEstabelecimento]
+
+      const responsavel = [
+        auth.currentUser?.email,
+        auth.currentUser?.uid,
+        estabelecimento
+      ]
+
+      const novoAgendamento = {
+        ...appointmentData,
+        admin,
+        responsavel,
+        nomeEstabelecimento: estabelecimento,
+        createdAt: serverTimestamp()
+      }
+
+      await addDoc(collection(firestore, 'agendaAdmin'), novoAgendamento)
+      
+      showAlertMessage("Agendamento criado com sucesso!", "success")
+      
+      handleModalClose()
+      
+    } catch (error) {
+      console.error("Erro ao salvar agendamento:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao criar agendamento. Tente novamente.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      })
+    } finally {
+      setSubmittingManualBooking(false)
+    }
+  }
+
+  // Profissionais habilitados para o serviço selecionado
+  const profissionaisHabilitados = (() => {
+    const servicoSelecionado = services.find((s) => s.nomeServico === appointmentData.service)
+    if (servicoSelecionado && Array.isArray(servicoSelecionado.profissionaisServico)) {
+      return servicoSelecionado.profissionaisServico
+    }
+    return []
+  })()
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmado": return "green"
@@ -404,7 +636,7 @@ const AgendaAdmin = () => {
   };
 
   return (
-    <Box minH="100vh" maxH="100vh" overflowY="auto" overflowX="hidden" bg="gray.50" pb={8} sx={{ WebkitOverflowScrolling: 'touch' }}>
+    <Box minH="100vh" maxH="none" overflowY="auto" overflowX="hidden" bg="gray.50" pb={8} sx={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header */}
       <Box bg="white" borderBottom="1px" borderColor="gray.200" p={4} position="sticky" top={0} zIndex={100} boxShadow="sm">
         <Flex direction={headerDirection} align="center" justify="space-between" gap={4}>
@@ -417,6 +649,16 @@ const AgendaAdmin = () => {
               </Text>
             </Box>
           </Flex>
+          <Button
+            colorScheme="blue"
+            leftIcon={<Icon as={Calendar} boxSize={4} />}
+            onClick={() => setShowAppointmentModal(true)}
+            size="md"
+            borderRadius="lg"
+            fontWeight="600"
+          >
+            Novo Agendamento
+          </Button>
         </Flex>
       </Box>
 
@@ -456,7 +698,18 @@ const AgendaAdmin = () => {
       </Box>
 
       {/* Main Content */}
-      <Container maxW="container.xl" py={6} minH="calc(100vh - 140px)">
+      <Container maxW="container.xl" py={6} minH="calc(100vh - 140px)" pb={16}>
+        {/* Alert de feedback */}
+        {showAlert && (
+          <Alert status={alertType} maxW="600px" w="100%" mb={4}>
+            <AlertIcon />
+            <Box>
+              <AlertTitle>{alertType === "success" ? "Sucesso!" : alertType === "error" ? "Erro!" : "Informação"}</AlertTitle>
+              <AlertDescription>{alertMessage}</AlertDescription>
+            </Box>
+          </Alert>
+        )}
+        
         {currentView === "dashboard" && (
           <VStack spacing={6} align="stretch" minH="calc(100vh - 200px)" h="full">
             {/* Stats Cards */}
@@ -737,7 +990,7 @@ const AgendaAdmin = () => {
         )}
 
         {currentView === "calendar" && (
-          <Card>
+          <Card minH="600px">
             <CardHeader>
               <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={4}>
                 <HStack spacing={4} justify={{ base: 'center', md: 'flex-start' }}>
@@ -777,7 +1030,7 @@ const AgendaAdmin = () => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
                       const hasAppointments = agendamentos.some(a => a.date === dayISO);
                       return (
-                        <Box key={idx} p={{ base: 1, md: 2 }} textAlign="center" cursor="pointer" border={hasAppointments ? '2px solid' : '1px solid'} borderColor={hasAppointments ? 'blue.500' : 'gray.200'} bg={isToday ? 'blue.50' : 'white'} color={!isCurrentMonth ? 'gray.400' : 'gray.700'} borderRadius="md" onClick={() => handleDayClick(dayISO)} _hover={{ bg: 'gray.50' }} minH={{ base: '40px', md: '60px' }} display="flex" flexDirection="column" justifyContent="center" alignItems="center">
+                        <Box key={idx} p={{ base: 2, md: 3 }} textAlign="center" cursor="pointer" border={hasAppointments ? '2px solid' : '1px solid'} borderColor={hasAppointments ? 'blue.500' : 'gray.200'} bg={isToday ? 'blue.50' : 'white'} color={!isCurrentMonth ? 'gray.400' : 'gray.700'} borderRadius="md" onClick={() => handleDayClick(dayISO)} _hover={{ bg: 'gray.50' }} minH={{ base: '60px', md: '80px' }} display="flex" flexDirection="column" justifyContent="center" alignItems="center">
                           <Text fontSize={{ base: 'xs', md: 'sm' }}>{day.getDate()}</Text>
                           {hasAppointments && (<Box w="3px" h="3px" bg="blue.500" borderRadius="full" mx="auto" mt={0.5} />)}
                         </Box>
@@ -794,7 +1047,7 @@ const AgendaAdmin = () => {
                       const key = formatLocalISODate(day)
                       const items = weekAppointmentsByDay[key]
                       return (
-                        <VStack key={i} align="stretch" p={2} border="1px" borderColor="gray.200" borderRadius="md" minH="100px" bg="white" spacing={1} onClick={()=> handleDayClick(key)} cursor="pointer">
+                        <VStack key={i} align="stretch" p={3} border="1px" borderColor="gray.200" borderRadius="md" minH="150px" bg="white" spacing={2} onClick={()=> handleDayClick(key)} cursor="pointer">
                           {items.length === 0 && (
                             <Text fontSize="xs" color="gray.400">Sem agendamentos</Text>
                           )}
@@ -978,6 +1231,524 @@ const AgendaAdmin = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Modal Agendamento (Sistema de Steps) */}
+      {showAppointmentModal && (
+        <Modal isOpen={showAppointmentModal} onClose={handleModalClose} size="6xl" isCentered>
+        <ModalOverlay />
+        <ModalContent maxH="90vh" overflowY="auto">
+          <ModalHeader>
+            <Flex align="center" gap={3}>
+              <Icon as={Calendar} boxSize={6} color="blue.500" />
+              <Box>
+                <Heading size="lg">Novo Agendamento</Heading>
+              </Box>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {/* Step 1: Client Selection */}
+            {modalStep === 1 && (
+              <Box>
+                <VStack spacing={6} align="stretch">
+                  <Box textAlign="center">
+                    <Heading size="lg" mb={2} color="gray.800">Selecione o Cliente</Heading>
+                    <Text color="gray.600" fontSize="md">Escolha um cliente cadastrado para o agendamento</Text>
+                  </Box>
+                  
+                  {clientesLoading ? (
+                    <Box textAlign="center" py={8}>
+                      <Text color="gray.500" fontSize="lg">Carregando clientes...</Text>
+                    </Box>
+                  ) : clientesEstab.length === 0 ? (
+                    <Box textAlign="center" p={8} bg="orange.50" borderRadius="xl" border="1px solid" borderColor="orange.200">
+                      <Text color="orange.700" mb={6} fontSize="lg" fontWeight="500">Nenhum cliente cadastrado.</Text>
+                      <Button colorScheme="orange" size="lg" onClick={() => navigate('/clientes')} borderRadius="lg">
+                        Cadastrar Cliente
+                      </Button>
+                    </Box>
+                  ) : (
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      {clientesEstab.map((cliente) => (
+                        <Button
+                          key={cliente.id}
+                          variant={appointmentData.clientId === cliente.id ? "solid" : "outline"}
+                          colorScheme={appointmentData.clientId === cliente.id ? "blue" : "gray"}
+                          onClick={() => setAppointmentData(prev => ({
+                            ...prev,
+                            clientId: cliente.id,
+                            clientName: cliente.nome,
+                            clientPhone: cliente.telefone,
+                            clientEmail: cliente.email,
+                          }))}
+                          h="auto"
+                          p={6}
+                          textAlign="left"
+                          justifyContent="flex-start"
+                          borderRadius="xl"
+                          borderWidth="2px"
+                          _hover={{
+                            transform: "translateY(-2px)",
+                            boxShadow: "lg",
+                          }}
+                          _active={{
+                            transform: "scale(0.98)",
+                          }}
+                        >
+                          <VStack align="start" spacing={2} w="full">
+                            <Text fontWeight="700" fontSize="md" color={appointmentData.clientId === cliente.id ? "white" : "gray.800"}>
+                              {cliente.nome}
+                            </Text>
+                            <Text fontSize="sm" color={appointmentData.clientId === cliente.id ? "blue.100" : "gray.500"}>
+                              {cliente.telefone}
+                            </Text>
+                            <Text fontSize="sm" color={appointmentData.clientId === cliente.id ? "blue.100" : "gray.500"}>
+                              {cliente.email}
+                            </Text>
+                          </VStack>
+                        </Button>
+                      ))}
+                    </SimpleGrid>
+                  )}
+                  
+                  {!appointmentData.clientId && clientesEstab.length > 0 && (
+                    <Box
+                      bg="orange.50"
+                      border="1px solid"
+                      borderColor="orange.200"
+                      borderRadius="lg"
+                      p={4}
+                      textAlign="center"
+                    >
+                      <Text fontSize="sm" color="orange.700" fontWeight="500">
+                        ⚠️ Selecione um cliente para continuar
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
+              </Box>
+            )}
+
+            {/* Step 2: Service Selection */}
+            {modalStep === 2 && (
+              <Box>
+                <VStack spacing={6} align="stretch">
+                  <Box textAlign="center">
+                    <Heading size="lg" mb={2} color="gray.800">Escolha o Serviço</Heading>
+                    <Text color="gray.600" fontSize="md">Selecione o serviço desejado para o agendamento</Text>
+                  </Box>
+                  
+                  {services.length === 0 ? (
+                    <Box textAlign="center" p={8} bg="orange.50" borderRadius="xl" border="1px solid" borderColor="orange.200">
+                      <Text color="orange.700" mb={6} fontSize="lg" fontWeight="500">Nenhum serviço cadastrado para este estabelecimento.</Text>
+                    </Box>
+                  ) : (
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      {services.map((service) => (
+                        <Button
+                          key={service.id}
+                          variant={appointmentData.service === service.nomeServico ? "solid" : "outline"}
+                          colorScheme={appointmentData.service === service.nomeServico ? "blue" : "gray"}
+                          onClick={() => setAppointmentData(prev => ({
+                            ...prev,
+                            service: service.nomeServico,
+                            duration: service.duracaoServico,
+                            price: service.valorServico,
+                          }))}
+                          h="auto"
+                          p={6}
+                          textAlign="left"
+                          justifyContent="flex-start"
+                          borderRadius="xl"
+                          borderWidth="2px"
+                          _hover={{
+                            transform: "translateY(-2px)",
+                            boxShadow: "lg",
+                          }}
+                          _active={{
+                            transform: "scale(0.98)",
+                          }}
+                        >
+                          <VStack align="start" spacing={3} w="full">
+                            <Text fontWeight="700" fontSize="md" color={appointmentData.service === service.nomeServico ? "white" : "gray.800"}>
+                              {service.nomeServico}
+                            </Text>
+                            <Text fontSize="sm" color={appointmentData.service === service.nomeServico ? "blue.100" : "gray.500"}>
+                              {service.categoriaServico}
+                            </Text>
+                            <HStack justify="space-between" w="full" mt={2}>
+                              <HStack spacing={1}>
+                                <Text fontSize="sm" color={appointmentData.service === service.nomeServico ? "blue.100" : "gray.500"}>
+                                  {service.duracaoServico} min
+                                </Text>
+                              </HStack>
+                              <Text fontSize="lg" fontWeight="700" color={appointmentData.service === service.nomeServico ? "blue.100" : "green.600"}>
+                                {formatCurrency(service.valorServico)}
+                              </Text>
+                            </HStack>
+                          </VStack>
+                        </Button>
+                      ))}
+                    </SimpleGrid>
+                  )}
+                  
+                  {!appointmentData.service && services.length > 0 && (
+                    <Box
+                      bg="orange.50"
+                      border="1px solid"
+                      borderColor="orange.200"
+                      borderRadius="lg"
+                      p={4}
+                      textAlign="center"
+                    >
+                      <Text fontSize="sm" color="orange.700" fontWeight="500">
+                        ⚠️ Selecione um serviço para continuar
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
+              </Box>
+            )}
+
+            {/* Step 3: Professional & Date/Time */}
+            {modalStep === 3 && (
+              <Box>
+                <VStack spacing={6} align="stretch">
+                  <Box textAlign="center">
+                    <Heading size="lg" mb={2} color="gray.800">Data, Hora e Profissional</Heading>
+                    <Text color="gray.600" fontSize="md">Escolha quando e com quem realizar o agendamento</Text>
+                  </Box>
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <Box>
+                      <Text fontSize="md" fontWeight="600" color="gray.700" mb={3}>
+                        Profissional *
+                      </Text>
+                      <Select
+                        value={appointmentData.professional}
+                        onChange={(e) => setAppointmentData(prev => ({ ...prev, professional: e.target.value }))}
+                        placeholder="Selecione um profissional"
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor={!appointmentData.professional ? "red.300" : "gray.300"}
+                        _focus={{
+                          borderColor: !appointmentData.professional ? "red.500" : "blue.500",
+                          boxShadow: !appointmentData.professional ? "0 0 0 1px #E53E3E" : "0 0 0 1px #3182CE",
+                        }}
+                        _hover={{
+                          borderColor: !appointmentData.professional ? "red.400" : "gray.400",
+                        }}
+                      >
+                        {profissionaisHabilitados.map((prof: string, idx: number) => (
+                          <option key={idx} value={prof}>{prof}</option>
+                        ))}
+                      </Select>
+                      {!appointmentData.professional && (
+                        <Text fontSize="sm" color="red.500" mt={1}>
+                          Selecione um profissional para continuar
+                        </Text>
+                      )}
+                    </Box>
+                    
+                    <Box>
+                      <Text fontSize="md" fontWeight="600" color="gray.700" mb={3}>
+                        Data *
+                      </Text>
+                      <Input
+                        type="date"
+                        value={appointmentData.date}
+                        onChange={(e) => setAppointmentData(prev => ({ ...prev, date: e.target.value }))}
+                        min={new Date().toISOString().split("T")[0]}
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor={!appointmentData.date ? "red.300" : "gray.300"}
+                        _focus={{
+                          borderColor: !appointmentData.date ? "red.500" : "blue.500",
+                          boxShadow: !appointmentData.date ? "0 0 0 1px #E53E3E" : "0 0 0 1px #3182CE",
+                        }}
+                        _hover={{
+                          borderColor: !appointmentData.date ? "red.400" : "gray.400",
+                        }}
+                      />
+                      {!appointmentData.date && (
+                        <Text fontSize="sm" color="red.500" mt={1}>
+                          Selecione uma data para continuar
+                        </Text>
+                      )}
+                    </Box>
+                  </SimpleGrid>
+                  
+                  {appointmentData.date && (
+                    <Box>
+                      <Text fontSize="md" fontWeight="600" color="gray.700" mb={4}>
+                        Horários Disponíveis *
+                      </Text>
+                      <SimpleGrid columns={{ base: 3, md: 4, lg: 6 }} spacing={3}>
+                        {availableTimes.map((time) => {
+                          const isOcupado = busyTimes.includes(time)
+                          const isSelected = appointmentData.time === time
+                          
+                          return (
+                            <Button
+                              key={time}
+                              size="lg"
+                              variant={isSelected ? "solid" : "outline"}
+                              colorScheme={isSelected ? "blue" : "gray"}
+                              onClick={() => !isOcupado && setAppointmentData(prev => ({ ...prev, time }))}
+                              disabled={isOcupado}
+                              height="60px"
+                              borderRadius="lg"
+                              fontSize="md"
+                              fontWeight="600"
+                              _disabled={{
+                                opacity: 0.5,
+                                cursor: "not-allowed",
+                                bg: "gray.100",
+                                color: "gray.400",
+                                textDecoration: "line-through",
+                              }}
+                              _hover={{
+                                transform: isOcupado ? "none" : "translateY(-2px)",
+                                boxShadow: isOcupado ? "none" : "lg",
+                              }}
+                              _active={{
+                                transform: "scale(0.98)",
+                              }}
+                              position="relative"
+                            >
+                              <VStack spacing={1}>
+                                <Text fontSize="sm" fontWeight="500">
+                                  {time}
+                                </Text>
+                                {isOcupado && (
+                                  <Badge
+                                    colorScheme="red"
+                                    size="sm"
+                                    position="absolute"
+                                    top={1}
+                                    right={1}
+                                    borderRadius="full"
+                                    fontSize="xs"
+                                  >
+                                    Ocupado
+                                  </Badge>
+                                )}
+                              </VStack>
+                            </Button>
+                          )
+                        })}
+                      </SimpleGrid>
+                      
+                      {!appointmentData.time && appointmentData.date && (
+                        <Box
+                          bg="orange.50"
+                          border="1px solid"
+                          borderColor="orange.200"
+                          borderRadius="lg"
+                          p={4}
+                          textAlign="center"
+                          mt={4}
+                        >
+                          <Text fontSize="sm" color="orange.700" fontWeight="500">
+                            ⚠️ Selecione um horário para continuar
+                          </Text>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+
+                  {!appointmentData.date && (
+                    <Box
+                      bg="orange.50"
+                      border="1px solid"
+                      borderColor="orange.200"
+                      borderRadius="lg"
+                      p={4}
+                      textAlign="center"
+                    >
+                      <Text fontSize="sm" color="orange.700" fontWeight="500">
+                        ⚠️ Selecione uma data para ver os horários disponíveis
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
+              </Box>
+            )}
+
+            {/* Step 4: Confirmation */}
+            {modalStep === 4 && (
+              <Box>
+                <VStack spacing={6} align="stretch">
+                  <Box textAlign="center">
+                    <Heading size="lg" mb={2} color="gray.800">Confirmação</Heading>
+                    <Text color="gray.600" fontSize="md">Revise os dados e finalize o agendamento</Text>
+                  </Box>
+                  
+                  <Box bg="blue.50" border="2px solid" borderColor="blue.200" borderRadius="xl" p={6} boxShadow="md">
+                    <Heading size="md" mb={4} color="blue.700">
+                      Resumo do Agendamento
+                    </Heading>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between" p={3} bg="white" borderRadius="lg" border="1px solid" borderColor="blue.100">
+                        <Text fontSize="md" color="gray.600" fontWeight="500">Cliente:</Text>
+                        <Text fontSize="md" fontWeight="600" color="gray.800">{appointmentData.clientName}</Text>
+                      </HStack>
+                      <HStack justify="space-between" p={3} bg="white" borderRadius="lg" border="1px solid" borderColor="blue.100">
+                        <Text fontSize="md" color="gray.600" fontWeight="500">Serviço:</Text>
+                        <Text fontSize="md" fontWeight="600" color="gray.800">{appointmentData.service}</Text>
+                      </HStack>
+                      <HStack justify="space-between" p={3} bg="white" borderRadius="lg" border="1px solid" borderColor="blue.100">
+                        <Text fontSize="md" color="gray.600" fontWeight="500">Profissional:</Text>
+                        <Text fontSize="md" fontWeight="600" color="gray.800">{appointmentData.professional}</Text>
+                      </HStack>
+                      <HStack justify="space-between" p={3} bg="white" borderRadius="lg" border="1px solid" borderColor="blue.100">
+                        <Text fontSize="md" color="gray.600" fontWeight="500">Data:</Text>
+                        <Text fontSize="md" fontWeight="600" color="gray.800">
+                          {appointmentData.date ? new Date(appointmentData.date).toLocaleDateString("pt-BR") : ""}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" p={3} bg="white" borderRadius="lg" border="1px solid" borderColor="blue.100">
+                        <Text fontSize="md" color="gray.600" fontWeight="500">Horário:</Text>
+                        <Text fontSize="md" fontWeight="600" color="gray.800">{appointmentData.time}</Text>
+                      </HStack>
+                      <HStack justify="space-between" p={3} bg="green.50" borderRadius="lg" border="2px solid" borderColor="green.200">
+                        <Text fontSize="lg" color="gray.700" fontWeight="600">Valor Total:</Text>
+                        <Text fontSize="xl" fontWeight="700" color="green.600">
+                          {formatCurrency(appointmentData.price)}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                  
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <Box>
+                      <Text fontSize="md" fontWeight="600" color="gray.700" mb={3}>
+                        Forma de Pagamento
+                      </Text>
+                      <Select
+                        value={appointmentData.paymentMethod}
+                        onChange={(e) => setAppointmentData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor="gray.300"
+                        _focus={{
+                          borderColor: "blue.500",
+                          boxShadow: "0 0 0 1px #3182CE",
+                        }}
+                        _hover={{
+                          borderColor: "gray.400",
+                        }}
+                      >
+                        <option value="">Definir no atendimento</option>
+                        <option value="dinheiro">Dinheiro</option>
+                        <option value="pix">PIX</option>
+                        <option value="cartao">Cartão</option>
+                      </Select>
+                    </Box>
+                    <Box>
+                      <Text fontSize="md" fontWeight="600" color="gray.700" mb={3}>
+                        Observações
+                      </Text>
+                      <Textarea
+                        value={appointmentData.notes}
+                        onChange={(e) => setAppointmentData(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Observações especiais sobre o agendamento..."
+                        rows={4}
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor="gray.300"
+                        _focus={{
+                          borderColor: "blue.500",
+                          boxShadow: "0 0 0 1px #3182CE",
+                        }}
+                        _hover={{
+                          borderColor: "gray.400",
+                        }}
+                      />
+                    </Box>
+                  </SimpleGrid>
+                </VStack>
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter bg="gray.50" borderTop="1px solid" borderColor="gray.200" py={6}>
+            <HStack spacing={4} w="full" justify="space-between">
+              <HStack spacing={3}>
+                {modalStep > 1 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handlePrevStep}
+                    size="lg"
+                    borderRadius="lg"
+                    fontWeight="600"
+                    colorScheme="gray"
+                    leftIcon={<Icon as={ChevronLeft} boxSize={4} />}
+                  >
+                    Voltar
+                  </Button>
+                )}
+              </HStack>
+              
+              {modalStep < 4 ? (
+                <Button
+                  colorScheme="blue"
+                  onClick={handleNextStep}
+                  size="lg"
+                  borderRadius="lg"
+                  fontWeight="600"
+                  rightIcon={<Icon as={ChevronRight} boxSize={4} />}
+                  isDisabled={
+                    (modalStep === 1 && !appointmentData.clientId) ||
+                    (modalStep === 2 && !appointmentData.service) ||
+                    (modalStep === 3 && (!appointmentData.professional || !appointmentData.date || !appointmentData.time))
+                  }
+                  _disabled={{
+                    opacity: 0.5,
+                    cursor: "not-allowed",
+                    bg: "gray.300",
+                    color: "gray.500",
+                    _hover: {
+                      bg: "gray.300",
+                      transform: "none",
+                      boxShadow: "none"
+                    }
+                  }}
+                  _hover={{
+                    transform: "translateY(-2px)",
+                    boxShadow: "lg",
+                  }}
+                  _active={{
+                    transform: "scale(0.98)",
+                  }}
+                >
+                  Próximo
+                </Button>
+              ) : (
+                <Button
+                  colorScheme="green"
+                  onClick={handleSubmitAppointment}
+                  isLoading={submittingManualBooking}
+                  loadingText="Criando..."
+                  size="lg"
+                  borderRadius="lg"
+                  fontWeight="600"
+                  rightIcon={<Icon as={Check} boxSize={4} />}
+                  _hover={{
+                    transform: "translateY(-2px)",
+                    boxShadow: "lg",
+                  }}
+                  _active={{
+                    transform: "scale(0.98)",
+                  }}
+                >
+                  Confirmar Agendamento
+                </Button>
+              )}
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      )}
     </Box>
   )
 }
