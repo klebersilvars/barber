@@ -94,37 +94,65 @@ export default function WhatsappAtendente() {
 
   // Função para buscar clientes do estabelecimento
   const buscarClientes = async (nomeEstabelecimento: string) => {
-    if (!nomeEstabelecimento) {
-      console.log('❌ Nome do estabelecimento não fornecido')
+    if (!nomeEstabelecimento || !nomeEstabelecimento.trim()) {
+      console.log('❌ Nome do estabelecimento não fornecido ou vazio')
+      setClientes([])
       return
     }
 
     console.log('🔍 Buscando clientes para estabelecimento:', nomeEstabelecimento)
+    console.log('🔍 Tipo do estabelecimento:', typeof nomeEstabelecimento)
+    console.log('🔍 Tamanho do estabelecimento:', nomeEstabelecimento.length)
     setIsLoadingClientes(true)
     
     try {
+      console.log('📡 Conectando ao Firestore...')
       const clientesRef = collection(firestore, 'clienteUser')
-      const q = query(clientesRef, where('estabelecimento', '==', nomeEstabelecimento))
-      const snapshot = await getDocs(q)
+      console.log('📡 Referência da coleção criada')
       
-      const clientesData = snapshot.docs.map(doc => {
+      const q = query(clientesRef, where('estabelecimento', '==', nomeEstabelecimento))
+      console.log('📡 Query criada com filtro:', nomeEstabelecimento)
+      
+      const snapshot = await getDocs(q)
+      console.log('📊 Total de documentos na coleção clienteUser:', snapshot.docs.length)
+      
+      if (snapshot.docs.length === 0) {
+        console.log('⚠️ Nenhum documento encontrado na coleção clienteUser')
+        setClientes([])
+        showAlertMessage(`Nenhum cliente encontrado para "${nomeEstabelecimento}"`, "info")
+        return
+      }
+      
+      const clientesData = snapshot.docs.map((doc, index) => {
         const data = doc.data()
-        console.log('📋 Cliente encontrado:', { id: doc.id, nome: data.nome, telefone: data.telefone, estabelecimento: data.estabelecimento })
+        console.log(`📋 Cliente ${index + 1}:`, { 
+          id: doc.id, 
+          nome: data.nome, 
+          telefone: data.telefone, 
+          estabelecimento: data.estabelecimento,
+          email: data.email 
+        })
         return {
           id: doc.id,
           ...data
         }
       })
       
+      console.log('✅ Processando clientes...')
       setClientes(clientesData)
       console.log('✅ Total de clientes encontrados:', clientesData.length)
       
       if (clientesData.length === 0) {
-        showAlertMessage("Nenhum cliente encontrado para este estabelecimento", "info")
+        console.log('⚠️ Nenhum cliente encontrado para o estabelecimento:', nomeEstabelecimento)
+        showAlertMessage(`Nenhum cliente encontrado para "${nomeEstabelecimento}"`, "info")
+      } else {
+        showAlertMessage(`${clientesData.length} cliente(s) encontrado(s)`, "success")
       }
     } catch (error) {
       console.error('❌ Erro ao buscar clientes:', error)
+      console.error('❌ Stack trace:', (error as Error).stack)
       showAlertMessage("Erro ao carregar lista de clientes", "error")
+      setClientes([])
     } finally {
       setIsLoadingClientes(false)
     }
@@ -163,7 +191,7 @@ export default function WhatsappAtendente() {
         },
         body: JSON.stringify({
           api_key: API_KEY,
-          username: phoneNumber
+          number: phoneNumber
         })
       })
 
@@ -178,7 +206,7 @@ export default function WhatsappAtendente() {
           showAlertMessage("WhatsApp já está conectado! Você pode enviar mensagens.", "success")
         } else {
           setIsConnected(false)
-          showAlertMessage("WhatsApp não está conectado. Gere um novo QR Code.", "info")
+          showAlertMessage(`WhatsApp não está conectado. Status: ${data.status || 'Desconhecido'}`, "info")
         }
       } else {
         console.log('Erro ao verificar status:', data.error)
@@ -329,25 +357,71 @@ export default function WhatsappAtendente() {
 
 
 
-  // Buscar estabelecimento do atendente logado
+  // Buscar estabelecimento do atendente logado usando o UID da URL
   useEffect(() => {
     const fetchEstabelecimento = async () => {
-      if (!user?.uid) return
+      if (!uid) {
+        console.log('❌ UID não fornecido na URL')
+        return
+      }
+      
+      console.log('🔍 Iniciando busca do estabelecimento para UID:', uid)
+      
       try {
-        const colabRef = doc(firestore, "colaboradores", user.uid)
+        // Primeiro tenta buscar como colaborador
+        console.log('🔍 Buscando como colaborador...')
+        const colabRef = doc(firestore, "colaboradores", uid)
         const colabSnap = await getDoc(colabRef)
+        
         if (colabSnap.exists()) {
-          const estabelecimentoData = (colabSnap.data() as any)?.estabelecimento || ""
-          setEstabelecimento(estabelecimentoData)
-          // @ts-ignore
-          window.nomeEstabelecimentoAtendente = estabelecimentoData
+          const colabData = colabSnap.data() as any
+          const estabelecimentoData = colabData?.estabelecimento || ""
+          console.log('🏢 Dados do colaborador:', colabData)
+          console.log('🏢 Estabelecimento encontrado via colaborador:', estabelecimentoData)
+          
+          if (estabelecimentoData && estabelecimentoData.trim()) {
+            setEstabelecimento(estabelecimentoData)
+            // @ts-ignore
+            window.nomeEstabelecimentoAtendente = estabelecimentoData
+            return
+          }
+        } else {
+          console.log('❌ Usuário não é colaborador')
+        }
+
+        // Se não for colaborador, tenta buscar como conta principal (admin)
+        console.log('🔍 Buscando como conta principal...')
+        const contaRef = doc(firestore, "contas", uid)
+        const contaSnap = await getDoc(contaRef)
+        
+        if (contaSnap.exists()) {
+          const contaData = contaSnap.data() as any
+          const estabelecimentoData = contaData?.nomeEstabelecimento || ""
+          console.log('🏢 Dados da conta:', contaData)
+          console.log('🏢 Estabelecimento encontrado via conta principal:', estabelecimentoData)
+          
+          if (estabelecimentoData && estabelecimentoData.trim()) {
+            setEstabelecimento(estabelecimentoData)
+            // @ts-ignore
+            window.nomeEstabelecimentoAtendente = estabelecimentoData
+          } else {
+            console.log('❌ Nome do estabelecimento vazio na conta principal')
+          }
+        } else {
+          console.log('❌ Usuário não encontrado na coleção contas')
         }
       } catch (e) {
-        console.error("Erro ao buscar estabelecimento:", e)
+        console.error("❌ Erro ao buscar estabelecimento:", e)
       }
     }
-    fetchEstabelecimento()
-  }, [user?.uid])
+    
+    // Adicionar um pequeno delay para garantir que o Firebase esteja pronto
+    const timeoutId = setTimeout(() => {
+      fetchEstabelecimento()
+    }, 1000)
+    
+    return () => clearTimeout(timeoutId)
+  }, [uid])
 
   // Buscar clientes quando o estabelecimento for carregado
   useEffect(() => {
@@ -371,6 +445,19 @@ export default function WhatsappAtendente() {
       checkWhatsAppStatus(savedPhone)
     }
   }, [])
+
+  // Verificação automática de status em tempo real
+  useEffect(() => {
+    if (!phoneNumber.trim() || !isConnected) return
+
+    // Verifica o status a cada 30 segundos se estiver conectado
+    const intervalId = setInterval(() => {
+      console.log('🔄 Verificação automática de status...')
+      checkWhatsAppStatus(phoneNumber)
+    }, 30000) // 30 segundos
+
+    return () => clearInterval(intervalId)
+  }, [phoneNumber, isConnected])
 
   // Buscar tipoPlano da conta dona do estabelecimento
   useEffect(() => {
@@ -423,18 +510,51 @@ export default function WhatsappAtendente() {
     // @ts-ignore
     const est = typeof window !== 'undefined' ? window.nomeEstabelecimentoAtendente : ""
     if (est && !estabelecimento) {
+      console.log('🔄 Usando estabelecimento do window:', est)
       setEstabelecimento(est)
     }
   }, [estabelecimento])
 
+  // Verificação adicional: buscar estabelecimento diretamente da conta se ainda não tiver
+  useEffect(() => {
+    const fetchEstabelecimentoAlternativo = async () => {
+      if (!uid || estabelecimento) return // Só executa se não tiver estabelecimento
+      
+      try {
+        console.log('🔄 Tentativa alternativa de buscar estabelecimento...')
+        const contaRef = doc(firestore, "contas", uid)
+        const contaSnap = await getDoc(contaRef)
+        if (contaSnap.exists()) {
+          const data = contaSnap.data() as any
+          const estabelecimentoData = data?.nomeEstabelecimento || ""
+          if (estabelecimentoData) {
+            console.log('✅ Estabelecimento encontrado via busca alternativa:', estabelecimentoData)
+            setEstabelecimento(estabelecimentoData)
+          }
+        }
+      } catch (e) {
+        console.error("Erro na busca alternativa de estabelecimento:", e)
+      }
+    }
+    
+    // Executar após 3 segundos se ainda não tiver estabelecimento
+    const timeoutId = setTimeout(() => {
+      if (!estabelecimento) {
+        fetchEstabelecimentoAlternativo()
+      }
+    }, 3000)
+    
+    return () => clearTimeout(timeoutId)
+  }, [uid, estabelecimento])
+
   // Verificação alternativa: buscar tipoPlano diretamente do usuário se for admin
   useEffect(() => {
     const fetchTipoPlanoAlternativo = async () => {
-      if (!user?.uid || estabelecimento) return // Só executa se não tiver estabelecimento
+      if (!uid || estabelecimento) return // Só executa se não tiver estabelecimento
       
       try {
         // Tentar buscar como conta principal (admin)
-        const contaRef = doc(firestore, "contas", user.uid)
+        const contaRef = doc(firestore, "contas", uid)
         const contaSnap = await getDoc(contaRef)
         if (contaSnap.exists()) {
           const data = contaSnap.data() as any
@@ -456,18 +576,19 @@ export default function WhatsappAtendente() {
     }, 2000)
     
     return () => clearTimeout(timeoutId)
-  }, [user?.uid, estabelecimento])
+  }, [uid, estabelecimento])
 
 
   // Debug: verificar estado do usuário
   useEffect(() => {
     console.log("=== DEBUG USUÁRIO ===")
+    console.log("UID da URL:", uid)
     console.log("User object:", user)
     console.log("User UID:", user?.uid)
     console.log("User email:", user?.email)
     console.log("Estabelecimento:", estabelecimento)
     console.log("===================")
-  }, [user, estabelecimento])
+  }, [uid, user, estabelecimento])
 
   // Verificar se o acesso ao WhatsApp é permitido baseado no tipo de plano
   const isWhatsappAllowed = tipoPlano === 'gratis' || tipoPlano === 'ouro' || tipoPlano === 'diamante'
@@ -628,18 +749,7 @@ export default function WhatsappAtendente() {
             </Alert>
           )}
 
-          {/* Debug Info - Remover em produção */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card w="100%" maxW="600px" mx="auto" bg="gray.50" p={4}>
-              <VStack align="start" spacing={2}>
-                <Text fontSize="sm" fontWeight="bold" color="gray.700">Debug Info:</Text>
-                <Text fontSize="xs" color="gray.600">Estabelecimento: {estabelecimento || 'Não carregado'}</Text>
-                <Text fontSize="xs" color="gray.600">Clientes carregados: {clientes.length}</Text>
-                <Text fontSize="xs" color="gray.600">Loading clientes: {isLoadingClientes ? 'Sim' : 'Não'}</Text>
-                <Text fontSize="xs" color="gray.600">WhatsApp conectado: {isConnected ? 'Sim' : 'Não'}</Text>
-              </VStack>
-            </Card>
-          )}
+          
 
           {/* Status da conexão */}
           <Card w="100%" maxW="600px" mx="auto">
@@ -654,6 +764,11 @@ export default function WhatsappAtendente() {
                     {lastCheckedPhone && (
                       <Text fontSize="sm" color="gray.500">
                         Número: {lastCheckedPhone}
+                      </Text>
+                    )}
+                    {isCheckingStatus && (
+                      <Text fontSize="xs" color="blue.500">
+                        Verificando status...
                       </Text>
                     )}
                   </VStack>

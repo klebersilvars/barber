@@ -1087,25 +1087,25 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
   }
 });
 
-// Endpoint para verificar status do usuário/dispositivo
+// Endpoint para verificar status do dispositivo
 app.post('/api/whatsapp/check-status', async (req, res) => {
   try {
     console.log('=== VERIFICANDO STATUS WHATSAPP ===');
     console.log('Dados recebidos:', req.body);
     
-    const { api_key, username } = req.body;
+    const { api_key, number } = req.body;
     
-    if (!api_key || !username) {
+    if (!api_key || !number) {
       return res.status(400).json({ 
-        error: 'Campos obrigatórios: api_key, username' 
+        error: 'Campos obrigatórios: api_key, number' 
       });
     }
     
-    console.log(`Verificando status para usuário: ${username}`);
+    console.log(`Verificando status para dispositivo: ${number}`);
     
-    const response = await axios.post(`${WHATSAPP_BASE_URL}/info-user`, {
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/info-devices`, {
       api_key: api_key,
-      username: username
+      number: number
     }, {
       headers: {
         'Content-Type': 'application/json'
@@ -1114,24 +1114,29 @@ app.post('/api/whatsapp/check-status', async (req, res) => {
     
     console.log('Resposta da API WhatsApp:', response.data);
     
-    if (response.data) {
-      const isConnected = response.data.status === true && 
-                         response.data.info && 
-                         response.data.info.status === 'active';
+    if (response.data && response.data.status === true && response.data.info && response.data.info.length > 0) {
+      const deviceInfo = response.data.info[0];
+      const isConnected = deviceInfo.status === 'Connected';
       
-      console.log(`✅ Status verificado: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+      console.log(`✅ Status do dispositivo verificado: ${deviceInfo.status}`);
+      console.log(`📱 Dispositivo: ${deviceInfo.body}`);
+      console.log(`🔗 Conectado: ${isConnected}`);
+      
       return res.json({
         success: true,
         connected: isConnected,
-        status: response.data.info?.status || 'unknown',
-        info: response.data.info || null,
+        status: deviceInfo.status,
+        deviceInfo: deviceInfo,
         message: isConnected ? 'Dispositivo conectado' : 'Dispositivo desconectado'
       });
     } else {
-      console.log('❌ Resposta da API vazia');
-      return res.status(500).json({ 
-        error: 'Erro ao verificar status',
-        details: 'Resposta da API vazia'
+      console.log('❌ Nenhum dispositivo encontrado ou resposta inválida');
+      return res.json({
+        success: true,
+        connected: false,
+        status: 'Not Found',
+        deviceInfo: null,
+        message: 'Dispositivo não encontrado'
       });
     }
     
