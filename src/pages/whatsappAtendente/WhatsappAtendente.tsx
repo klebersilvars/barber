@@ -22,8 +22,11 @@ import {
   Divider,
   Badge,
   HStack,
+  Select,
+  FormControl,
+  FormLabel,
 } from "@chakra-ui/react"
-import { FaWhatsapp, FaQrcode, FaPhone, FaPaperPlane, FaSignOutAlt } from "react-icons/fa"
+import { FaWhatsapp, FaQrcode, FaPhone, FaPaperPlane, FaSignOutAlt, FaUser } from "react-icons/fa"
 import { firestore } from "../../firebase/firebase"
 import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { useAuth } from "../../contexts/AuthContext"
@@ -55,6 +58,15 @@ export default function WhatsappAtendente() {
   const [alertType, setAlertType] = useState<"success" | "error" | "info" | "warning">("info")
   const [showAlert, setShowAlert] = useState<boolean>(false)
 
+  // Estados para seleção de clientes
+  const [clientes, setClientes] = useState<any[]>([])
+  const [clienteSelecionado, setClienteSelecionado] = useState<string>("")
+  const [isLoadingClientes, setIsLoadingClientes] = useState<boolean>(false)
+
+  // Estados para verificação de status
+  const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false)
+  const [lastCheckedPhone, setLastCheckedPhone] = useState<string>("")
+
   // API Key do WhatsApp (configurada diretamente)
   const API_KEY = "Lyu6H6ADzWn3KqqQofyhFlmT96UBs3"
 
@@ -66,10 +78,133 @@ export default function WhatsappAtendente() {
     setTimeout(() => setShowAlert(false), 5000)
   }
 
+  // Função para formatar número de telefone (adicionar 55 na frente)
+  const formatarNumero = (numero: string) => {
+    // Remove todos os caracteres não numéricos
+    const numeroLimpo = numero.replace(/\D/g, '')
+    
+    // Se já começar com 55, retorna como está
+    if (numeroLimpo.startsWith('55')) {
+      return numeroLimpo
+    }
+    
+    // Adiciona 55 na frente
+    return `55${numeroLimpo}`
+  }
+
+  // Função para buscar clientes do estabelecimento
+  const buscarClientes = async (nomeEstabelecimento: string) => {
+    if (!nomeEstabelecimento) {
+      console.log('❌ Nome do estabelecimento não fornecido')
+      return
+    }
+
+    console.log('🔍 Buscando clientes para estabelecimento:', nomeEstabelecimento)
+    setIsLoadingClientes(true)
+    
+    try {
+      const clientesRef = collection(firestore, 'clienteUser')
+      const q = query(clientesRef, where('estabelecimento', '==', nomeEstabelecimento))
+      const snapshot = await getDocs(q)
+      
+      const clientesData = snapshot.docs.map(doc => {
+        const data = doc.data()
+        console.log('📋 Cliente encontrado:', { id: doc.id, nome: data.nome, telefone: data.telefone, estabelecimento: data.estabelecimento })
+        return {
+          id: doc.id,
+          ...data
+        }
+      })
+      
+      setClientes(clientesData)
+      console.log('✅ Total de clientes encontrados:', clientesData.length)
+      
+      if (clientesData.length === 0) {
+        showAlertMessage("Nenhum cliente encontrado para este estabelecimento", "info")
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar clientes:', error)
+      showAlertMessage("Erro ao carregar lista de clientes", "error")
+    } finally {
+      setIsLoadingClientes(false)
+    }
+  }
+
+  // Função para lidar com seleção de cliente
+  const handleClienteSelecionado = (clienteId: string) => {
+    setClienteSelecionado(clienteId)
+    
+    if (clienteId === "") {
+      // Se não selecionou nenhum cliente, limpa o número
+      setRecipientNumber("")
+      return
+    }
+    
+    // Busca o cliente selecionado
+    const cliente = clientes.find(c => c.id === clienteId)
+    if (cliente && cliente.telefone) {
+      // Formata o número e preenche o campo
+      const numeroFormatado = formatarNumero(cliente.telefone)
+      setRecipientNumber(numeroFormatado)
+      showAlertMessage(`Cliente selecionado: ${cliente.nome}`, "success")
+    }
+  }
+
+  // Função para verificar status de conexão do WhatsApp
+  const checkWhatsAppStatus = async (phoneNumber: string) => {
+    if (!phoneNumber.trim()) return
+
+    setIsCheckingStatus(true)
+    try {
+      const response = await fetch('https://barber-backend-qlt6.onrender.com/api/whatsapp/check-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: API_KEY,
+          username: phoneNumber
+        })
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        if (data.connected) {
+          setIsConnected(true)
+          setLastCheckedPhone(phoneNumber)
+          // Salva o número no localStorage para verificação automática
+          localStorage.setItem('whatsapp_phone', phoneNumber)
+          showAlertMessage("WhatsApp já está conectado! Você pode enviar mensagens.", "success")
+        } else {
+          setIsConnected(false)
+          showAlertMessage("WhatsApp não está conectado. Gere um novo QR Code.", "info")
+        }
+      } else {
+        console.log('Erro ao verificar status:', data.error)
+        // Se der erro, assume que não está conectado
+        setIsConnected(false)
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status:', error)
+      setIsConnected(false)
+    } finally {
+      setIsCheckingStatus(false)
+    }
+  }
+
   // Função para gerar QR Code
   const generateQRCode = async () => {
     if (!phoneNumber.trim()) {
       showAlertMessage("Por favor, insira um número de telefone", "warning")
+      return
+    }
+
+    // Primeiro verifica se já está conectado
+    await checkWhatsAppStatus(phoneNumber)
+    
+    // Se já estiver conectado, não precisa gerar QR Code
+    if (isConnected && lastCheckedPhone === phoneNumber) {
       return
     }
 
@@ -177,6 +312,9 @@ export default function WhatsappAtendente() {
         setIsConnected(false)
         setQrCodeUrl("")
         setPhoneNumber("")
+        setLastCheckedPhone("")
+        // Limpa o número salvo no localStorage
+        localStorage.removeItem('whatsapp_phone')
         showAlertMessage("Dispositivo desconectado com sucesso!", "success")
       } else {
         showAlertMessage(data.error || "Erro ao desconectar dispositivo", "error")
@@ -210,6 +348,29 @@ export default function WhatsappAtendente() {
     }
     fetchEstabelecimento()
   }, [user?.uid])
+
+  // Buscar clientes quando o estabelecimento for carregado
+  useEffect(() => {
+    console.log('🏢 Estabelecimento mudou:', estabelecimento)
+    if (estabelecimento && estabelecimento.trim()) {
+      console.log('📞 Iniciando busca de clientes...')
+      buscarClientes(estabelecimento)
+    } else {
+      console.log('❌ Estabelecimento vazio ou inválido')
+      setClientes([])
+    }
+  }, [estabelecimento])
+
+  // Verificar status de conexão automaticamente quando o componente carregar
+  useEffect(() => {
+    // Verifica se há um número salvo no localStorage ou sessionStorage
+    const savedPhone = localStorage.getItem('whatsapp_phone') || sessionStorage.getItem('whatsapp_phone')
+    if (savedPhone && savedPhone.trim()) {
+      setPhoneNumber(savedPhone)
+      // Verifica o status automaticamente
+      checkWhatsAppStatus(savedPhone)
+    }
+  }, [])
 
   // Buscar tipoPlano da conta dona do estabelecimento
   useEffect(() => {
@@ -467,15 +628,35 @@ export default function WhatsappAtendente() {
             </Alert>
           )}
 
+          {/* Debug Info - Remover em produção */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card w="100%" maxW="600px" mx="auto" bg="gray.50" p={4}>
+              <VStack align="start" spacing={2}>
+                <Text fontSize="sm" fontWeight="bold" color="gray.700">Debug Info:</Text>
+                <Text fontSize="xs" color="gray.600">Estabelecimento: {estabelecimento || 'Não carregado'}</Text>
+                <Text fontSize="xs" color="gray.600">Clientes carregados: {clientes.length}</Text>
+                <Text fontSize="xs" color="gray.600">Loading clientes: {isLoadingClientes ? 'Sim' : 'Não'}</Text>
+                <Text fontSize="xs" color="gray.600">WhatsApp conectado: {isConnected ? 'Sim' : 'Não'}</Text>
+              </VStack>
+            </Card>
+          )}
+
           {/* Status da conexão */}
           <Card w="100%" maxW="600px" mx="auto">
             <CardBody>
               <HStack justify="space-between" align="center">
                 <HStack>
                   <Icon as={FaPhone} color={isConnected ? "green.500" : "gray.400"} />
-                  <Text fontWeight="bold">
-                    {isConnected ? "Conectado" : "Desconectado"}
-                  </Text>
+                  <VStack align="start" spacing={0}>
+                    <Text fontWeight="bold">
+                      {isConnected ? "Conectado" : "Desconectado"}
+                    </Text>
+                    {lastCheckedPhone && (
+                      <Text fontSize="sm" color="gray.500">
+                        Número: {lastCheckedPhone}
+                      </Text>
+                    )}
+                  </VStack>
                 </HStack>
                 <Badge colorScheme={isConnected ? "green" : "gray"}>
                   {isConnected ? "Online" : "Offline"}
@@ -512,18 +693,32 @@ export default function WhatsappAtendente() {
                       />
                     </InputGroup>
 
-                    <Button
-                      colorScheme="whatsapp"
-                      size="lg"
-                      leftIcon={<FaQrcode />}
-                      onClick={generateQRCode}
-                      isLoading={isGeneratingQR}
-                      loadingText="Gerando QR Code..."
-                      w="100%"
-                      isDisabled={!phoneNumber.trim()}
-                    >
-                      Gerar QR Code
-                    </Button>
+                    <HStack w="100%" spacing={3}>
+                      <Button
+                        colorScheme="whatsapp"
+                        size="lg"
+                        leftIcon={<FaQrcode />}
+                        onClick={generateQRCode}
+                        isLoading={isGeneratingQR || isCheckingStatus}
+                        loadingText={isCheckingStatus ? "Verificando..." : "Gerando QR Code..."}
+                        flex={1}
+                        isDisabled={!phoneNumber.trim()}
+                      >
+                        {isCheckingStatus ? "Verificando Status" : "Gerar QR Code"}
+                      </Button>
+                      
+                      <Button
+                        colorScheme="blue"
+                        size="lg"
+                        variant="outline"
+                        onClick={() => checkWhatsAppStatus(phoneNumber)}
+                        isLoading={isCheckingStatus}
+                        loadingText="Verificando..."
+                        isDisabled={!phoneNumber.trim() || isGeneratingQR}
+                      >
+                        Verificar Status
+                      </Button>
+                    </HStack>
                   </VStack>
 
                   {/* QR Code */}
@@ -579,17 +774,79 @@ export default function WhatsappAtendente() {
                   </VStack>
 
                   <VStack spacing={4} w="100%">
-                    <InputGroup>
-                      <InputLeftElement>
-                        <Icon as={FaPhone} color="gray.400" />
-                      </InputLeftElement>
-                      <Input
-                        placeholder="Número do destinatário (ex: 5521987654321)"
-                        value={recipientNumber}
-                        onChange={(e) => setRecipientNumber(e.target.value)}
-                        isDisabled={isSendingMessage}
-                      />
-                    </InputGroup>
+                    {/* Seleção de Cliente */}
+                    <FormControl>
+                      <HStack justify="space-between" align="center" mb={2}>
+                        <FormLabel fontSize="sm" fontWeight="bold" color="gray.700" mb={0}>
+                          Selecionar Cliente (Opcional)
+                        </FormLabel>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorScheme="blue"
+                          onClick={() => buscarClientes(estabelecimento)}
+                          isLoading={isLoadingClientes}
+                          isDisabled={!estabelecimento}
+                        >
+                          {isLoadingClientes ? "Carregando..." : "Atualizar"}
+                        </Button>
+                      </HStack>
+                      <Select
+                        placeholder={clientes.length === 0 ? "Nenhum cliente encontrado" : "Escolha um cliente cadastrado..."}
+                        value={clienteSelecionado}
+                        onChange={(e) => handleClienteSelecionado(e.target.value)}
+                        isDisabled={isSendingMessage || isLoadingClientes || clientes.length === 0}
+                        bg="white"
+                      >
+                        {clientes.map((cliente) => (
+                          <option key={cliente.id} value={cliente.id}>
+                            {cliente.nome} - {cliente.telefone}
+                          </option>
+                        ))}
+                      </Select>
+                      {isLoadingClientes && (
+                        <Text fontSize="xs" color="gray.500" mt={1}>
+                          Carregando clientes...
+                        </Text>
+                      )}
+                      {!isLoadingClientes && clientes.length === 0 && estabelecimento && (
+                        <Text fontSize="xs" color="orange.500" mt={1}>
+                          Nenhum cliente encontrado para "{estabelecimento}"
+                        </Text>
+                      )}
+                      {!isLoadingClientes && clientes.length > 0 && (
+                        <Text fontSize="xs" color="green.500" mt={1}>
+                          {clientes.length} cliente(s) encontrado(s)
+                        </Text>
+                      )}
+                    </FormControl>
+
+                    {/* Input de Número de Telefone */}
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="bold" color="gray.700">
+                        Número do Destinatário
+                      </FormLabel>
+                      <InputGroup>
+                        <InputLeftElement>
+                          <Icon as={FaPhone} color="gray.400" />
+                        </InputLeftElement>
+                        <Input
+                          placeholder="Digite o número (ex: 21987654321) ou selecione um cliente acima"
+                          value={recipientNumber}
+                          onChange={(e) => {
+                            setRecipientNumber(e.target.value)
+                            // Se o usuário digitar manualmente, limpa a seleção de cliente
+                            if (e.target.value !== recipientNumber) {
+                              setClienteSelecionado("")
+                            }
+                          }}
+                          isDisabled={isSendingMessage}
+                        />
+                      </InputGroup>
+                      <Text fontSize="xs" color="gray.500" mt={1}>
+                        {clienteSelecionado ? "Número preenchido automaticamente" : "Digite o número ou selecione um cliente"}
+                      </Text>
+                    </FormControl>
 
                     <Textarea
                       placeholder="Digite sua mensagem aqui..."
@@ -605,6 +862,23 @@ export default function WhatsappAtendente() {
                       onChange={(e) => setMessageFooter(e.target.value)}
                       isDisabled={isSendingMessage}
                     />
+
+                    {/* Botão para limpar seleção de cliente */}
+                    {clienteSelecionado && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        colorScheme="gray"
+                        leftIcon={<FaUser />}
+                        onClick={() => {
+                          setClienteSelecionado("")
+                          setRecipientNumber("")
+                        }}
+                        isDisabled={isSendingMessage}
+                      >
+                        Limpar Seleção de Cliente
+                      </Button>
+                    )}
 
                     <HStack w="100%" spacing={4}>
                       <Button

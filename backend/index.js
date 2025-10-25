@@ -1087,6 +1087,72 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
   }
 });
 
+// Endpoint para verificar status do usuário/dispositivo
+app.post('/api/whatsapp/check-status', async (req, res) => {
+  try {
+    console.log('=== VERIFICANDO STATUS WHATSAPP ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const { api_key, username } = req.body;
+    
+    if (!api_key || !username) {
+      return res.status(400).json({ 
+        error: 'Campos obrigatórios: api_key, username' 
+      });
+    }
+    
+    console.log(`Verificando status para usuário: ${username}`);
+    
+    const response = await axios.post(`${WHATSAPP_BASE_URL}/info-user`, {
+      api_key: api_key,
+      username: username
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Resposta da API WhatsApp:', response.data);
+    
+    if (response.data) {
+      const isConnected = response.data.status === true && 
+                         response.data.info && 
+                         response.data.info.status === 'active';
+      
+      console.log(`✅ Status verificado: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+      return res.json({
+        success: true,
+        connected: isConnected,
+        status: response.data.info?.status || 'unknown',
+        info: response.data.info || null,
+        message: isConnected ? 'Dispositivo conectado' : 'Dispositivo desconectado'
+      });
+    } else {
+      console.log('❌ Resposta da API vazia');
+      return res.status(500).json({ 
+        error: 'Erro ao verificar status',
+        details: 'Resposta da API vazia'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao verificar status:', error.response?.data || error.message);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: 'Erro da API WhatsApp',
+        details: error.response.data?.message || error.response.data?.error || 'Erro desconhecido',
+        status: error.response.status
+      });
+    }
+    
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+});
+
 // Endpoint para desconectar dispositivo
 app.post('/api/whatsapp/disconnect', async (req, res) => {
   try {
