@@ -316,6 +316,11 @@
   white-space: nowrap;
 }
 
+.nav-badge-yellow {
+  background: #eab308;
+  color: #000;
+}
+
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid #e2e8f0;

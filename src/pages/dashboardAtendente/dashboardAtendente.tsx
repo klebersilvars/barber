@@ -34,7 +34,7 @@ const DashboardAtendente: React.FC = () => {
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
 
   const menuItems = [
-    { icon: MessageCircle, label: "Whatsapp", path: `/acessoAtendente/${uid}/whatsappAtendente` },
+    { icon: MessageCircle, label: "Whatsapp", path: `/acessoAtendente/${uid}/whatsappAtendente`, badge: "EM ATUALIZAÇÃO", badgeColor: "yellow" },
     { icon: ShoppingCart, label: "Vendas", path: `/acessoAtendente/${uid}/vendas` },
     { icon: Users, label: "Clientes", path: `/acessoAtendente/${uid}/clientes` },
     { icon: Calendar, label: "Agenda Online", path: `/acessoAtendente/${uid}/agendaAtendente` },
@@ -184,7 +184,24 @@ const DashboardAtendente: React.FC = () => {
                   }}
                 >
                   <item.icon className="nav-icon" />
-                  <span>{item.label}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {item.label}
+                    {item.badge && (
+                      <span
+                        style={{
+                          background: item.badgeColor === "yellow" ? "#eab308" : "#3b82f6",
+                          color: item.badgeColor === "yellow" ? "#000" : "white",
+                          fontSize: "10px",
+                          fontWeight: 600,
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
                 </button>
               )
             })}
@@ -244,7 +261,16 @@ const DashboardAtendente: React.FC = () => {
                   tabIndex={disabled ? -1 : 0}
                 >
                   <item.icon className="nav-icon" />
-                  {!sidebarCollapsed && <span>{item.label}</span>}
+                  {!sidebarCollapsed && (
+                    <div className="nav-item-content">
+                      <span>{item.label}</span>
+                      {item.badge && (
+                        <span className={`nav-badge ${item.badgeColor === "yellow" ? "nav-badge-yellow" : ""}`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </a>
               )
             })}

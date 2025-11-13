@@ -29,10 +29,11 @@ import {
 import { FaWhatsapp, FaQrcode, FaPhone, FaPaperPlane, FaSignOutAlt, FaUser } from "react-icons/fa"
 import { firestore } from "../../firebase/firebase"
 import { collection, doc, getDoc, query, where, getDocs, updateDoc } from "firebase/firestore"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
 
 export default function WhatsappAtendente() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { uid } = useParams()
   const [estabelecimento, setEstabelecimento] = useState<string>("")
   const [tipoPlano, setTipoPlano] = useState<string | null>(null)
@@ -606,13 +607,21 @@ export default function WhatsappAtendente() {
   // Verificar se o acesso ao WhatsApp é permitido baseado no tipo de plano
   const isWhatsappAllowed = tipoPlano === 'gratis' || tipoPlano === 'ouro' || tipoPlano === 'diamante'
 
+  // Verificar se está sendo acessado do dashboardUser ou do dashboardAtendente
+  const isFromDashboardUser = location.pathname.includes('/dashboard/') && location.pathname.includes('/whatsappAdmin')
+  const isFromDashboardAtendente = location.pathname.includes('/acessoAtendente/') && location.pathname.includes('/whatsappAtendente')
+
   // Bloquear acesso se o plano não permitir WhatsApp
   useEffect(() => {
     if (!isLoadingPlano && !isWhatsappAllowed && uid) {
-      // Redirecionar para o dashboard do atendente
-      navigate(`/acessoAtendente/${uid}`)
+      // Redirecionar para o dashboard correto baseado na origem
+      if (isFromDashboardUser) {
+        navigate(`/dashboard/${uid}`)
+      } else if (isFromDashboardAtendente) {
+        navigate(`/acessoAtendente/${uid}`)
+      }
     }
-  }, [isLoadingPlano, isWhatsappAllowed, uid, tipoPlano])
+  }, [isLoadingPlano, isWhatsappAllowed, uid, tipoPlano, isFromDashboardUser, isFromDashboardAtendente, navigate])
 
 
 
@@ -704,7 +713,14 @@ export default function WhatsappAtendente() {
             <Button
               colorScheme="blue"
               size="lg"
-              onClick={() => navigate(`/acessoAtendente/${uid}`)}
+              onClick={() => {
+                // Redirecionar para o dashboard correto baseado na origem
+                if (isFromDashboardUser) {
+                  navigate(`/dashboard/${uid}`)
+                } else {
+                  navigate(`/acessoAtendente/${uid}`)
+                }
+              }}
             >
               Voltar ao Dashboard
             </Button>

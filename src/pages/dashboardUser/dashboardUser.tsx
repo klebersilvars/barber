@@ -520,7 +520,7 @@ export default function DashboardUser() {
   const menuItems = [
     { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true, group: "main" },
     { icon: Calendar, label: "Agenda", path: `/dashboard/${uid}/agenda`, premiumRequired: true, group: "main" },
-    { icon: MessageCircle, label: "Whatsapp", path: `/dashboard/${uid}/whatsappAdmin`, premiumRequired: true, group: "main" },
+    { icon: MessageCircle, label: "Whatsapp", path: `/dashboard/${uid}/whatsappAdmin`, premiumRequired: true, group: "main", badge: "EM ATUALIZAÇÃO", badgeColor: "yellow" },
     { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true, group: "sales" },
     { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true, group: "sales" },
     { icon: Users, label: "Clientes", path: `/dashboard/${uid}/cliente`, premiumRequired: true, group: "management" },
@@ -1006,7 +1006,7 @@ export default function DashboardUser() {
                         <Text>{item.label}</Text>
                         {item.badge && (
                           <Badge 
-                            colorScheme="blue" 
+                            colorScheme={item.badgeColor || "blue"} 
                             size="sm" 
                             fontSize="xs"
                             px={2}
@@ -1123,7 +1123,11 @@ export default function DashboardUser() {
                     {!sidebarCollapsed && (
                       <div className="nav-item-content">
                         <span>{item.label}</span>
-                        {item.badge && <span className="nav-badge">{item.badge}</span>}
+                        {item.badge && (
+                          <span className={`nav-badge ${item.badgeColor === "yellow" ? "nav-badge-yellow" : ""}`}>
+                            {item.badge}
+                          </span>
+                        )}
                       </div>
                     )}
                   </a>

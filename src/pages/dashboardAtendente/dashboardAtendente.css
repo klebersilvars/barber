@@ -228,6 +228,28 @@
   .sidebar.collapsed .nav-item span {
     display: none;
   }
+
+  .nav-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .nav-badge {
+    background: #3b82f6;
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  .nav-badge-yellow {
+    background: #eab308;
+    color: #000;
+  }
   
   /* Sidebar Footer */
   .sidebar-footer {
