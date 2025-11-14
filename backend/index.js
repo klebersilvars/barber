@@ -100,14 +100,15 @@ const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFl
 const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
 // Configuração da API do Asaas
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY || process.env.ASAAS_ACCESS_TOKEN;
+// Configure sua API Key do Asaas aqui
+const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjdmNDg2OTA2LTEwMTMtNGQ5Ni04M2I5LTdhMWJjNGJjMDMxZTo6JGFhY2hfNTE4YzU3ZWEtZjY0Yi00N2E3LWJlMDQtZjQyYzk2OGY5MTg1'; // Substitua pela sua API Key do Asaas
 const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
-if (ASAAS_API_KEY) {
+if (ASAAS_API_KEY && ASAAS_API_KEY !== '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjdmNDg2OTA2LTEwMTMtNGQ5Ni04M2I5LTdhMWJjNGJjMDMxZTo6JGFhY2hfNTE4YzU3ZWEtZjY0Yi00N2E3LWJlMDQtZjQyYzk2OGY5MTg1') {
   console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
 } else {
-  console.warn('⚠️ API Key do Asaas NÃO configurada! Adicione ASAAS_API_KEY no keys.env');
+  console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
 }
 
 // Configuração dos links dos planos Asaas
@@ -416,7 +417,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
               // Buscar dados do cliente na API do Asaas
               // O Asaas usa access_token como header
               const customerResponse = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
-                headers: {
+        headers: {
                   'access_token': ASAAS_API_KEY,
                   'Content-Type': 'application/json'
                 },
@@ -468,7 +469,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
         if (email) {
           email = email.toLowerCase().trim();
           console.log(`✅ Email final extraído: ${email}`);
-        } else {
+          } else {
           console.log('⚠️ Email não encontrado em nenhuma estrutura do payment e não foi possível buscar na API');
         }
         
@@ -524,13 +525,13 @@ app.post('/api/asaas-webhook', async (req, res) => {
           // Tentar identificar pela descrição
           const descLower = description.toLowerCase();
           if (descLower.includes('bronze')) {
-            tipoPlano = 'bronze';
+              tipoPlano = 'bronze';
           } else if (descLower.includes('prata')) {
-            tipoPlano = 'prata';
+              tipoPlano = 'prata';
           } else if (descLower.includes('ouro')) {
-            tipoPlano = 'ouro';
+              tipoPlano = 'ouro';
           } else if (descLower.includes('diamante')) {
-            tipoPlano = 'diamante';
+              tipoPlano = 'diamante';
           }
           console.log('Plano identificado pela descrição:', tipoPlano);
         }
@@ -667,7 +668,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
                 } catch (uidError) {
                   console.error('Erro ao buscar conta por UID:', uidError.message);
                 }
-              } else {
+          } else {
                 console.log('⚠️ Nenhuma conta encontrada com este paymentLinkId');
                 
                 // Última tentativa: buscar todas as contas recentes e filtrar manualmente
@@ -715,34 +716,34 @@ app.post('/api/asaas-webhook', async (req, res) => {
         const diasPremium = 30; // Mensal
         
         console.log('Data de término calculada:', dataTermino);
-        console.log('Dias premium:', diasPremium);
-        
+          console.log('Dias premium:', diasPremium);
+          
         // Calcular data de expiração para o Firestore
-        const dataExpiracao = new Date(dataTermino);
-        const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
-        
-        // Definir limite de colaboradores por plano
-        let maxColaborador = 1;
-        if (tipoPlano === 'bronze') {
-          maxColaborador = 2;
-        } else if (tipoPlano === 'prata') {
-          maxColaborador = 3;
-        } else if (tipoPlano === 'ouro') {
-          maxColaborador = 4;
-        } else if (tipoPlano === 'diamante') {
-          maxColaborador = 999999; // Sem limite prático
-        }
-        
+          const dataExpiracao = new Date(dataTermino);
+          const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
+          
+          // Definir limite de colaboradores por plano
+          let maxColaborador = 1;
+          if (tipoPlano === 'bronze') {
+            maxColaborador = 2;
+          } else if (tipoPlano === 'prata') {
+            maxColaborador = 3;
+          } else if (tipoPlano === 'ouro') {
+            maxColaborador = 4;
+          } else if (tipoPlano === 'diamante') {
+            maxColaborador = 999999; // Sem limite prático
+          }
+
         // Preparar atualizações da conta
         const updates = {
-          premium: true,
-          premiumExpiresAt: premiumExpiresAt,
-          premiumDaysLeft: diasPremium,
-          tipoPlano: tipoPlano,
-          dias_plano_pago: diasPremium,
-          dias_plano_pago_restante: diasPremium,
-          data_termino_plano_premium: dataTermino,
-          status_pagamento: 'pago',
+            premium: true,
+            premiumExpiresAt: premiumExpiresAt,
+            premiumDaysLeft: diasPremium,
+            tipoPlano: tipoPlano,
+            dias_plano_pago: diasPremium,
+            dias_plano_pago_restante: diasPremium,
+            data_termino_plano_premium: dataTermino,
+            status_pagamento: 'pago',
           billing_period: 'monthly', // Assumindo mensal
           max_colaborador: maxColaborador,
           ultima_atualizacao_plano: new Date().toISOString()
@@ -776,11 +777,11 @@ app.post('/api/asaas-webhook', async (req, res) => {
             const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
             
             if (!colabSnap.empty) {
-              const batchColab = db.batch();
-              colabSnap.forEach(colabDoc => {
-                batchColab.update(colabDoc.ref, { ativo: true });
-              });
-              await batchColab.commit();
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: true });
+            });
+            await batchColab.commit();
               console.log(`✅ ${colabSnap.size} colaborador(es) ativado(s) para plano ${tipoPlano}`);
             } else {
               console.log(`ℹ️ Nenhum colaborador encontrado para ativar`);
@@ -811,7 +812,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
           tipoPlano: tipoPlano,
           paymentId: paymentId
         });
-      } else {
+  } else {
         console.log(`⚠️ Pagamento não confirmado. Status: ${status}`);
         return res.status(200).json({ 
           message: 'Pagamento recebido mas não confirmado ainda',
@@ -1817,7 +1818,7 @@ app.post('/api/whatsapp/get-status', async (req, res) => {
     
     while (retryCount < maxRetries && !doc) {
       try {
-        const contasRef = db.collection('contas').doc(uid);
+    const contasRef = db.collection('contas').doc(uid);
         doc = await contasRef.get();
         break; // Sucesso, sair do loop
       } catch (firestoreError) {
