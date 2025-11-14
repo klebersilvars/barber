@@ -1,13 +1,3 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Obter o diretório atual do arquivo
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Carregar variáveis de ambiente do arquivo keys.env
-dotenv.config({ path: path.join(__dirname, 'keys.env') });
 import express from 'express';
 // import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -44,18 +34,8 @@ const db = initializeFirebase();
 
 const app = express();
 
-// Configurações do Firebase
-const FIREBASE_TYPE = process.env.FIREBASE_TYPE || "service_account";
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
-const FIREBASE_PRIVATE_KEY_ID = process.env.FIREBASE_PRIVATE_KEY_ID;
-const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
-const FIREBASE_CLIENT_ID = process.env.FIREBASE_CLIENT_ID;
-const FIREBASE_AUTH_URI = process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth";
-const FIREBASE_TOKEN_URI = process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token";
-const FIREBASE_AUTH_PROVIDER_X509_CERT_URL = process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs";
-const FIREBASE_CLIENT_X509_CERT_URL = process.env.FIREBASE_CLIENT_X509_CERT_URL;
-const FIREBASE_UNIVERSE_DOMAIN = process.env.FIREBASE_UNIVERSE_DOMAIN || "googleapis.com";
+// Configurações do Firebase - definidas diretamente no código
+// (As configurações estão no arquivo firebase-config.js)
 
 // Configuração CORS com whitelist e resposta dinâmica por origin
 const allowedOrigins = [
@@ -185,7 +165,7 @@ app.get('/api/asaas/planos', (req, res) => {
 // Endpoint para gerar link de pagamento com UID (substitui o create-preference do Mercado Pago)
 app.post('/api/asaas/get-payment-link', async (req, res) => {
   try {
-    const { uid, planId, email } = req.body;
+    let { uid, planId, email } = req.body;
     
     if (!uid) {
       return res.status(400).json({ error: 'UID é obrigatório' });
@@ -230,39 +210,86 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
     }
     
     // Salvar email e paymentLinkId na coleção 'contas' (CRÍTICO)
+    // Implementar retry robusto para lidar com erros gRPC
     if (email && uid) {
-      try {
-        const contaRef = db.collection('contas').doc(uid);
-        const contaDoc = await contaRef.get();
-        
-        const updateData = {
-          email: email.toLowerCase().trim(),
-          ultima_atualizacao: new Date().toISOString(),
-          ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
-          ultimo_planId_solicitado: planId, // Salvar o plano solicitado
-          data_solicitacao_plano: new Date().toISOString()
-        };
-        
-        if (contaDoc.exists) {
-          await contaRef.update(updateData);
-          console.log(`✅ Conta atualizada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
-        } else {
-          // Se a conta não existe, criar com o email e paymentLinkId
-          await contaRef.set({
-            ...updateData,
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-          console.log(`✅ Conta criada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+      let retryCount = 0;
+      const maxRetries = 5;
+      let saved = false;
+      
+      while (retryCount < maxRetries && !saved) {
+        try {
+          const contaRef = db.collection('contas').doc(uid);
+          
+          // Tentar buscar o documento primeiro
+          let contaDoc;
+          try {
+            contaDoc = await contaRef.get();
+          } catch (getError) {
+            // Se falhar ao buscar, pode ser erro gRPC - tentar novamente
+            if (getError.message.includes('gRPC') || getError.message.includes('DECODER')) {
+              retryCount++;
+              console.log(`⚠️ Erro gRPC ao buscar documento (tentativa ${retryCount}/${maxRetries}). Aguardando...`);
+              await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+              continue;
+            }
+            throw getError;
+          }
+          
+          const updateData = {
+            email: email.toLowerCase().trim(),
+            ultima_atualizacao: new Date().toISOString(),
+            ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
+            ultimo_planId_solicitado: planId, // Salvar o plano solicitado
+            data_solicitacao_plano: new Date().toISOString()
+          };
+          
+          if (contaDoc.exists) {
+            await contaRef.update(updateData);
+            console.log(`✅ Conta atualizada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+          } else {
+            // Se a conta não existe, criar com o email e paymentLinkId
+            await contaRef.set({
+              ...updateData,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+            console.log(`✅ Conta criada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+          }
+          
+          saved = true;
+        } catch (contaError) {
+          retryCount++;
+          
+          // Verificar se é erro gRPC/DECODER
+          const isGrpcError = contaError.message.includes('gRPC') || 
+                             contaError.message.includes('DECODER') ||
+                             contaError.message.includes('UNKNOWN') ||
+                             contaError.code === 2;
+          
+          if (isGrpcError && retryCount < maxRetries) {
+            const waitTime = 2000 * retryCount; // 2s, 4s, 6s, 8s, 10s
+            console.log(`⚠️ Erro gRPC detectado (tentativa ${retryCount}/${maxRetries}). Aguardando ${waitTime}ms antes de tentar novamente...`);
+            console.log(`   Erro: ${contaError.message.substring(0, 100)}`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          } else {
+            // Se não for erro gRPC ou já tentou todas as vezes, logar o erro
+            console.error('❌ ERRO ao salvar na conta:', contaError.message);
+            if (retryCount >= maxRetries) {
+              console.error('❌ Todas as tentativas falharam após', maxRetries, 'tentativas');
+            }
+            // Não bloquear o processo - continuar mesmo com erro
+            break;
+          }
         }
-      } catch (contaError) {
-        console.error('❌ ERRO CRÍTICO ao salvar na conta:', contaError.message);
-        console.error('Stack trace:', contaError.stack);
+      }
+      
+      if (!saved) {
+        console.warn('⚠️ Não foi possível salvar os dados no Firestore, mas o link de pagamento será retornado');
       }
     } else {
-      console.error('❌ ERRO: Email ou UID não disponível!');
-      console.error('UID:', uid);
-      console.error('Email:', email);
-      console.error('PlanId:', planId);
+      console.warn('⚠️ Email ou UID não disponível para salvar no Firestore');
+      console.warn('UID:', uid);
+      console.warn('Email:', email);
+      console.warn('PlanId:', planId);
     }
     
     return res.json({
