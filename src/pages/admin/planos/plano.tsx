@@ -100,6 +100,30 @@ export default function Plano() {
 
   const plans = [
     {
+      id: "teste",
+      name: "Plano Teste",
+      description: "Teste o plano Prata por apenas R$ 5,00",
+      monthlyPrice: 5.00,
+      quarterlyPrice: 5.00,
+      yearlyPrice: 5.00,
+      popular: true,
+      features: [
+        "2 colaboradores adicionais",
+        "Relatórios avançados",
+        "Relatórios personalizados",
+        "Suporte prioritário 24/7",
+        "Treinamento incluído",
+        "Gestão financeira completa",
+        'Placa personalizada da sua loja com QR Code',
+        'Whatsapp integrado'
+      ],
+      limitations: [
+        'Sem personalização da página de agendamento'
+      ],
+      color: "green",
+      icon: Crown,
+    },
+    {
       id: "bronze",
       name: "Bronze",
       description: "Para profissionais autônomos ou pequenos negócios",
@@ -403,10 +427,10 @@ export default function Plano() {
                 onClick={() => setSelectedPlan(plan.id)}
                 borderStyle={selectedPlan === plan.id ? "solid" : "dashed"}
                 borderWidth={selectedPlan === plan.id ? 3 : 2}
-                borderColor={selectedPlan === plan.id ? (plan.id === "bronze" ? "purple.500" : "blue.500") : plan.popular ? "blue.400" : "gray.200"}
+                borderColor={selectedPlan === plan.id ? (plan.id === "bronze" ? "purple.500" : plan.id === "teste" ? "green.500" : "blue.500") : plan.popular ? (plan.id === "teste" ? "green.400" : "blue.400") : "gray.200"}
                 borderRadius="xl"
-                boxShadow={plan.popular ? "0 0 0 3px #2563eb33" : "sm"}
-                bg={plan.id === "bronze" ? useColorModeValue("purple.50", "purple.900") : useColorModeValue("white", "gray.800")}
+                boxShadow={plan.popular ? (plan.id === "teste" ? "0 0 0 3px #22c55e33" : "0 0 0 3px #2563eb33") : "sm"}
+                bg={plan.id === "bronze" ? useColorModeValue("purple.50", "purple.900") : plan.id === "teste" ? useColorModeValue("green.50", "green.900") : useColorModeValue("white", "gray.800")}
                 p={6}
                 w="100%"
                 h="100%"
@@ -427,20 +451,32 @@ export default function Plano() {
                 )}
                 <VStack spacing={3} align="start">
                   <HStack spacing={2} align="center">
-                    <Box bg={plan.id === "bronze" ? "purple.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
-                      <img src={plan.id === "bronze" ? Bronze : plan.id === 'prata' ? Prata : plan.id === 'ouro' ? Ouro : Diamante} alt="bronze" />
+                    <Box bg={plan.id === "bronze" ? "purple.400" : plan.id === "teste" ? "green.400" : "blue.400"} borderRadius="full" p={2} display="flex" alignItems="center">
+                      {plan.id === "teste" ? (
+                        <Icon as={Star} color="white" boxSize={6} />
+                      ) : (
+                        <img src={plan.id === "bronze" ? Bronze : plan.id === 'prata' ? Prata : plan.id === 'ouro' ? Ouro : Diamante} alt={plan.name} />
+                      )}
                     </Box>
-                    <Text fontWeight={700} fontSize="2xl" color={plan.id === "bronze" ? "purple.700" : "blue.700"}>{plan.name}</Text>
+                    <Text fontWeight={700} fontSize="2xl" color={plan.id === "bronze" ? "purple.700" : plan.id === "teste" ? "green.700" : "blue.700"}>{plan.name}</Text>
                   </HStack>
                   <Text color="gray.600" fontSize="md">{plan.description}</Text>
                   <Box mt={2} mb={2}>
-                    <Text fontSize="3xl" fontWeight={800} color={plan.id === "bronze" ? "purple.700" : "blue.700"}>
+                    <Text fontSize="3xl" fontWeight={800} color={plan.id === "bronze" ? "purple.700" : plan.id === "teste" ? "green.700" : "blue.700"}>
                       R$ {getTotalPriceByPeriod(plan, billingPeriod).toFixed(2).replace(".", ",")}
-                      <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>{getCycleLabel(billingPeriod)}</Text>
+                      {plan.id !== "teste" && <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}>{getCycleLabel(billingPeriod)}</Text>}
+                      {plan.id === "teste" && <Text as="span" fontSize="lg" color="gray.500" fontWeight={400}> (teste)</Text>}
                     </Text>
-                    <Text fontSize="sm" color="gray.600">
-                      Equivale a R$ {getMonthlyEquivalent(plan, billingPeriod).toFixed(2).replace(".", ",")}/mês
-                    </Text>
+                    {plan.id !== "teste" && (
+                      <Text fontSize="sm" color="gray.600">
+                        Equivale a R$ {getMonthlyEquivalent(plan, billingPeriod).toFixed(2).replace(".", ",")}/mês
+                      </Text>
+                    )}
+                    {plan.id === "teste" && (
+                      <Text fontSize="sm" color="green.600" fontWeight={600}>
+                        ✨ Teste com todos os benefícios do plano Prata
+                      </Text>
+                    )}
                     {dataTerminoPlano && selectedPlan === plan.id && (
                       <Text fontSize="sm" color="gray.600" mt={1}>
                         Data que termina o plano: {formatarDataTermino(dataTerminoPlano)}
@@ -450,7 +486,7 @@ export default function Plano() {
                   <VStack align="start" spacing={1} mt={2} mb={2}>
                     {plan.features.map((feature, index) => (
                       <HStack key={index} spacing={2}>
-                        <Icon as={Check} color={plan.id === "bronze" ? "purple.500" : "blue.500"} boxSize={4} />
+                        <Icon as={Check} color={plan.id === "bronze" ? "purple.500" : plan.id === "teste" ? "green.500" : "blue.500"} boxSize={4} />
                         <Text fontSize="sm">{feature}</Text>
                       </HStack>
                     ))}
@@ -462,7 +498,7 @@ export default function Plano() {
                     ))}
                   </VStack>
                   <Button
-                    colorScheme={plan.id === "bronze" ? "purple" : "blue"}
+                    colorScheme={plan.id === "bronze" ? "purple" : plan.id === "teste" ? "green" : "blue"}
                     rightIcon={<ChevronRight size={16} />}
                     onClick={e => {
                       e.stopPropagation();
@@ -475,7 +511,7 @@ export default function Plano() {
                     fontWeight={700}
                     fontSize="md"
                   >
-                    {loadingPayment ? "Processando..." : "Selecionar Plano"}
+                    {loadingPayment ? "Processando..." : plan.id === "teste" ? "Testar por R$ 5,00" : "Selecionar Plano"}
                   </Button>
                   {paymentMessage && selectedPlan === plan.id && (
                     <Text color={paymentMessage.includes('Erro') || paymentMessage.includes('não foi possível') ? 'red.500' : 'gray.700'} mt={2} fontSize="sm" textAlign="center">

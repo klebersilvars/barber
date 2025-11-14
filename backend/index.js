@@ -93,6 +93,7 @@ const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
 // Configuração dos links dos planos Asaas
 const ASAAS_PLAN_LINKS = {
+  teste: 'https://www.asaas.com/c/3tq79ax6gm22ib6g',
   bronze: 'https://www.asaas.com/c/i0ac1rrdxjlo8hsd',
   prata: 'https://www.asaas.com/c/sv8skxvst83ze71k',
   ouro: 'https://www.asaas.com/c/yv4j5eg7i3up6g2f',
@@ -100,7 +101,9 @@ const ASAAS_PLAN_LINKS = {
 };
 
 // Valores dos planos (para identificar o plano pelo valor pago)
+// O plano teste de R$ 5,00 será atribuído como plano prata
 const PLAN_VALUES = {
+  5.00: 'prata', // Plano teste atribui como prata
   59.90: 'bronze',
   89.90: 'prata',
   139.90: 'ouro',
@@ -129,6 +132,12 @@ app.get('/api/asaas/webhook-url', (req, res) => {
 app.get('/api/asaas/planos', (req, res) => {
   res.json({
     planos: {
+      teste: {
+        link: ASAAS_PLAN_LINKS.teste,
+        valor: 5.00,
+        nome: 'Plano Teste',
+        atribuiComo: 'prata' // Atribui como prata quando pago
+      },
       bronze: {
         link: ASAAS_PLAN_LINKS.bronze,
         valor: 59.90,
