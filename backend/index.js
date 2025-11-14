@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import express from 'express';
+
+// Carregar variáveis de ambiente do arquivo .env
+dotenv.config();
 // import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
@@ -51,6 +55,16 @@ const isDev = process.env.NODE_ENV !== 'production';
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
+  // Adicionar Content Security Policy que permite fontes via data: (aplicar sempre)
+  res.header('Content-Security-Policy', 
+    "font-src 'self' data: https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "default-src 'self' https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://atlas.asaas.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://atlas.asaas.com; " +
+    "img-src 'self' data: https: blob:; " +
+    "connect-src 'self' https://atlas.asaas.com https://api.asaas.com https://trezu.com.br https://www.trezu.com.br https://trezu-backend.onrender.com;"
+  );
+
   // Permitir requisições sem origin (ex.: Postman, healthchecks)
   if (!origin) {
     return next();
@@ -64,19 +78,6 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    
-    // Adicionar Content Security Policy para permitir fontes via data:
-    // Apenas para requisições de páginas HTML (não para APIs)
-    if (req.path === '/' || req.path.endsWith('.html') || req.accepts('text/html')) {
-      res.header('Content-Security-Policy', 
-        "font-src 'self' data: https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
-        "default-src 'self' https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://atlas.asaas.com; " +
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://atlas.asaas.com; " +
-        "img-src 'self' data: https: blob:; " +
-        "connect-src 'self' https://atlas.asaas.com https://api.asaas.com https://trezu.com.br https://www.trezu.com.br https://trezu-backend.onrender.com;"
-      );
-    }
   }
 
   if (req.method === 'OPTIONS') {
@@ -89,19 +90,22 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // WhatsApp API Configuration
-const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFlmT96UBs3'
-const WHATSAPP_BASE_URL = 'https://belkit.pro'
+const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY;
+const WHATSAPP_BASE_URL = process.env.WHATSAPP_BASE_URL || 'https://belkit.pro';
+
+if (!WHATSAPP_API_KEY) {
+  console.warn('⚠️ WHATSAPP_API_KEY não configurada no arquivo .env');
+}
 
 // Configuração da API do Asaas
-// Configure sua API Key do Asaas aqui
-const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIzYTcxM2NiLTIzZDMtNDU3Zi04ZGEzLTcyNTM0YTY3NDNlOTo6JGFhY2hfYWYyOTAyNmUtYWExMC00MzEwLThlNDQtMzFlY2JlY2NmM2Mw'; // Substitua pela sua API Key do Asaas
-const ASAAS_API_URL = 'https://api.asaas.com/v3';
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
+const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
-if (ASAAS_API_KEY && ASAAS_API_KEY !== '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjdmNDg2OTA2LTEwMTMtNGQ5Ni04M2I5LTdhMWJjNGJjMDMxZTo6JGFhY2hfNTE4YzU3ZWEtZjY0Yi00N2E3LWJlMDQtZjQyYzk2OGY5MTg1') {
+if (ASAAS_API_KEY) {
   console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
 } else {
-  console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
+  console.error('❌ ERRO: ASAAS_API_KEY não configurada no arquivo .env!');
 }
 
 // Configuração dos links dos planos Asaas
@@ -230,8 +234,8 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
       let saved = false;
       
       while (retryCount < maxRetries && !saved) {
-        try {
-          const contaRef = db.collection('contas').doc(uid);
+      try {
+        const contaRef = db.collection('contas').doc(uid);
           
           // Tentar buscar o documento primeiro
           let contaDoc;
@@ -247,29 +251,29 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
             }
             throw getError;
           }
-          
-          const updateData = {
-            email: email.toLowerCase().trim(),
-            ultima_atualizacao: new Date().toISOString(),
-            ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
-            ultimo_planId_solicitado: planId, // Salvar o plano solicitado
-            data_solicitacao_plano: new Date().toISOString()
-          };
-          
-          if (contaDoc.exists) {
-            await contaRef.update(updateData);
-            console.log(`✅ Conta atualizada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
-          } else {
-            // Se a conta não existe, criar com o email e paymentLinkId
-            await contaRef.set({
-              ...updateData,
-              createdAt: new Date().toISOString()
-            }, { merge: true });
-            console.log(`✅ Conta criada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
-          }
+        
+        const updateData = {
+          email: email.toLowerCase().trim(),
+          ultima_atualizacao: new Date().toISOString(),
+          ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
+          ultimo_planId_solicitado: planId, // Salvar o plano solicitado
+          data_solicitacao_plano: new Date().toISOString()
+        };
+        
+        if (contaDoc.exists) {
+          await contaRef.update(updateData);
+          console.log(`✅ Conta atualizada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+        } else {
+          // Se a conta não existe, criar com o email e paymentLinkId
+          await contaRef.set({
+            ...updateData,
+            createdAt: new Date().toISOString()
+          }, { merge: true });
+          console.log(`✅ Conta criada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+        }
           
           saved = true;
-        } catch (contaError) {
+      } catch (contaError) {
           retryCount++;
           
           // Verificar se é erro gRPC/DECODER
@@ -383,7 +387,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
           else if (typeof paymentDetails.customer === 'string') {
             try {
               const customerRes = await axios.get(`${ASAAS_API_URL}/customers/${paymentDetails.customer}`, {
-                headers: {
+        headers: {
                   'access_token': ASAAS_API_KEY,
                   'Content-Type': 'application/json',
                 },
@@ -441,13 +445,13 @@ app.post('/api/asaas-webhook', async (req, res) => {
           const description = paymentDetails.description || '';
           const descLower = description.toLowerCase();
           if (descLower.includes('bronze')) {
-            tipoPlano = 'bronze';
+              tipoPlano = 'bronze';
           } else if (descLower.includes('prata')) {
-            tipoPlano = 'prata';
+              tipoPlano = 'prata';
           } else if (descLower.includes('ouro')) {
-            tipoPlano = 'ouro';
+              tipoPlano = 'ouro';
           } else if (descLower.includes('diamante')) {
-            tipoPlano = 'diamante';
+              tipoPlano = 'diamante';
           }
           console.log('Plano identificado pela descrição:', tipoPlano);
         }
@@ -463,33 +467,33 @@ app.post('/api/asaas-webhook', async (req, res) => {
         const dataFinal = new Date(hoje);
         dataFinal.setMonth(dataFinal.getMonth() + 1); // 1 mês a partir de hoje
         const diasPremium = 30; // Mensal
-        
+          
         // Calcular data de expiração para o Firestore
         const dataExpiracao = new Date(dataFinal);
-        const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
-        
-        // Definir limite de colaboradores por plano
-        let maxColaborador = 1;
-        if (tipoPlano === 'bronze') {
-          maxColaborador = 2;
-        } else if (tipoPlano === 'prata') {
-          maxColaborador = 3;
-        } else if (tipoPlano === 'ouro') {
-          maxColaborador = 4;
-        } else if (tipoPlano === 'diamante') {
-          maxColaborador = 999999; // Sem limite prático
-        }
+          const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
+          
+          // Definir limite de colaboradores por plano
+          let maxColaborador = 1;
+          if (tipoPlano === 'bronze') {
+            maxColaborador = 2;
+          } else if (tipoPlano === 'prata') {
+            maxColaborador = 3;
+          } else if (tipoPlano === 'ouro') {
+            maxColaborador = 4;
+          } else if (tipoPlano === 'diamante') {
+            maxColaborador = 999999; // Sem limite prático
+          }
 
         // Preparar atualizações da conta
         const updates = {
-          premium: true,
-          premiumExpiresAt: premiumExpiresAt,
-          premiumDaysLeft: diasPremium,
-          tipoPlano: tipoPlano,
-          dias_plano_pago: diasPremium,
-          dias_plano_pago_restante: diasPremium,
+            premium: true,
+            premiumExpiresAt: premiumExpiresAt,
+            premiumDaysLeft: diasPremium,
+            tipoPlano: tipoPlano,
+            dias_plano_pago: diasPremium,
+            dias_plano_pago_restante: diasPremium,
           data_termino_plano_premium: dataFinal.toISOString(),
-          status_pagamento: 'pago',
+            status_pagamento: 'pago',
           billing_period: 'monthly',
           max_colaborador: maxColaborador,
           ultima_atualizacao_plano: new Date().toISOString()
@@ -521,11 +525,11 @@ app.post('/api/asaas-webhook', async (req, res) => {
             const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
             
             if (!colabSnap.empty) {
-              const batchColab = db.batch();
-              colabSnap.forEach(colabDoc => {
-                batchColab.update(colabDoc.ref, { ativo: true });
-              });
-              await batchColab.commit();
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: true });
+            });
+            await batchColab.commit();
               console.log(`✅ ${colabSnap.size} colaborador(es) ativado(s) para plano ${tipoPlano}`);
             } else {
               console.log(`ℹ️ Nenhum colaborador encontrado para ativar`);
@@ -544,7 +548,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
           tipoPlano: tipoPlano,
           paymentId: paymentId
         });
-      } else {
+  } else {
         console.log(`⚠️ Pagamento não confirmado. Status: ${paymentDetails.status}`);
         return res.status(200).send('OK - Payment not confirmed');
       }
@@ -553,7 +557,7 @@ app.post('/api/asaas-webhook', async (req, res) => {
     else if (event === 'SUBSCRIPTION_DELETED' || event === 'SUBSCRIPTION_CANCELLED') {
       console.log('❌ Processando cancelamento de assinatura:', subscription?.id);
       return res.status(200).send('OK - Subscription cancelled');
-    }
+    } 
     else {
       console.log(`ℹ️ Evento não processado: ${event}`);
       return res.status(200).send('OK - Event not processed');
