@@ -279,445 +279,213 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
 
 // Webhook Asaas - recebe notificações de pagamento
 app.post('/api/asaas-webhook', async (req, res) => {
-  try {
-    console.log('=== WEBHOOK ASAAS RECEBIDO ===');
-    console.log('Timestamp:', new Date().toISOString());
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Body completo:', JSON.stringify(req.body, null, 2));
-    
     const event = req.body.event;
     const payment = req.body.payment;
-    
-    // Log detalhado da estrutura do payment
-    if (payment) {
-      console.log('=== ESTRUTURA DO PAYMENT ===');
-      console.log('payment.id:', payment.id);
-      console.log('payment.status:', payment.status);
-      console.log('payment.value:', payment.value);
-      console.log('payment.totalValue:', payment.totalValue);
-      console.log('payment.amount:', payment.amount);
-      console.log('payment.description:', payment.description);
-      console.log('payment.customer:', JSON.stringify(payment.customer, null, 2));
-      console.log('payment.payer:', JSON.stringify(payment.payer, null, 2));
-      console.log('payment.subscription:', JSON.stringify(payment.subscription, null, 2));
-      console.log('payment.externalReference:', payment.externalReference);
-      console.log('payment.invoiceUrl:', payment.invoiceUrl);
-      console.log('payment.invoice:', JSON.stringify(payment.invoice, null, 2));
-      console.log('payment.billingUrl:', payment.billingUrl);
-      console.log('payment.billingType:', JSON.stringify(payment.billingType, null, 2));
-      console.log('payment.paymentLink:', payment.paymentLink);
-      console.log('payment.checkoutSession:', payment.checkoutSession);
-      console.log('payment.subscription:', payment.subscription);
-      console.log('=== TODAS AS CHAVES DO PAYMENT ===');
-      console.log('Keys:', Object.keys(payment));
-    }
-    
-    // O Asaas envia diferentes tipos de eventos
-    // Processar eventos de pagamento e assinatura
-    const paymentEvents = [
-      'PAYMENT_RECEIVED', 
-      'PAYMENT_CONFIRMED', 
-      'PAYMENT_APPROVED',
-      'PAYMENT_OVERDUE',
-      'PAYMENT_AWAITING_RISK_ANALYSIS',
-      'PAYMENT_APPROVED_BY_RISK_ANALYSIS'
-    ];
-    
-    const subscriptionEvents = [
-      'SUBSCRIPTION_CREATED',
-      'SUBSCRIPTION_UPDATED',
-      'SUBSCRIPTION_DELETED'
-    ];
-    
-    // Processar eventos de pagamento
-    if (paymentEvents.includes(event)) {
-      console.log('✅ Evento de pagamento detectado:', event);
-      
-      if (!payment) {
-        console.log('❌ Dados do pagamento não encontrados');
-        return res.status(400).json({ error: 'Dados do pagamento não encontrados' });
+  const subscription = req.body.subscription;
+  
+  console.log('📨 Webhook do Asaas recebido:', {
+    event,
+    paymentId: payment?.id,
+    subscriptionId: subscription?.id
+  });
+
+  try {
+    // Processar eventos de pagamento confirmado
+    if (event === 'PAYMENT_CONFIRMED' || event === 'PAYMENT_RECEIVED') {
+      const paymentId = payment?.id;
+      console.log('💳 Processando pagamento confirmado:', paymentId);
+
+      if (!paymentId) {
+        console.log('⚠️ ID de pagamento não encontrado na notificação');
+        return res.status(200).send('OK - Payment ID not found');
       }
-      
-      // Status do pagamento no Asaas
-      const status = payment.status; // CONFIRMED, RECEIVED, etc
-      
-      // Verificar se o pagamento está confirmado
-      if (status === 'CONFIRMED' || status === 'RECEIVED' || status === 'RECEIVED_IN_CASH_OFFLINE') {
-        console.log('✅ Pagamento confirmado, processando...');
+
+      // Buscar detalhes do pagamento no Asaas
+      let paymentDetails;
+      try {
+        const paymentRes = await axios.get(`${ASAAS_API_URL}/payments/${paymentId}`, {
+          headers: {
+            'access_token': ASAAS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+        });
+        paymentDetails = paymentRes.data;
+        console.log('✅ Detalhes do pagamento obtidos da API do Asaas');
+      } catch (error) {
+        console.error('❌ Erro ao buscar pagamento no Asaas:', error.response?.status, error.message);
+        // Se não encontrar, usar os dados do webhook
+        paymentDetails = payment;
+        console.log('⚠️ Usando dados do webhook diretamente');
+      }
+
+      console.log('💳 Dados do pagamento:', {
+        id: paymentDetails.id,
+        status: paymentDetails.status,
+        value: paymentDetails.value,
+        customer: paymentDetails.customer,
+        subscription: paymentDetails.subscription,
+        externalReference: paymentDetails.externalReference
+      });
+
+      // Se o pagamento estiver confirmado/recebido
+      if (paymentDetails.status === 'CONFIRMED' || paymentDetails.status === 'RECEIVED') {
+        // Buscar email do cliente no Asaas
+        let customerEmail = null;
         
-        // Buscar informações do pagamento - extrair email de todas as formas possíveis
-        let email = null;
-        
-        // Função auxiliar para buscar email recursivamente em um objeto
-        const findEmailInObject = (obj, depth = 0) => {
-          if (depth > 3 || !obj || typeof obj !== 'object') return null;
-          
-          // Verificar propriedades comuns de email
-          if (obj.email && typeof obj.email === 'string' && obj.email.includes('@')) {
-            return obj.email;
-          }
-          if (obj.emailAddress && typeof obj.emailAddress === 'string' && obj.emailAddress.includes('@')) {
-            return obj.emailAddress;
-          }
-          
-          // Buscar recursivamente
-          for (const key in obj) {
-            if (obj.hasOwnProperty(key) && typeof obj[key] === 'object' && obj[key] !== null) {
-              const found = findEmailInObject(obj[key], depth + 1);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-        
-        // Tentar extrair email de várias formas (estrutura do Asaas pode variar)
-        if (payment.customer) {
-          email = payment.customer.email || payment.customer.emailAddress || findEmailInObject(payment.customer);
-        }
-        if (!email && payment.billingType) {
-          email = payment.billingType.email || findEmailInObject(payment.billingType);
-        }
-        if (!email && payment.payer) {
-          email = payment.payer.email || payment.payer.emailAddress || findEmailInObject(payment.payer);
-        }
-        if (!email && payment.subscription) {
-          email = payment.subscription.customer?.email || 
-                  payment.subscription.customer?.emailAddress || 
-                  findEmailInObject(payment.subscription);
-        }
-        if (!email && payment.externalReference) {
-          if (typeof payment.externalReference === 'string') {
-            // Se for string, pode conter email ou UID
-            if (payment.externalReference.includes('@')) {
-              email = payment.externalReference;
-            }
-          } else if (payment.externalReference.email) {
-            email = payment.externalReference.email;
-          } else {
-            email = findEmailInObject(payment.externalReference);
-          }
-        }
-        
-        // Última tentativa: buscar email em todo o objeto payment
-        if (!email) {
-          email = findEmailInObject(payment);
-        }
-        
-        // Se não encontrou email mas tem customer ID, buscar na API do Asaas
-        if (!email && payment.customer && typeof payment.customer === 'string') {
-          if (!ASAAS_API_KEY) {
-            console.error('❌ API Key do Asaas não configurada! Não é possível buscar email do cliente.');
-          } else {
+        // Tentar extrair email do objeto payment
+        if (paymentDetails.customer) {
+          // Se customer é um objeto, pegar o email diretamente
+          if (typeof paymentDetails.customer === 'object' && paymentDetails.customer.email) {
+            customerEmail = paymentDetails.customer.email;
+            console.log('📧 Email encontrado no objeto customer:', customerEmail);
+          } 
+          // Se customer é um ID (string), buscar na API
+          else if (typeof paymentDetails.customer === 'string') {
             try {
-              console.log(`🔍 Buscando dados do cliente na API do Asaas...`);
-              console.log(`Customer ID: ${payment.customer}`);
-              console.log(`API URL: ${ASAAS_API_URL}/customers/${payment.customer}`);
-              console.log(`API Key (primeiros 20 chars): ${ASAAS_API_KEY.substring(0, 20)}...`);
-              
-              // Buscar dados do cliente na API do Asaas
-              // O Asaas usa access_token como header
-              const customerResponse = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
-        headers: {
+              const customerRes = await axios.get(`${ASAAS_API_URL}/customers/${paymentDetails.customer}`, {
+                headers: {
                   'access_token': ASAAS_API_KEY,
-                  'Content-Type': 'application/json'
+                  'Content-Type': 'application/json',
                 },
-                timeout: 10000 // 10 segundos de timeout
               });
-              
-              console.log('📋 Status da resposta da API:', customerResponse.status);
-              
-              if (customerResponse.data) {
-                console.log('📋 Dados do cliente recebidos da API:', JSON.stringify(customerResponse.data, null, 2));
-                
-                if (customerResponse.data.email) {
-                  email = customerResponse.data.email;
-                  console.log(`✅ Email encontrado na API do Asaas: ${email}`);
-                } else {
-                  console.log('⚠️ Cliente encontrado na API mas sem email');
-                  console.log('Dados disponíveis:', Object.keys(customerResponse.data));
-                  // Tentar outros campos que podem conter email
-                  if (customerResponse.data.emailAddress) {
-                    email = customerResponse.data.emailAddress;
-                    console.log(`✅ Email encontrado no campo emailAddress: ${email}`);
-                  }
-                }
-              } else {
-                console.log('⚠️ Resposta da API do Asaas sem dados');
-              }
-            } catch (apiError) {
-              console.error('❌ Erro ao buscar cliente na API do Asaas:', apiError.message);
-              if (apiError.response) {
-                console.error('Status:', apiError.response.status);
-                console.error('Status Text:', apiError.response.statusText);
-                console.error('Data:', JSON.stringify(apiError.response.data, null, 2));
-                console.error('Headers:', JSON.stringify(apiError.response.headers, null, 2));
-              }
-              if (apiError.request) {
-                console.error('Request config:', {
-                  url: apiError.config?.url,
-                  method: apiError.config?.method,
-                  headers: apiError.config?.headers ? Object.keys(apiError.config.headers) : 'N/A'
-                });
-              }
-              // Continuar mesmo com erro - tentar outras formas de encontrar o email
-              console.log('⚠️ Continuando sem email da API, tentando mapeamento...');
+              customerEmail = customerRes.data?.email;
+              console.log('📧 Email do cliente obtido da API do Asaas:', customerEmail);
+            } catch (error) {
+              console.warn('⚠️ Erro ao buscar email do cliente:', error.message);
             }
           }
         }
         
-        // Normalizar email se encontrado
-        if (email) {
-          email = email.toLowerCase().trim();
-          console.log(`✅ Email final extraído: ${email}`);
+        if (!customerEmail) {
+          console.log('⚠️ Email não encontrado no pagamento');
+          return res.status(200).send('OK - Email not found');
+        }
+        
+        // Normalizar email
+        customerEmail = customerEmail.toLowerCase().trim();
+        console.log(`✅ Email final para busca: ${customerEmail}`);
+        
+        // Buscar usuário por email no Firestore
+        let docRef = null;
+        let contaData = null;
+        
+        try {
+          console.log(`🔍 Buscando usuário por email: ${customerEmail}`);
+          const contasRef = db.collection('contas');
+          const snapshot = await contasRef.where('email', '==', customerEmail).get();
+          
+          if (!snapshot.empty) {
+            docRef = snapshot.docs[0].ref;
+            contaData = snapshot.docs[0].data();
+            console.log(`✅ Usuário encontrado por email: ${customerEmail}`);
+            console.log(`✅ UID da conta: ${docRef.id}`);
           } else {
-          console.log('⚠️ Email não encontrado em nenhuma estrutura do payment e não foi possível buscar na API');
-        }
-        
-        const value = payment.value || payment.totalValue || payment.amount || 0;
-        const description = payment.description || payment.subscription?.description || payment.subscription?.name || '';
-        const subscription = payment.subscription; // Se for assinatura
-        const externalReference = payment.externalReference; // Campo customizado do Asaas (pode conter UID)
-        const paymentId = payment.id; // ID do pagamento no Asaas
-        const invoiceUrl = payment.invoiceUrl || payment.invoice?.url || payment.billingUrl || ''; // URL da fatura
-        
-        // Tentar extrair UID da URL do pagamento (se foi passado como parâmetro)
-        let uidFromUrl = null;
-        if (invoiceUrl) {
-          try {
-            const urlObj = new URL(invoiceUrl);
-            uidFromUrl = urlObj.searchParams.get('uid');
-            if (uidFromUrl) {
-              console.log(`✅ UID extraído da URL: ${uidFromUrl}`);
-            }
-          } catch (urlError) {
-            console.log('Erro ao extrair UID da URL:', urlError.message);
+            console.log(`❌ Nenhum usuário encontrado com o email: ${customerEmail}`);
+            return res.status(200).send('OK - User not found');
           }
+        } catch (firestoreError) {
+          console.error('❌ Erro ao buscar usuário no Firestore:', firestoreError.message);
+          return res.status(200).send('OK - Firestore error');
         }
-        
-        // Se não encontrou na URL, tentar no externalReference
-        if (!uidFromUrl && externalReference && typeof externalReference === 'string') {
-          // Verificar se o externalReference parece ser um UID (geralmente tem 28 caracteres para Firebase)
-          if (externalReference.length >= 20 && externalReference.length <= 30) {
-            uidFromUrl = externalReference;
-            console.log(`✅ UID do externalReference: ${uidFromUrl}`);
-          }
-        }
-        
-        console.log('=== DADOS DO PAGAMENTO ===');
-        console.log('Payment ID:', paymentId);
-        console.log('Email:', email);
-        console.log('Valor:', value);
-        console.log('Descrição:', description);
-        console.log('Status:', status);
-        console.log('Subscription:', subscription);
-        console.log('External Reference:', externalReference);
-        console.log('Invoice URL:', invoiceUrl);
-        console.log('UID extraído:', uidFromUrl);
         
         // Identificar o tipo de plano pelo valor
         let tipoPlano = null;
-        const valorArredondado = Math.round(value * 100) / 100; // Arredondar para 2 casas decimais
+        const value = paymentDetails.value || paymentDetails.totalValue || paymentDetails.amount || 0;
+        const valorArredondado = Math.round(value * 100) / 100;
         
         if (PLAN_VALUES[valorArredondado]) {
           tipoPlano = PLAN_VALUES[valorArredondado];
           console.log('✅ Plano identificado pelo valor:', tipoPlano);
         } else {
           // Tentar identificar pela descrição
+          const description = paymentDetails.description || '';
           const descLower = description.toLowerCase();
           if (descLower.includes('bronze')) {
-              tipoPlano = 'bronze';
+            tipoPlano = 'bronze';
           } else if (descLower.includes('prata')) {
-              tipoPlano = 'prata';
+            tipoPlano = 'prata';
           } else if (descLower.includes('ouro')) {
-              tipoPlano = 'ouro';
+            tipoPlano = 'ouro';
           } else if (descLower.includes('diamante')) {
-              tipoPlano = 'diamante';
+            tipoPlano = 'diamante';
           }
           console.log('Plano identificado pela descrição:', tipoPlano);
         }
         
         if (!tipoPlano) {
           console.log('❌ Não foi possível identificar o tipo de plano');
-          return res.status(400).json({ error: 'Tipo de plano não identificado' });
+          return res.status(200).send('OK - Plan type not identified');
         }
         
-        // Buscar usuário: PRIORIDADE 1 = Email, PRIORIDADE 2 = UID da URL, PRIORIDADE 3 = Mapeamento
-        let docRef = null;
-        let contaData = null;
-        const contasRef = db.collection('contas');
-        
-        // PRIORIDADE 1: Buscar por email (ÚNICO MÉTODO - mais confiável)
-        if (email) {
-          const emailNormalizado = email.toLowerCase().trim();
-          console.log(`🔍 Buscando conta por email: ${emailNormalizado}`);
-          
-          // Tentar buscar com retry para lidar com erros gRPC
-          let retryCount = 0;
-          const maxRetries = 5;
-          let encontrado = false;
-          
-          while (retryCount < maxRetries && !encontrado) {
-            try {
-              // Tentativa 1: Busca direta por email
-              const snapshot = await contasRef.where('email', '==', emailNormalizado).get();
-              
-              if (!snapshot.empty) {
-                docRef = snapshot.docs[0].ref;
-                contaData = snapshot.docs[0].data();
-                console.log(`✅ Conta encontrada por email: ${emailNormalizado}`);
-                console.log(`✅ UID da conta: ${docRef.id}`);
-                console.log(`✅ Dados da conta:`, JSON.stringify(contaData, null, 2));
-                encontrado = true;
-                break;
-              }
-              
-              // Tentativa 2: Buscar todas as contas e filtrar manualmente (case-insensitive)
-              console.log(`⚠️ Nenhuma conta encontrada com o email exato. Buscando todas as contas...`);
-              const allAccounts = await contasRef.limit(500).get();
-              
-              console.log(`📊 Total de contas verificadas: ${allAccounts.size}`);
-              
-              for (const doc of allAccounts.docs) {
-                const data = doc.data();
-                const emailConta = data.email ? data.email.toLowerCase().trim() : null;
-                
-                if (emailConta === emailNormalizado) {
-                  docRef = doc.ref;
-                  contaData = data;
-                  console.log(`✅ Conta encontrada por email (case-insensitive): ${emailNormalizado}`);
-                  console.log(`✅ UID da conta: ${docRef.id}`);
-                  encontrado = true;
-                  break;
-                }
-              }
-              
-              if (encontrado) {
-                break;
-              }
-              
-              // Se não encontrou, tentar novamente
-              retryCount++;
-              if (retryCount < maxRetries) {
-                const waitTime = 1000 * retryCount; // 1s, 2s, 3s, 4s
-                console.log(`⚠️ Conta não encontrada. Tentativa ${retryCount + 1}/${maxRetries} em ${waitTime}ms...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-              }
-              
-            } catch (emailError) {
-              retryCount++;
-              console.error(`❌ Erro ao buscar por email (tentativa ${retryCount}/${maxRetries}):`, emailError.message);
-              
-              // Se for erro gRPC, tentar novamente
-              if (emailError.message.includes('gRPC') || emailError.message.includes('DECODER')) {
-                if (retryCount < maxRetries) {
-                  const waitTime = 2000 * retryCount; // 2s, 4s, 6s, 8s
-                  console.log(`⚠️ Erro gRPC detectado. Tentando novamente em ${waitTime}ms...`);
-                  await new Promise(resolve => setTimeout(resolve, waitTime));
-                } else {
-                  console.error('❌ Todas as tentativas falharam. Stack trace:', emailError.stack);
-                }
-              } else {
-                // Para outros erros, não tentar novamente
-                console.error('❌ Erro não gRPC. Stack trace:', emailError.stack);
-                break;
-              }
-            }
-          }
-          
-          if (!encontrado) {
-            console.log(`❌ Nenhuma conta encontrada com o email: ${emailNormalizado} após ${retryCount} tentativa(s)`);
-          }
-        } else {
-          console.log('⚠️ Email não encontrado no pagamento - não é possível buscar a conta');
-        }
-        
-        if (!docRef) {
-          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID da URL: ${uidFromUrl}, ExternalReference: ${externalReference}`);
-          // Retornar sucesso mesmo assim para não gerar erro no Asaas
-          return res.status(200).json({ 
-            message: 'Conta não encontrada, mas webhook processado',
-            email: email,
-            uidFromUrl: uidFromUrl,
-            externalReference: externalReference
-          });
-        }
-        
-        console.log(`✅ Conta encontrada: ${docRef.id}`);
-        
-        // Calcular data de término e dias premium (assumindo mensal por padrão)
+        // Calcular datas
         const hoje = new Date();
-        const dataTerminoCalc = new Date(hoje);
-        dataTerminoCalc.setMonth(hoje.getMonth() + 1);
-        const dataTermino = dataTerminoCalc.toISOString();
+        const dataPagamento = new Date(paymentDetails.paymentDate || paymentDetails.dateCreated || hoje);
+        const dataFinal = new Date(hoje);
+        dataFinal.setMonth(dataFinal.getMonth() + 1); // 1 mês a partir de hoje
         const diasPremium = 30; // Mensal
         
-        console.log('Data de término calculada:', dataTermino);
-          console.log('Dias premium:', diasPremium);
-          
         // Calcular data de expiração para o Firestore
-          const dataExpiracao = new Date(dataTermino);
-          const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
-          
-          // Definir limite de colaboradores por plano
-          let maxColaborador = 1;
-          if (tipoPlano === 'bronze') {
-            maxColaborador = 2;
-          } else if (tipoPlano === 'prata') {
-            maxColaborador = 3;
-          } else if (tipoPlano === 'ouro') {
-            maxColaborador = 4;
-          } else if (tipoPlano === 'diamante') {
-            maxColaborador = 999999; // Sem limite prático
-          }
+        const dataExpiracao = new Date(dataFinal);
+        const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
+        
+        // Definir limite de colaboradores por plano
+        let maxColaborador = 1;
+        if (tipoPlano === 'bronze') {
+          maxColaborador = 2;
+        } else if (tipoPlano === 'prata') {
+          maxColaborador = 3;
+        } else if (tipoPlano === 'ouro') {
+          maxColaborador = 4;
+        } else if (tipoPlano === 'diamante') {
+          maxColaborador = 999999; // Sem limite prático
+        }
 
         // Preparar atualizações da conta
         const updates = {
-            premium: true,
-            premiumExpiresAt: premiumExpiresAt,
-            premiumDaysLeft: diasPremium,
-            tipoPlano: tipoPlano,
-            dias_plano_pago: diasPremium,
-            dias_plano_pago_restante: diasPremium,
-            data_termino_plano_premium: dataTermino,
-            status_pagamento: 'pago',
-          billing_period: 'monthly', // Assumindo mensal
+          premium: true,
+          premiumExpiresAt: premiumExpiresAt,
+          premiumDaysLeft: diasPremium,
+          tipoPlano: tipoPlano,
+          dias_plano_pago: diasPremium,
+          dias_plano_pago_restante: diasPremium,
+          data_termino_plano_premium: dataFinal.toISOString(),
+          status_pagamento: 'pago',
+          billing_period: 'monthly',
           max_colaborador: maxColaborador,
           ultima_atualizacao_plano: new Date().toISOString()
         };
         
         console.log('=== ATUALIZANDO CONTA DO USUÁRIO ===');
         console.log('UID:', docRef.id);
-        console.log('Email:', email);
+        console.log('Email:', customerEmail);
         console.log('Tipo de Plano:', tipoPlano);
         console.log('Dias Premium:', diasPremium);
-        console.log('Data de Término:', dataTermino);
+        console.log('Data de Término:', dataFinal.toISOString());
         console.log('Max Colaboradores:', maxColaborador);
-        console.log('Updates:', JSON.stringify(updates, null, 2));
         
         // Atualizar conta do usuário
         try {
           await docRef.update(updates);
-          console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email} (UID: ${docRef.id})`);
+          console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${customerEmail} (UID: ${docRef.id})`);
         } catch (updateError) {
           console.error('❌ Erro ao atualizar conta:', updateError.message);
           console.error('Stack trace:', updateError.stack);
-          throw updateError; // Re-throw para ser capturado pelo catch externo
+          throw updateError;
         }
         
-        // Ativar colaboradores para planos que permitem (Bronze, Prata, Ouro, Diamante)
-        // Bronze também permite colaboradores (2 no total)
-        if ((tipoPlano === 'bronze' || tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
+        // Ativar colaboradores para planos que permitem
+        if ((tipoPlano === 'bronze' || tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData?.nomeEstabelecimento) {
           try {
             console.log(`🔍 Ativando colaboradores para plano ${tipoPlano}...`);
             const colaboradoresRef = db.collection('colaboradores');
             const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
             
             if (!colabSnap.empty) {
-            const batchColab = db.batch();
-            colabSnap.forEach(colabDoc => {
-              batchColab.update(colabDoc.ref, { ativo: true });
-            });
-            await batchColab.commit();
+              const batchColab = db.batch();
+              colabSnap.forEach(colabDoc => {
+                batchColab.update(colabDoc.ref, { ativo: true });
+              });
+              await batchColab.commit();
               console.log(`✅ ${colabSnap.size} colaborador(es) ativado(s) para plano ${tipoPlano}`);
             } else {
               console.log(`ℹ️ Nenhum colaborador encontrado para ativar`);
@@ -728,49 +496,27 @@ app.post('/api/asaas-webhook', async (req, res) => {
           }
         }
         
-        // Limpar campo ultimo_paymentLinkId após processamento (opcional)
-        // Isso pode ser útil para evitar confusão em pagamentos futuros
-        try {
-          await docRef.update({
-            ultimo_paymentLinkId: admin.firestore.FieldValue.delete(),
-            plano_processado_em: new Date().toISOString()
-          });
-          console.log('✅ Campo ultimo_paymentLinkId limpo após processamento');
-        } catch (cleanupError) {
-          console.log('⚠️ Erro ao limpar ultimo_paymentLinkId (não crítico):', cleanupError.message);
-        }
-        
         return res.status(200).json({ 
           success: true,
           message: 'Pagamento processado com sucesso',
-          email: email,
+          email: customerEmail,
           uid: docRef.id,
           tipoPlano: tipoPlano,
           paymentId: paymentId
         });
-  } else {
-        console.log(`⚠️ Pagamento não confirmado. Status: ${status}`);
-        return res.status(200).json({ 
-          message: 'Pagamento recebido mas não confirmado ainda',
-          status: status,
-          event: event
-        });
+      } else {
+        console.log(`⚠️ Pagamento não confirmado. Status: ${paymentDetails.status}`);
+        return res.status(200).send('OK - Payment not confirmed');
       }
-    } 
-    // Processar eventos de assinatura (se necessário no futuro)
-    else if (subscriptionEvents.includes(event)) {
-      console.log(`ℹ️ Evento de assinatura recebido: ${event}`);
-      return res.status(200).json({ 
-        message: 'Evento de assinatura recebido',
-        event: event
-      });
-    } 
+    }
+    // Processar eventos de assinatura cancelada
+    else if (event === 'SUBSCRIPTION_DELETED' || event === 'SUBSCRIPTION_CANCELLED') {
+      console.log('❌ Processando cancelamento de assinatura:', subscription?.id);
+      return res.status(200).send('OK - Subscription cancelled');
+    }
     else {
       console.log(`ℹ️ Evento não processado: ${event}`);
-      return res.status(200).json({ 
-        message: 'Evento recebido mas não processado',
-        event: event
-      });
+      return res.status(200).send('OK - Event not processed');
     }
   } catch (err) {
     console.error('❌ Erro no webhook Asaas:', err.message);
@@ -1343,6 +1089,324 @@ app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
       type: error.name
     });
   }
+});
+
+// Endpoint para decrementar dias automaticamente (cron job)
+app.get('/api/cron/decrementar-dias', async (req, res) => {
+  const { token } = req.query;
+  const authHeader = req.headers.authorization;
+  
+  // Verificar token de segurança
+  const expectedToken = process.env.CRON_TOKEN || '123456';
+  const providedToken = token || (authHeader && authHeader.replace('Bearer ', ''));
+  
+  if (providedToken !== expectedToken) {
+    console.log('Tentativa de acesso não autorizada ao endpoint de cron');
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    console.log('Iniciando decremento automático de dias...');
+    
+    // Abordagem mais robusta: buscar documentos em lotes menores
+    let processedCount = 0;
+    let decrementedCount = 0;
+    let errorCount = 0;
+    let lastDoc = null;
+    const batchSize = 10; // Processar 10 documentos por vez
+    
+    while (true) {
+      try {
+        // Buscar lote de documentos
+        let query = db.collection('contas').where('premium', '==', true).limit(batchSize);
+        
+        if (lastDoc) {
+          query = query.startAfter(lastDoc);
+        }
+        
+        const snapshot = await query.get();
+        
+        if (snapshot.empty) {
+          console.log('Nenhum documento restante para processar');
+          break;
+        }
+        
+        // Processar cada documento individualmente
+        for (const doc of snapshot.docs) {
+          try {
+            const data = doc.data();
+            processedCount++;
+            
+            let needsUpdate = false;
+            const updates = {};
+            
+            // Verificar plano grátis
+            if (data.tipoPlano === 'gratis' && data.dias_restantes_teste_gratis > 0) {
+              const novosDias = data.dias_restantes_teste_gratis - 1;
+              
+              if (novosDias <= 0) {
+                // Plano expirou
+                updates.premium = false;
+                updates.dias_restantes_teste_gratis = 0;
+                updates.tipoPlano = 'nenhum';
+                console.log(`Conta ${doc.id}: Plano grátis expirou`);
+              } else {
+                // Decrementar dias
+                updates.dias_restantes_teste_gratis = novosDias;
+                console.log(`Conta ${doc.id}: Decrementado dias grátis ${data.dias_restantes_teste_gratis} -> ${novosDias}`);
+              }
+              needsUpdate = true;
+              decrementedCount++;
+            }
+            // Verificar planos pagos (bronze, prata, ouro, diamante)
+            else if ((data.tipoPlano === 'bronze' || data.tipoPlano === 'prata' || data.tipoPlano === 'ouro' || data.tipoPlano === 'diamante') && data.dias_plano_pago_restante > 0) {
+              const novosDias = data.dias_plano_pago_restante - 1;
+              
+              if (novosDias <= 0) {
+                // Plano expirou - desativar premium
+                updates.premium = false;
+                updates.dias_plano_pago_restante = 0;
+                updates.tipoPlano = 'nenhum';
+                updates.data_termino_plano_premium = null;
+                updates.status_pagamento = 'expirado';
+                console.log(`Conta ${doc.id}: Plano ${data.tipoPlano} expirou`);
+              } else {
+                // Decrementar dias
+                updates.dias_plano_pago_restante = novosDias;
+                console.log(`Conta ${doc.id}: Decrementado dias ${data.tipoPlano} ${data.dias_plano_pago_restante} -> ${novosDias}`);
+              }
+              needsUpdate = true;
+              decrementedCount++;
+            }
+            
+            // Atualizar documento se necessário
+            if (needsUpdate) {
+              // Usar updateDoc com retry individual
+              let updateRetryCount = 0;
+              const maxUpdateRetries = 3;
+              
+              while (updateRetryCount < maxUpdateRetries) {
+                try {
+                  await doc.ref.update(updates);
+                  console.log(`Documento ${doc.id} atualizado com sucesso`);
+                  break;
+                } catch (updateError) {
+                  updateRetryCount++;
+                  console.log(`Tentativa ${updateRetryCount} de atualizar ${doc.id} falhou:`, updateError.message);
+                  
+                  if (updateRetryCount >= maxUpdateRetries) {
+                    console.error(`Falha ao atualizar ${doc.id} após ${maxUpdateRetries} tentativas`);
+                    errorCount++;
+                  } else {
+                    // Esperar antes de tentar novamente
+                    await new Promise(resolve => setTimeout(resolve, 1000 * updateRetryCount));
+                  }
+                }
+              }
+            }
+            
+          } catch (docError) {
+            errorCount++;
+            console.error(`Erro ao processar documento ${doc.id}:`, docError.message);
+            // Continuar com o próximo documento
+          }
+        }
+        
+        // Atualizar lastDoc para a próxima iteração
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        
+        // Pequena pausa entre lotes para evitar sobrecarga
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (batchError) {
+        console.error('Erro ao processar lote:', batchError.message);
+        errorCount++;
+        
+        // Se o erro for gRPC, tentar novamente após uma pausa maior
+        if (batchError.message.includes('gRPC') || batchError.message.includes('DECODER')) {
+          console.log('Erro gRPC detectado, aguardando 5 segundos antes de tentar novamente...');
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          // Para outros erros, continuar
+          break;
+        }
+      }
+    }
+
+    const response = {
+      message: 'Decremento automático concluído',
+      processed: processedCount,
+      decremented: decrementedCount,
+      errors: errorCount,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Resposta do cron job:', response);
+    return res.json(response);
+
+  } catch (error) {
+    console.error('Erro no cron job de decremento:', error);
+    return res.status(500).json({ 
+      error: 'Erro interno no servidor',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Endpoint para verificar e desativar planos expirados baseado na data
+app.post('/api/verificar-planos-expirados', async (req, res) => {
+  try {
+    console.log('=== VERIFICANDO PLANOS EXPIRADOS ===');
+    
+    const contasRef = db.collection('contas');
+    const snapshot = await contasRef.where('premium', '==', true).get();
+    
+    let planosExpirados = 0;
+    const hoje = new Date();
+    
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const dataTermino = data.data_termino_plano_premium;
+      
+      if (dataTermino) {
+        const dataTerminoObj = new Date(dataTermino);
+        
+        // Se a data de término já passou, desativar premium
+        if (hoje >= dataTerminoObj) {
+          await doc.ref.update({
+            premium: false,
+            data_termino_plano_premium: null,
+            dias_plano_pago_restante: 0,
+            dias_restantes_teste_gratis: 0,
+            max_colaborador: 1,
+            status_pagamento: 'expirado'
+          });
+          // Desativar colaboradores extras ao expirar
+          const nomeEstabelecimento = data.nomeEstabelecimento;
+          const tipoPlanoAnterior = data.tipoPlano;
+          if (nomeEstabelecimento) {
+            const colaboradoresRef = db.collection('colaboradores');
+            const colabSnap = await colaboradoresRef.where('estabelecimento', '==', nomeEstabelecimento).get();
+            const batchColab = db.batch();
+            colabSnap.forEach(colabDoc => {
+              batchColab.update(colabDoc.ref, { ativo: false });
+            });
+            await batchColab.commit();
+          }
+          
+          planosExpirados++;
+          console.log(`Plano expirado para ${doc.id}: ${data.nomeEstabelecimento}`);
+        }
+      }
+    }
+    
+    const response = {
+      message: 'Verificação de planos expirados concluída',
+      planosExpirados: planosExpirados,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('Resposta da verificação:', response);
+    return res.json(response);
+    
+  } catch (error) {
+    console.error('Erro na verificação de planos expirados:', error);
+    return res.status(500).json({ 
+      error: 'Erro interno no servidor',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Endpoint para inicializar conta com valores padrão, incluindo max_colaborador = 1
+app.post('/api/init-account', async (req, res) => {
+  try {
+    const { uid, email, nomeEstabelecimento } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: 'UID é obrigatório' });
+    }
+
+    const docRef = db.collection('contas').doc(uid);
+    await docRef.set({
+      email: email || null,
+      nomeEstabelecimento: nomeEstabelecimento || null,
+      premium: false,
+      tipoPlano: 'nenhum',
+      dias_plano_pago: 0,
+      dias_plano_pago_restante: 0,
+      dias_restantes_teste_gratis: 0,
+      avaliacao_gratis: false,
+      data_termino_plano_premium: null,
+      max_colaborador: 1,
+      createdAt: new Date().toISOString()
+    }, { merge: true });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao inicializar conta:', error.message);
+    return res.status(500).json({ error: 'Erro ao inicializar conta' });
+  }
+});
+
+// Endpoint de teste para verificar configurações
+app.get('/api/test-config', (req, res) => {
+  console.log('=== TESTE DE CONFIGURAÇÕES ===');
+  
+  const configs = {
+    cloudinary: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'CONFIGURADO' : 'NÃO CONFIGURADO'
+    },
+    firebase: {
+      project_id: process.env.FIREBASE_PROJECT_ID ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      client_email: process.env.FIREBASE_CLIENT_EMAIL ? 'CONFIGURADO' : 'NÃO CONFIGURADO',
+      private_key: process.env.FIREBASE_PRIVATE_KEY ? 'CONFIGURADO' : 'NÃO CONFIGURADO'
+    },
+    firestore: {
+      initialized: db ? 'SIM' : 'NÃO'
+    }
+  };
+  
+  console.log('Configurações:', configs);
+  
+  res.json({
+    message: 'Teste de configurações',
+    timestamp: new Date().toISOString(),
+    configs: configs
+  });
+});
+
+// Endpoint de teste para CORS
+app.get('/api/test-cors', (req, res) => {
+  console.log('Teste CORS - Headers recebidos:', req.headers);
+  console.log('Teste CORS - Origin:', req.headers.origin);
+  console.log('Teste CORS - Method:', req.method);
+  
+  res.json({ 
+    message: 'CORS está funcionando!',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin,
+    method: req.method,
+    headers: req.headers
+  });
+});
+
+// Endpoint de teste para POST
+app.post('/api/test-cors-post', (req, res) => {
+  console.log('Teste CORS POST - Headers recebidos:', req.headers);
+  console.log('Teste CORS POST - Origin:', req.headers.origin);
+  console.log('Teste CORS POST - Body:', req.body);
+  
+  res.json({ 
+    message: 'CORS POST está funcionando!',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin,
+    method: req.method,
+    body: req.body
+  });
 });
 
 // Endpoint para testar decremento manualmente (apenas para desenvolvimento)
