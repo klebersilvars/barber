@@ -113,7 +113,7 @@ if (ASAAS_API_KEY && ASAAS_API_KEY !== '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NW
 
 // Configuração dos links dos planos Asaas
 const ASAAS_PLAN_LINKS = {
-  teste: 'https://sandbox.asaas.com/c/937pqka6g36wueuw',
+  teste: 'https://www.asaas.com/c/3tq79ax6gm22ib6g',
   bronze: 'https://www.asaas.com/c/i0ac1rrdxjlo8hsd',
   prata: 'https://www.asaas.com/c/sv8skxvst83ze71k',
   ouro: 'https://www.asaas.com/c/yv4j5eg7i3up6g2f',
