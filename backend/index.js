@@ -84,7 +84,7 @@ const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY
 const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
-if (ASAAS_API_KEY && ASAAS_API_KEY !== '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIyYjEyMzcxLTcyZDgtNDhhNC04NGJjLTU2ZjY1NDQxMTNiZTo6JGFhY2hfZWZhMzMzNjMtY2E1NS00Njc5LWE5MWQtODhlNGViN2I1NjNj') {
+if (ASAAS_API_KEY && ASAAS_API_KEY.startsWith('$aact_')) {
   console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
 } else {
   console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
