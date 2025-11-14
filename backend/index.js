@@ -126,9 +126,16 @@ const PLAN_VALUES = {
   1823.00: { tipo: 'diamante', periodo: 'yearly' }
 };
 
+// Função para obter a URL base (sempre usa produção para Asaas)
+const getBaseUrl = () => {
+  // Sempre retornar URL de produção para compatibilidade com Asaas
+  // O Asaas não aceita localhost, então sempre usamos a URL de produção
+  return 'https://barber-backend-qlt6.onrender.com';
+};
+
 // Endpoint para obter a URL do webhook (para configurar no Asaas)
 app.get('/api/asaas/webhook-url', (req, res) => {
-  const baseUrl = process.env.BACKEND_URL || 'https://barber-backend-qlt6.onrender.com';
+  const baseUrl = getBaseUrl();
   const webhookUrl = `${baseUrl}/api/asaas-webhook`;
   
   res.json({
@@ -201,7 +208,9 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
     // Adicionar o UID e email como parâmetros na URL
     // O Asaas pode receber parâmetros customizados via query string
     // O email é CRÍTICO para o webhook encontrar o usuário
-    const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}&email=${encodeURIComponent(email || '')}`;
+    // IMPORTANTE: O Asaas não aceita localhost, então sempre usamos a URL de produção
+    const baseUrl = getBaseUrl();
+    const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}&email=${encodeURIComponent(email || '')}&returnUrl=${encodeURIComponent(`https://trezu.com.br`)}`;
     
     // Salvar mapeamento UID -> Email -> Plano no Firestore para uso no webhook
     // CRÍTICO: Este mapeamento é essencial para o webhook encontrar o usuário
