@@ -153,6 +153,55 @@ app.get('/api/asaas/planos', (req, res) => {
   });
 });
 
+// Endpoint para gerar link de pagamento com UID (substitui o create-preference do Mercado Pago)
+app.post('/api/asaas/get-payment-link', async (req, res) => {
+  try {
+    const { uid, planId, email } = req.body;
+    
+    if (!uid) {
+      return res.status(400).json({ error: 'UID é obrigatório' });
+    }
+    
+    if (!planId || !ASAAS_PLAN_LINKS[planId]) {
+      return res.status(400).json({ error: 'Plano inválido. Use: bronze, prata, ouro ou diamante' });
+    }
+    
+    // Obter o link do plano
+    const planLink = ASAAS_PLAN_LINKS[planId];
+    
+    // Adicionar o UID como parâmetro na URL
+    // O Asaas pode receber parâmetros customizados via query string
+    const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}`;
+    
+    // Salvar mapeamento UID -> Plano no Firestore para uso no webhook
+    // Isso garante que mesmo se o Asaas não retornar o UID, possamos buscar pelo email
+    try {
+      const mappingRef = db.collection('asaas_payment_mappings').doc();
+      await mappingRef.set({
+        uid: uid,
+        planId: planId,
+        email: email || null,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Expira em 24 horas
+      });
+      console.log(`✅ Mapeamento salvo: UID ${uid} -> Plano ${planId}`);
+    } catch (mappingError) {
+      console.error('Erro ao salvar mapeamento:', mappingError);
+      // Continuar mesmo com erro no mapeamento
+    }
+    
+    return res.json({
+      payment_url: paymentUrl,
+      planId: planId,
+      uid: uid
+    });
+    
+  } catch (error) {
+    console.error('Erro ao gerar link de pagamento:', error);
+    return res.status(500).json({ error: 'Erro ao gerar link de pagamento' });
+  }
+});
+
 // Webhook Asaas - recebe notificações de pagamento
 app.post('/api/asaas-webhook', async (req, res) => {
   try {
@@ -223,42 +272,85 @@ app.post('/api/asaas-webhook', async (req, res) => {
           return res.status(400).json({ error: 'Tipo de plano não identificado' });
         }
         
-        // Buscar usuário pelo UID (se fornecido no externalReference) ou pelo email
+        // Buscar usuário pelo UID (do mapeamento ou externalReference) ou pelo email
         let docRef = null;
         let contaData = null;
         const contasRef = db.collection('contas');
+        let foundUid = null;
         
-        // Tentar buscar por UID primeiro (se fornecido no externalReference)
-        if (externalReference && typeof externalReference === 'string') {
+        // 1. Tentar buscar UID do mapeamento salvo (usando email)
+        if (email) {
           try {
-            const uidDoc = await contasRef.doc(externalReference).get();
+            // Buscar mapeamentos recentes (últimas 24 horas) por email
+            // Usar apenas uma query simples para evitar problemas de índice
+            const mappingsRef = db.collection('asaas_payment_mappings');
+            const mappingsSnapshot = await mappingsRef
+              .where('email', '==', email)
+              .limit(10)
+              .get();
+            
+            if (!mappingsSnapshot.empty) {
+              // Filtrar por expiresAt manualmente para evitar índice composto
+              const now = new Date().toISOString();
+              const validMappings = mappingsSnapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.expiresAt && data.expiresAt > now;
+              });
+              
+              if (validMappings.length > 0) {
+                // Pegar o mais recente
+                const mapping = validMappings[0].data();
+                foundUid = mapping.uid;
+                console.log(`✅ UID encontrado no mapeamento: ${foundUid}`);
+              }
+            }
+          } catch (mappingError) {
+            console.log('Erro ao buscar mapeamento:', mappingError.message);
+            // Continuar mesmo com erro
+          }
+        }
+        
+        // 2. Tentar buscar por UID do externalReference (se fornecido)
+        if (!foundUid && externalReference && typeof externalReference === 'string') {
+          foundUid = externalReference;
+          console.log(`✅ UID do externalReference: ${foundUid}`);
+        }
+        
+        // 3. Buscar conta por UID (se encontrado)
+        if (foundUid) {
+          try {
+            const uidDoc = await contasRef.doc(foundUid).get();
             if (uidDoc.exists) {
               docRef = uidDoc.ref;
               contaData = uidDoc.data();
-              console.log(`✅ Conta encontrada por UID: ${externalReference}`);
+              console.log(`✅ Conta encontrada por UID: ${foundUid}`);
             }
           } catch (uidError) {
             console.log('Erro ao buscar por UID:', uidError.message);
           }
         }
         
-        // Se não encontrou por UID, tentar por email
+        // 4. Se não encontrou por UID, tentar por email
         if (!docRef && email) {
-          const snapshot = await contasRef.where('email', '==', email).get();
-          if (!snapshot.empty) {
-            docRef = snapshot.docs[0].ref;
-            contaData = snapshot.docs[0].data();
-            console.log(`✅ Conta encontrada por email: ${email}`);
+          try {
+            const snapshot = await contasRef.where('email', '==', email).get();
+            if (!snapshot.empty) {
+              docRef = snapshot.docs[0].ref;
+              contaData = snapshot.docs[0].data();
+              console.log(`✅ Conta encontrada por email: ${email}`);
+            }
+          } catch (emailError) {
+            console.log('Erro ao buscar por email:', emailError.message);
           }
         }
         
         if (!docRef) {
-          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID: ${externalReference}`);
+          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID: ${foundUid || externalReference}`);
           // Retornar sucesso mesmo assim para não gerar erro no Asaas
           return res.status(200).json({ 
             message: 'Conta não encontrada, mas webhook processado',
             email: email,
-            externalReference: externalReference
+            uid: foundUid || externalReference
           });
         }
         
@@ -316,6 +408,26 @@ app.post('/api/asaas-webhook', async (req, res) => {
           });
           await batchColab.commit();
           console.log(`✅ Colaboradores ativados para plano ${tipoPlano}`);
+        }
+        
+        // Limpar mapeamento usado (opcional, para manter o banco limpo)
+        if (email) {
+          try {
+            const mappingsRef = db.collection('asaas_payment_mappings');
+            const mappingsSnapshot = await mappingsRef
+              .where('email', '==', email)
+              .where('uid', '==', docRef.id)
+              .get();
+            
+            const batch = db.batch();
+            mappingsSnapshot.forEach(doc => {
+              batch.delete(doc.ref);
+            });
+            await batch.commit();
+            console.log('✅ Mapeamentos limpos');
+          } catch (cleanupError) {
+            console.log('Erro ao limpar mapeamentos:', cleanupError.message);
+          }
         }
         
         return res.status(200).json({ 
@@ -1315,10 +1427,37 @@ app.post('/api/whatsapp/get-status', async (req, res) => {
     
     console.log(`Buscando status para UID: ${uid}`);
     
-    const contasRef = db.collection('contas').doc(uid);
-    const doc = await contasRef.get();
+    // Tentar buscar com retry em caso de erro do Firestore
+    let doc = null;
+    let retryCount = 0;
+    const maxRetries = 3;
     
-    if (!doc.exists) {
+    while (retryCount < maxRetries && !doc) {
+      try {
+        const contasRef = db.collection('contas').doc(uid);
+        doc = await contasRef.get();
+        break; // Sucesso, sair do loop
+      } catch (firestoreError) {
+        retryCount++;
+        console.log(`Tentativa ${retryCount} de buscar no Firestore falhou:`, firestoreError.message);
+        
+        if (retryCount >= maxRetries) {
+          // Se todas as tentativas falharam, retornar erro mas não quebrar
+          console.error('❌ Todas as tentativas de buscar no Firestore falharam');
+          return res.status(200).json({
+            success: false,
+            error: 'Erro ao conectar com o banco de dados',
+            status_device: 'Unknown',
+            message: 'Não foi possível verificar o status. Tente novamente mais tarde.'
+          });
+        }
+        
+        // Esperar antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+    
+    if (!doc || !doc.exists) {
       console.log('❌ Conta não encontrada no Firestore');
       return res.status(404).json({
         success: false,
@@ -1345,8 +1484,11 @@ app.post('/api/whatsapp/get-status', async (req, res) => {
   } catch (error) {
     console.error('❌ Erro ao buscar status no Firestore:', error);
     
-    return res.status(500).json({
-      error: 'Erro interno do servidor',
+    // Retornar 200 para não quebrar o frontend, mas indicar erro
+    return res.status(200).json({
+      success: false,
+      error: 'Erro ao buscar status',
+      status_device: 'Unknown',
       details: error.message
     });
   }

@@ -238,13 +238,15 @@ export default function Plano() {
   // URL do backend no Render
   const BACKEND_URL = "https://barber-backend-qlt6.onrender.com"; // Troque pelo seu domínio do Render
 
-  // Função para iniciar o pagamento Mercado Pago
+  // Função para iniciar o pagamento Asaas
   const handleCheckout = async (plan: any) => {
     try {
       setPaymentMessage("");
       setLoadingPayment(true);
       const userEmail = auth.currentUser?.email;
-      if (!userEmail) {
+      const userUid = auth.currentUser?.uid;
+      
+      if (!userEmail || !userUid) {
         setPaymentMessage("Você precisa estar logado para assinar um plano. Faça login e tente novamente.");
         setLoadingPayment(false);
         return;
@@ -254,28 +256,25 @@ export default function Plano() {
       const dataTermino = calcularDataTerminoPorPeriodo(billingPeriod);
       setDataTerminoPlano(dataTermino);
 
-      setPaymentMessage("Redirecionando para o Mercado Pago. Aguarde...");
-      const response = await fetch(`${BACKEND_URL}/api/create-preference`, {
+      setPaymentMessage("Redirecionando para o pagamento. Aguarde...");
+      const response = await fetch(`${BACKEND_URL}/api/asaas/get-payment-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planId: plan.id,
-          planName: plan.name,
-          price: getTotalPriceByPeriod(plan, billingPeriod),
-          email: userEmail,
-          dataTermino: dataTermino, // Enviar data de término para o backend
-          billingPeriod: billingPeriod // Enviar período para o backend (mensal/trimestral/anual)
+          uid: userUid,
+          planId: plan.id, // bronze, prata, ouro ou diamante
+          email: userEmail
         }),
       });
       const data = await response.json();
-      if (data.init_point) {
+      if (data.payment_url) {
         setPaymentMessage("");
-        window.location.href = data.init_point;
+        window.location.href = data.payment_url;
       } else {
         setPaymentMessage("Não foi possível iniciar o pagamento. Tente novamente em instantes ou entre em contato com o suporte.");
       }
     } catch (err) {
-      setPaymentMessage("Erro ao conectar com o Mercado Pago. Verifique sua conexão ou tente novamente mais tarde.");
+      setPaymentMessage("Erro ao conectar com o sistema de pagamento. Verifique sua conexão ou tente novamente mais tarde.");
     } finally {
       setLoadingPayment(false);
     }
