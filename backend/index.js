@@ -101,7 +101,7 @@ const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
 // Configuração da API do Asaas
 // Configure sua API Key do Asaas aqui
-const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjdmNDg2OTA2LTEwMTMtNGQ5Ni04M2I5LTdhMWJjNGJjMDMxZTo6JGFhY2hfNTE4YzU3ZWEtZjY0Yi00N2E3LWJlMDQtZjQyYzk2OGY5MTg1'; // Substitua pela sua API Key do Asaas
+const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIzYTcxM2NiLTIzZDMtNDU3Zi04ZGEzLTcyNTM0YTY3NDNlOTo6JGFhY2hfYWYyOTAyNmUtYWExMC00MzEwLThlNDQtMzFlY2JlY2NmM2Mw'; // Substitua pela sua API Key do Asaas
 const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
