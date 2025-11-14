@@ -219,15 +219,52 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
 app.post('/api/asaas-webhook', async (req, res) => {
   try {
     console.log('=== WEBHOOK ASAAS RECEBIDO ===');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('Body completo:', JSON.stringify(req.body, null, 2));
     
     const event = req.body.event;
     const payment = req.body.payment;
     
+    // Log detalhado da estrutura do payment
+    if (payment) {
+      console.log('=== ESTRUTURA DO PAYMENT ===');
+      console.log('payment.id:', payment.id);
+      console.log('payment.status:', payment.status);
+      console.log('payment.value:', payment.value);
+      console.log('payment.totalValue:', payment.totalValue);
+      console.log('payment.amount:', payment.amount);
+      console.log('payment.description:', payment.description);
+      console.log('payment.customer:', JSON.stringify(payment.customer, null, 2));
+      console.log('payment.payer:', JSON.stringify(payment.payer, null, 2));
+      console.log('payment.subscription:', JSON.stringify(payment.subscription, null, 2));
+      console.log('payment.externalReference:', payment.externalReference);
+      console.log('payment.invoiceUrl:', payment.invoiceUrl);
+      console.log('payment.invoice:', JSON.stringify(payment.invoice, null, 2));
+      console.log('payment.billingUrl:', payment.billingUrl);
+      console.log('payment.billingType:', JSON.stringify(payment.billingType, null, 2));
+    }
+    
     // O Asaas envia diferentes tipos de eventos
-    // Vamos processar apenas quando o pagamento for confirmado/recebido
-    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED' || event === 'PAYMENT_APPROVED') {
-      console.log('✅ Evento de pagamento confirmado:', event);
+    // Processar eventos de pagamento e assinatura
+    const paymentEvents = [
+      'PAYMENT_RECEIVED', 
+      'PAYMENT_CONFIRMED', 
+      'PAYMENT_APPROVED',
+      'PAYMENT_OVERDUE',
+      'PAYMENT_AWAITING_RISK_ANALYSIS',
+      'PAYMENT_APPROVED_BY_RISK_ANALYSIS'
+    ];
+    
+    const subscriptionEvents = [
+      'SUBSCRIPTION_CREATED',
+      'SUBSCRIPTION_UPDATED',
+      'SUBSCRIPTION_DELETED'
+    ];
+    
+    // Processar eventos de pagamento
+    if (paymentEvents.includes(event)) {
+      console.log('✅ Evento de pagamento detectado:', event);
       
       if (!payment) {
         console.log('❌ Dados do pagamento não encontrados');
@@ -241,14 +278,78 @@ app.post('/api/asaas-webhook', async (req, res) => {
       if (status === 'CONFIRMED' || status === 'RECEIVED' || status === 'RECEIVED_IN_CASH_OFFLINE') {
         console.log('✅ Pagamento confirmado, processando...');
         
-        // Buscar informações do pagamento
-        const email = payment.customer?.email || payment.billingType?.email || payment.externalReference?.email;
-        const value = payment.value || payment.totalValue || 0;
-        const description = payment.description || payment.subscription?.description || '';
+        // Buscar informações do pagamento - extrair email de todas as formas possíveis
+        let email = null;
+        
+        // Função auxiliar para buscar email recursivamente em um objeto
+        const findEmailInObject = (obj, depth = 0) => {
+          if (depth > 3 || !obj || typeof obj !== 'object') return null;
+          
+          // Verificar propriedades comuns de email
+          if (obj.email && typeof obj.email === 'string' && obj.email.includes('@')) {
+            return obj.email;
+          }
+          if (obj.emailAddress && typeof obj.emailAddress === 'string' && obj.emailAddress.includes('@')) {
+            return obj.emailAddress;
+          }
+          
+          // Buscar recursivamente
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key) && typeof obj[key] === 'object' && obj[key] !== null) {
+              const found = findEmailInObject(obj[key], depth + 1);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        // Tentar extrair email de várias formas (estrutura do Asaas pode variar)
+        if (payment.customer) {
+          email = payment.customer.email || payment.customer.emailAddress || findEmailInObject(payment.customer);
+        }
+        if (!email && payment.billingType) {
+          email = payment.billingType.email || findEmailInObject(payment.billingType);
+        }
+        if (!email && payment.payer) {
+          email = payment.payer.email || payment.payer.emailAddress || findEmailInObject(payment.payer);
+        }
+        if (!email && payment.subscription) {
+          email = payment.subscription.customer?.email || 
+                  payment.subscription.customer?.emailAddress || 
+                  findEmailInObject(payment.subscription);
+        }
+        if (!email && payment.externalReference) {
+          if (typeof payment.externalReference === 'string') {
+            // Se for string, pode conter email ou UID
+            if (payment.externalReference.includes('@')) {
+              email = payment.externalReference;
+            }
+          } else if (payment.externalReference.email) {
+            email = payment.externalReference.email;
+          } else {
+            email = findEmailInObject(payment.externalReference);
+          }
+        }
+        
+        // Última tentativa: buscar email em todo o objeto payment
+        if (!email) {
+          email = findEmailInObject(payment);
+        }
+        
+        // Normalizar email se encontrado
+        if (email) {
+          email = email.toLowerCase().trim();
+          console.log(`✅ Email extraído: ${email}`);
+        } else {
+          console.log('⚠️ Email não encontrado em nenhuma estrutura do payment');
+        }
+        
+        const value = payment.value || payment.totalValue || payment.amount || 0;
+        const description = payment.description || payment.subscription?.description || payment.subscription?.name || '';
         const subscription = payment.subscription; // Se for assinatura
         const externalReference = payment.externalReference; // Campo customizado do Asaas (pode conter UID)
         const paymentId = payment.id; // ID do pagamento no Asaas
-        const invoiceUrl = payment.invoiceUrl || payment.invoice?.url || ''; // URL da fatura (pode conter UID na query string)
+        const invoiceUrl = payment.invoiceUrl || payment.invoice?.url || payment.billingUrl || ''; // URL da fatura
         
         // Tentar extrair UID da URL do pagamento (se foi passado como parâmetro)
         let uidFromUrl = null;
@@ -319,15 +420,37 @@ app.post('/api/asaas-webhook', async (req, res) => {
         // PRIORIDADE 1: Buscar por email (método mais confiável)
         if (email) {
           try {
+            console.log(`🔍 Buscando conta por email: ${email}`);
             const snapshot = await contasRef.where('email', '==', email).get();
+            
             if (!snapshot.empty) {
               docRef = snapshot.docs[0].ref;
               contaData = snapshot.docs[0].data();
               console.log(`✅ Conta encontrada por email: ${email}`);
+              console.log(`✅ UID da conta: ${docRef.id}`);
+              console.log(`✅ Dados da conta:`, JSON.stringify(contaData, null, 2));
+            } else {
+              console.log(`⚠️ Nenhuma conta encontrada com o email: ${email}`);
+              // Tentar buscar sem case sensitivity (normalizar email)
+              const emailLower = email.toLowerCase().trim();
+              const allAccounts = await contasRef.get();
+              for (const doc of allAccounts.docs) {
+                const data = doc.data();
+                if (data.email && data.email.toLowerCase().trim() === emailLower) {
+                  docRef = doc.ref;
+                  contaData = data;
+                  console.log(`✅ Conta encontrada por email (case-insensitive): ${email}`);
+                  console.log(`✅ UID da conta: ${docRef.id}`);
+                  break;
+                }
+              }
             }
           } catch (emailError) {
-            console.log('Erro ao buscar por email:', emailError.message);
+            console.error('❌ Erro ao buscar por email:', emailError.message);
+            console.error('Stack trace:', emailError.stack);
           }
+        } else {
+          console.log('⚠️ Email não encontrado no pagamento');
         }
         
         // PRIORIDADE 2: Buscar por UID extraído da URL/externalReference (DEPOIS do email)
@@ -425,8 +548,8 @@ app.post('/api/asaas-webhook', async (req, res) => {
           maxColaborador = 999999; // Sem limite prático
         }
         
-        // Atualizar conta do usuário
-        await docRef.update({
+        // Preparar atualizações da conta
+        const updates = {
           premium: true,
           premiumExpiresAt: premiumExpiresAt,
           premiumDaysLeft: diasPremium,
@@ -436,21 +559,51 @@ app.post('/api/asaas-webhook', async (req, res) => {
           data_termino_plano_premium: dataTermino,
           status_pagamento: 'pago',
           billing_period: 'monthly', // Assumindo mensal
-          max_colaborador: maxColaborador
-        });
+          max_colaborador: maxColaborador,
+          ultima_atualizacao_plano: new Date().toISOString()
+        };
         
-        console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email}`);
+        console.log('=== ATUALIZANDO CONTA DO USUÁRIO ===');
+        console.log('UID:', docRef.id);
+        console.log('Email:', email);
+        console.log('Tipo de Plano:', tipoPlano);
+        console.log('Dias Premium:', diasPremium);
+        console.log('Data de Término:', dataTermino);
+        console.log('Max Colaboradores:', maxColaborador);
+        console.log('Updates:', JSON.stringify(updates, null, 2));
         
-        // Ativar colaboradores para planos que permitem (Prata, Ouro, Diamante)
-        if ((tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
-          const colaboradoresRef = db.collection('colaboradores');
-          const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
-          const batchColab = db.batch();
-          colabSnap.forEach(colabDoc => {
-            batchColab.update(colabDoc.ref, { ativo: true });
-          });
-          await batchColab.commit();
-          console.log(`✅ Colaboradores ativados para plano ${tipoPlano}`);
+        // Atualizar conta do usuário
+        try {
+          await docRef.update(updates);
+          console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email} (UID: ${docRef.id})`);
+        } catch (updateError) {
+          console.error('❌ Erro ao atualizar conta:', updateError.message);
+          console.error('Stack trace:', updateError.stack);
+          throw updateError; // Re-throw para ser capturado pelo catch externo
+        }
+        
+        // Ativar colaboradores para planos que permitem (Bronze, Prata, Ouro, Diamante)
+        // Bronze também permite colaboradores (2 no total)
+        if ((tipoPlano === 'bronze' || tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
+          try {
+            console.log(`🔍 Ativando colaboradores para plano ${tipoPlano}...`);
+            const colaboradoresRef = db.collection('colaboradores');
+            const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
+            
+            if (!colabSnap.empty) {
+              const batchColab = db.batch();
+              colabSnap.forEach(colabDoc => {
+                batchColab.update(colabDoc.ref, { ativo: true });
+              });
+              await batchColab.commit();
+              console.log(`✅ ${colabSnap.size} colaborador(es) ativado(s) para plano ${tipoPlano}`);
+            } else {
+              console.log(`ℹ️ Nenhum colaborador encontrado para ativar`);
+            }
+          } catch (colabError) {
+            console.error('❌ Erro ao ativar colaboradores:', colabError.message);
+            // Não bloquear o processo se falhar ao ativar colaboradores
+          }
         }
         
         // Limpar mapeamento usado (opcional, para manter o banco limpo)
@@ -485,10 +638,20 @@ app.post('/api/asaas-webhook', async (req, res) => {
         console.log(`⚠️ Pagamento não confirmado. Status: ${status}`);
         return res.status(200).json({ 
           message: 'Pagamento recebido mas não confirmado ainda',
-          status: status
+          status: status,
+          event: event
         });
       }
-    } else {
+    } 
+    // Processar eventos de assinatura (se necessário no futuro)
+    else if (subscriptionEvents.includes(event)) {
+      console.log(`ℹ️ Evento de assinatura recebido: ${event}`);
+      return res.status(200).json({ 
+        message: 'Evento de assinatura recebido',
+        event: event
+      });
+    } 
+    else {
       console.log(`ℹ️ Evento não processado: ${event}`);
       return res.status(200).json({ 
         message: 'Evento recebido mas não processado',
