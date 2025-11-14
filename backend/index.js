@@ -100,18 +100,35 @@ const ASAAS_PLAN_LINKS = {
 };
 
 // Valores dos planos (para identificar o plano pelo valor pago)
-// O plano teste de R$ 5,00 será atribuído como plano prata
+// Incluindo valores mensais, trimestrais e anuais
 const PLAN_VALUES = {
-  5.00: 'prata', // Plano teste atribui como prata
-  59.90: 'bronze',
-  89.90: 'prata',
-  139.90: 'ouro',
-  189.90: 'diamante'
+  // Plano Teste (R$ 5,00 - atribui como prata)
+  5.00: { tipo: 'prata', periodo: 'monthly' },
+  
+  // Bronze
+  59.90: { tipo: 'bronze', periodo: 'monthly' },
+  162.00: { tipo: 'bronze', periodo: 'quarterly' },
+  575.00: { tipo: 'bronze', periodo: 'yearly' },
+  
+  // Prata
+  89.90: { tipo: 'prata', periodo: 'monthly' },
+  243.00: { tipo: 'prata', periodo: 'quarterly' },
+  863.00: { tipo: 'prata', periodo: 'yearly' },
+  
+  // Ouro
+  139.90: { tipo: 'ouro', periodo: 'monthly' },
+  378.00: { tipo: 'ouro', periodo: 'quarterly' },
+  1343.00: { tipo: 'ouro', periodo: 'yearly' },
+  
+  // Diamante
+  189.90: { tipo: 'diamante', periodo: 'monthly' },
+  513.00: { tipo: 'diamante', periodo: 'quarterly' },
+  1823.00: { tipo: 'diamante', periodo: 'yearly' }
 };
 
 // Endpoint para obter a URL do webhook (para configurar no Asaas)
 app.get('/api/asaas/webhook-url', (req, res) => {
-  const baseUrl = process.env.BACKEND_URL || 'https://trezu.com.br';
+  const baseUrl = process.env.BACKEND_URL || 'https://barber-backend-qlt6.onrender.com';
   const webhookUrl = `${baseUrl}/api/asaas-webhook`;
   
   res.json({
@@ -181,9 +198,10 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
     // Exemplo: https://www.asaas.com/c/3tq79ax6gm22ib6g -> 3tq79ax6gm22ib6g
     const paymentLinkId = planLink.split('/c/')[1] || planLink.split('/').pop() || null;
     
-    // Adicionar o UID como parâmetro na URL
+    // Adicionar o UID e email como parâmetros na URL
     // O Asaas pode receber parâmetros customizados via query string
-    const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}`;
+    // O email é CRÍTICO para o webhook encontrar o usuário
+    const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}&email=${encodeURIComponent(email || '')}`;
     
     // Salvar mapeamento UID -> Email -> Plano no Firestore para uso no webhook
     // CRÍTICO: Este mapeamento é essencial para o webhook encontrar o usuário
@@ -392,36 +410,112 @@ app.post('/api/asaas-webhook', async (req, res) => {
         console.log(`✅ Email final para busca: ${customerEmail}`);
         
         // Buscar usuário por email no Firestore
+        // CRÍTICO: O email é usado para encontrar a conta do usuário
         let docRef = null;
         let contaData = null;
         
         try {
           console.log(`🔍 Buscando usuário por email: ${customerEmail}`);
           const contasRef = db.collection('contas');
-          const snapshot = await contasRef.where('email', '==', customerEmail).get();
           
-          if (!snapshot.empty) {
-            docRef = snapshot.docs[0].ref;
-            contaData = snapshot.docs[0].data();
-            console.log(`✅ Usuário encontrado por email: ${customerEmail}`);
-            console.log(`✅ UID da conta: ${docRef.id}`);
-          } else {
-            console.log(`❌ Nenhum usuário encontrado com o email: ${customerEmail}`);
-            return res.status(200).send('OK - User not found');
+          // Tentar buscar com retry para lidar com erros gRPC
+          let retryCount = 0;
+          const maxRetries = 5;
+          let encontrado = false;
+          
+          while (retryCount < maxRetries && !encontrado) {
+            try {
+              const snapshot = await contasRef.where('email', '==', customerEmail).get();
+              
+              if (!snapshot.empty) {
+                docRef = snapshot.docs[0].ref;
+                contaData = snapshot.docs[0].data();
+                console.log(`✅ Usuário encontrado por email: ${customerEmail}`);
+                console.log(`✅ UID da conta: ${docRef.id}`);
+                console.log(`✅ Dados da conta:`, JSON.stringify(contaData, null, 2));
+                encontrado = true;
+                break;
+              } else {
+                // Se não encontrou, tentar buscar todas as contas e filtrar manualmente (case-insensitive)
+                console.log(`⚠️ Nenhuma conta encontrada com o email exato. Buscando todas as contas...`);
+                const allAccounts = await contasRef.limit(500).get();
+                
+                console.log(`📊 Total de contas verificadas: ${allAccounts.size}`);
+                
+                for (const doc of allAccounts.docs) {
+                  const data = doc.data();
+                  const emailConta = data.email ? data.email.toLowerCase().trim() : null;
+                  
+                  if (emailConta === customerEmail) {
+                    docRef = doc.ref;
+                    contaData = data;
+                    console.log(`✅ Conta encontrada por email (case-insensitive): ${customerEmail}`);
+                    console.log(`✅ UID da conta: ${docRef.id}`);
+                    encontrado = true;
+                    break;
+                  }
+                }
+                
+                if (encontrado) {
+                  break;
+                }
+              }
+              
+              // Se não encontrou, tentar novamente
+              retryCount++;
+              if (retryCount < maxRetries) {
+                const waitTime = 1000 * retryCount; // 1s, 2s, 3s, 4s
+                console.log(`⚠️ Conta não encontrada. Tentativa ${retryCount + 1}/${maxRetries} em ${waitTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+              }
+              
+            } catch (emailError) {
+              retryCount++;
+              console.error(`❌ Erro ao buscar por email (tentativa ${retryCount}/${maxRetries}):`, emailError.message);
+              
+              // Se for erro gRPC, tentar novamente
+              if (emailError.message.includes('gRPC') || emailError.message.includes('DECODER')) {
+                if (retryCount < maxRetries) {
+                  const waitTime = 2000 * retryCount; // 2s, 4s, 6s, 8s
+                  console.log(`⚠️ Erro gRPC detectado. Tentando novamente em ${waitTime}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, waitTime));
+                } else {
+                  console.error('❌ Todas as tentativas falharam. Stack trace:', emailError.stack);
+                }
+              } else {
+                // Para outros erros, não tentar novamente
+                console.error('❌ Erro não gRPC. Stack trace:', emailError.stack);
+                break;
+              }
+            }
+          }
+          
+          if (!encontrado) {
+            console.log(`❌ Nenhum usuário encontrado com o email: ${customerEmail} após ${retryCount} tentativa(s)`);
+            return res.status(200).json({ 
+              message: 'Usuário não encontrado',
+              email: customerEmail
+            });
           }
         } catch (firestoreError) {
           console.error('❌ Erro ao buscar usuário no Firestore:', firestoreError.message);
-          return res.status(200).send('OK - Firestore error');
+          return res.status(200).json({ 
+            message: 'Erro ao buscar usuário',
+            error: firestoreError.message
+          });
         }
         
         // Identificar o tipo de plano pelo valor
         let tipoPlano = null;
+        let billingPeriod = 'monthly'; // Padrão mensal
         const value = paymentDetails.value || paymentDetails.totalValue || paymentDetails.amount || 0;
         const valorArredondado = Math.round(value * 100) / 100;
         
         if (PLAN_VALUES[valorArredondado]) {
-          tipoPlano = PLAN_VALUES[valorArredondado];
-          console.log('✅ Plano identificado pelo valor:', tipoPlano);
+          const planInfo = PLAN_VALUES[valorArredondado];
+          tipoPlano = planInfo.tipo;
+          billingPeriod = planInfo.periodo;
+          console.log('✅ Plano identificado pelo valor:', tipoPlano, '- Período:', billingPeriod);
         } else {
           // Tentar identificar pela descrição
           const description = paymentDetails.description || '';
@@ -435,7 +529,15 @@ app.post('/api/asaas-webhook', async (req, res) => {
           } else if (descLower.includes('diamante')) {
               tipoPlano = 'diamante';
           }
-          console.log('Plano identificado pela descrição:', tipoPlano);
+          
+          // Tentar identificar período pela descrição
+          if (descLower.includes('trimestral') || descLower.includes('quarterly')) {
+            billingPeriod = 'quarterly';
+          } else if (descLower.includes('anual') || descLower.includes('yearly')) {
+            billingPeriod = 'yearly';
+          }
+          
+          console.log('Plano identificado pela descrição:', tipoPlano, '- Período:', billingPeriod);
         }
         
         if (!tipoPlano) {
@@ -443,12 +545,28 @@ app.post('/api/asaas-webhook', async (req, res) => {
           return res.status(200).send('OK - Plan type not identified');
         }
         
-        // Calcular datas
+        // Calcular datas baseado no período
         const hoje = new Date();
         const dataPagamento = new Date(paymentDetails.paymentDate || paymentDetails.dateCreated || hoje);
         const dataFinal = new Date(hoje);
-        dataFinal.setMonth(dataFinal.getMonth() + 1); // 1 mês a partir de hoje
-        const diasPremium = 30; // Mensal
+        
+        let diasPremium = 30; // Padrão mensal
+        
+        if (billingPeriod === 'yearly') {
+          dataFinal.setFullYear(dataFinal.getFullYear() + 1);
+          diasPremium = 365;
+        } else if (billingPeriod === 'quarterly') {
+          dataFinal.setMonth(dataFinal.getMonth() + 3);
+          diasPremium = 90;
+                } else {
+          // monthly
+          dataFinal.setMonth(dataFinal.getMonth() + 1);
+          diasPremium = 30;
+        }
+        
+        console.log('📅 Período identificado:', billingPeriod);
+        console.log('📅 Data de término calculada:', dataFinal.toISOString());
+        console.log('📅 Dias premium:', diasPremium);
           
         // Calcular data de expiração para o Firestore
         const dataExpiracao = new Date(dataFinal);
@@ -474,11 +592,13 @@ app.post('/api/asaas-webhook', async (req, res) => {
             tipoPlano: tipoPlano,
             dias_plano_pago: diasPremium,
             dias_plano_pago_restante: diasPremium,
-          data_termino_plano_premium: dataFinal.toISOString(),
+            data_termino_plano_premium: dataFinal.toISOString(),
             status_pagamento: 'pago',
-          billing_period: 'monthly',
+            billing_period: billingPeriod,
           max_colaborador: maxColaborador,
-          ultima_atualizacao_plano: new Date().toISOString()
+            ultima_atualizacao_plano: new Date().toISOString(),
+            payment_id: paymentId, // Salvar ID do pagamento para referência
+            payment_date: dataPagamento.toISOString()
         };
         
         console.log('=== ATUALIZANDO CONTA DO USUÁRIO ===');
@@ -535,10 +655,93 @@ app.post('/api/asaas-webhook', async (req, res) => {
         return res.status(200).send('OK - Payment not confirmed');
       }
     }
-    // Processar eventos de assinatura cancelada
-    else if (event === 'SUBSCRIPTION_DELETED' || event === 'SUBSCRIPTION_CANCELLED') {
-      console.log('❌ Processando cancelamento de assinatura:', subscription?.id);
-      return res.status(200).send('OK - Subscription cancelled');
+    // Processar eventos de assinatura cancelada ou pagamento cancelado
+    else if (event === 'SUBSCRIPTION_DELETED' || event === 'SUBSCRIPTION_CANCELLED' || 
+             event === 'PAYMENT_DELETED' || event === 'PAYMENT_REFUNDED') {
+      console.log('❌ Processando cancelamento:', {
+        event,
+        subscriptionId: subscription?.id,
+        paymentId: payment?.id
+      });
+      
+      // Buscar email do cliente para desativar o plano
+      let customerEmail = null;
+      
+      if (payment?.customer) {
+        if (typeof payment.customer === 'object' && payment.customer.email) {
+          customerEmail = payment.customer.email;
+        } else if (typeof payment.customer === 'string') {
+          try {
+            const customerRes = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
+              headers: {
+                'access_token': ASAAS_API_KEY,
+                'Content-Type': 'application/json',
+              },
+            });
+            customerEmail = customerRes.data?.email;
+          } catch (error) {
+            console.warn('⚠️ Erro ao buscar email do cliente:', error.message);
+          }
+        }
+      }
+      
+      if (customerEmail) {
+        customerEmail = customerEmail.toLowerCase().trim();
+        console.log(`🔍 Buscando conta para cancelar: ${customerEmail}`);
+        
+        try {
+          const contasRef = db.collection('contas');
+          const snapshot = await contasRef.where('email', '==', customerEmail).get();
+          
+          if (!snapshot.empty) {
+            const docRef = snapshot.docs[0].ref;
+            const contaData = snapshot.docs[0].data();
+            
+            // Desativar premium e resetar limites
+            await docRef.update({
+              premium: false,
+              tipoPlano: 'nenhum',
+              status_pagamento: 'cancelado',
+              dias_plano_pago_restante: 0,
+              data_termino_plano_premium: null,
+              max_colaborador: 1,
+              ultima_atualizacao_plano: new Date().toISOString(),
+              cancelamento_data: new Date().toISOString()
+            });
+            
+            console.log(`✅ Plano cancelado para ${customerEmail} (UID: ${docRef.id})`);
+            
+            // Desativar colaboradores extras
+            if (contaData?.nomeEstabelecimento) {
+              try {
+                const colaboradoresRef = db.collection('colaboradores');
+                const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
+                
+                if (!colabSnap.empty) {
+                  const batchColab = db.batch();
+                  colabSnap.forEach(colabDoc => {
+                    batchColab.update(colabDoc.ref, { ativo: false });
+                  });
+                  await batchColab.commit();
+                  console.log(`✅ ${colabSnap.size} colaborador(es) desativado(s)`);
+                }
+              } catch (colabError) {
+                console.error('❌ Erro ao desativar colaboradores:', colabError.message);
+              }
+            }
+          } else {
+            console.log(`⚠️ Nenhuma conta encontrada com o email: ${customerEmail}`);
+          }
+        } catch (firestoreError) {
+          console.error('❌ Erro ao processar cancelamento:', firestoreError.message);
+        }
+      }
+      
+      return res.status(200).json({ 
+        success: true,
+        message: 'Cancelamento processado',
+        email: customerEmail
+      });
     } 
     else {
       console.log(`ℹ️ Evento não processado: ${event}`);
