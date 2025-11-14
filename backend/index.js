@@ -1,5 +1,13 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: 'keys.env' });
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Obter o diretório atual do arquivo
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Carregar variáveis de ambiente do arquivo keys.env
+dotenv.config({ path: path.join(__dirname, 'keys.env') });
 import express from 'express';
 // import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -90,6 +98,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // WhatsApp API Configuration
 const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFlmT96UBs3'
 const WHATSAPP_BASE_URL = 'https://belkit.pro'
+
+// Configuração da API do Asaas
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY || process.env.ASAAS_ACCESS_TOKEN;
+const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Configuração dos links dos planos Asaas
 const ASAAS_PLAN_LINKS = {
@@ -336,12 +348,53 @@ app.post('/api/asaas-webhook', async (req, res) => {
           email = findEmailInObject(payment);
         }
         
+        // Se não encontrou email mas tem customer ID, buscar na API do Asaas
+        if (!email && payment.customer && typeof payment.customer === 'string' && ASAAS_API_KEY) {
+          try {
+            console.log(`🔍 Buscando dados do cliente na API do Asaas: ${payment.customer}`);
+            // Buscar dados do cliente na API do Asaas
+            // O Asaas usa access_token como header
+            const customerResponse = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
+              headers: {
+                'access_token': ASAAS_API_KEY,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (customerResponse.data) {
+              console.log('📋 Dados do cliente recebidos da API:', JSON.stringify(customerResponse.data, null, 2));
+              
+              if (customerResponse.data.email) {
+                email = customerResponse.data.email;
+                console.log(`✅ Email encontrado na API do Asaas: ${email}`);
+              } else {
+                console.log('⚠️ Cliente encontrado na API mas sem email');
+                console.log('Dados disponíveis:', Object.keys(customerResponse.data));
+              }
+            } else {
+              console.log('⚠️ Resposta da API do Asaas sem dados');
+            }
+          } catch (apiError) {
+            console.error('❌ Erro ao buscar cliente na API do Asaas:', apiError.message);
+            if (apiError.response) {
+              console.error('Status:', apiError.response.status);
+              console.error('Data:', apiError.response.data);
+              console.error('Headers:', apiError.response.headers);
+            }
+            if (apiError.request) {
+              console.error('Request feito:', apiError.request);
+            }
+            // Continuar mesmo com erro - tentar outras formas de encontrar o email
+            console.log('⚠️ Continuando sem email da API, tentando outras formas...');
+          }
+        }
+        
         // Normalizar email se encontrado
         if (email) {
           email = email.toLowerCase().trim();
-          console.log(`✅ Email extraído: ${email}`);
+          console.log(`✅ Email final extraído: ${email}`);
         } else {
-          console.log('⚠️ Email não encontrado em nenhuma estrutura do payment');
+          console.log('⚠️ Email não encontrado em nenhuma estrutura do payment e não foi possível buscar na API');
         }
         
         const value = payment.value || payment.totalValue || payment.amount || 0;
