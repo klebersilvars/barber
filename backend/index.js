@@ -546,153 +546,89 @@ app.post('/api/asaas-webhook', async (req, res) => {
         let contaData = null;
         const contasRef = db.collection('contas');
         
-        // PRIORIDADE 1: Buscar por email (método mais confiável)
+        // PRIORIDADE 1: Buscar por email (ÚNICO MÉTODO - mais confiável)
         if (email) {
-          try {
-            console.log(`🔍 Buscando conta por email: ${email}`);
-            const snapshot = await contasRef.where('email', '==', email).get();
-            
-            if (!snapshot.empty) {
-              docRef = snapshot.docs[0].ref;
-              contaData = snapshot.docs[0].data();
-              console.log(`✅ Conta encontrada por email: ${email}`);
-              console.log(`✅ UID da conta: ${docRef.id}`);
-              console.log(`✅ Dados da conta:`, JSON.stringify(contaData, null, 2));
-            } else {
-              console.log(`⚠️ Nenhuma conta encontrada com o email: ${email}`);
-              // Tentar buscar sem case sensitivity (normalizar email)
-              const emailLower = email.toLowerCase().trim();
-              const allAccounts = await contasRef.get();
+          const emailNormalizado = email.toLowerCase().trim();
+          console.log(`🔍 Buscando conta por email: ${emailNormalizado}`);
+          
+          // Tentar buscar com retry para lidar com erros gRPC
+          let retryCount = 0;
+          const maxRetries = 5;
+          let encontrado = false;
+          
+          while (retryCount < maxRetries && !encontrado) {
+            try {
+              // Tentativa 1: Busca direta por email
+              const snapshot = await contasRef.where('email', '==', emailNormalizado).get();
+              
+              if (!snapshot.empty) {
+                docRef = snapshot.docs[0].ref;
+                contaData = snapshot.docs[0].data();
+                console.log(`✅ Conta encontrada por email: ${emailNormalizado}`);
+                console.log(`✅ UID da conta: ${docRef.id}`);
+                console.log(`✅ Dados da conta:`, JSON.stringify(contaData, null, 2));
+                encontrado = true;
+                break;
+              }
+              
+              // Tentativa 2: Buscar todas as contas e filtrar manualmente (case-insensitive)
+              console.log(`⚠️ Nenhuma conta encontrada com o email exato. Buscando todas as contas...`);
+              const allAccounts = await contasRef.limit(500).get();
+              
+              console.log(`📊 Total de contas verificadas: ${allAccounts.size}`);
+              
               for (const doc of allAccounts.docs) {
                 const data = doc.data();
-                if (data.email && data.email.toLowerCase().trim() === emailLower) {
+                const emailConta = data.email ? data.email.toLowerCase().trim() : null;
+                
+                if (emailConta === emailNormalizado) {
                   docRef = doc.ref;
                   contaData = data;
-                  console.log(`✅ Conta encontrada por email (case-insensitive): ${email}`);
+                  console.log(`✅ Conta encontrada por email (case-insensitive): ${emailNormalizado}`);
                   console.log(`✅ UID da conta: ${docRef.id}`);
+                  encontrado = true;
                   break;
                 }
               }
+              
+              if (encontrado) {
+                break;
+              }
+              
+              // Se não encontrou, tentar novamente
+              retryCount++;
+              if (retryCount < maxRetries) {
+                const waitTime = 1000 * retryCount; // 1s, 2s, 3s, 4s
+                console.log(`⚠️ Conta não encontrada. Tentativa ${retryCount + 1}/${maxRetries} em ${waitTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+              }
+              
+            } catch (emailError) {
+              retryCount++;
+              console.error(`❌ Erro ao buscar por email (tentativa ${retryCount}/${maxRetries}):`, emailError.message);
+              
+              // Se for erro gRPC, tentar novamente
+              if (emailError.message.includes('gRPC') || emailError.message.includes('DECODER')) {
+                if (retryCount < maxRetries) {
+                  const waitTime = 2000 * retryCount; // 2s, 4s, 6s, 8s
+                  console.log(`⚠️ Erro gRPC detectado. Tentando novamente em ${waitTime}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, waitTime));
+                } else {
+                  console.error('❌ Todas as tentativas falharam. Stack trace:', emailError.stack);
+                }
+              } else {
+                // Para outros erros, não tentar novamente
+                console.error('❌ Erro não gRPC. Stack trace:', emailError.stack);
+                break;
+              }
             }
-          } catch (emailError) {
-            console.error('❌ Erro ao buscar por email:', emailError.message);
-            console.error('Stack trace:', emailError.stack);
+          }
+          
+          if (!encontrado) {
+            console.log(`❌ Nenhuma conta encontrada com o email: ${emailNormalizado} após ${retryCount} tentativa(s)`);
           }
         } else {
-          console.log('⚠️ Email não encontrado no pagamento');
-        }
-        
-        // PRIORIDADE 2: Buscar por UID extraído da URL/externalReference (DEPOIS do email)
-        if (!docRef && uidFromUrl) {
-          try {
-            const uidDoc = await contasRef.doc(uidFromUrl).get();
-            if (uidDoc.exists) {
-              docRef = uidDoc.ref;
-              contaData = uidDoc.data();
-              console.log(`✅ Conta encontrada por UID da URL: ${uidFromUrl}`);
-            } else {
-              console.log(`⚠️ UID da URL não encontrado no Firestore: ${uidFromUrl}`);
-            }
-          } catch (uidError) {
-            console.log('Erro ao buscar por UID da URL:', uidError.message);
-          }
-        }
-        
-        // PRIORIDADE 3: Tentar buscar na coleção 'contas' usando paymentLinkId
-        if (!docRef) {
-          try {
-            console.log('🔍 Buscando conta pelo paymentLinkId na coleção contas...');
-            // Tentar extrair paymentLinkId de várias formas
-            let paymentLinkId = payment.paymentLink || payment.checkoutSession || null;
-            
-            // Se paymentLinkId é uma URL completa, extrair apenas o ID
-            if (paymentLinkId && paymentLinkId.includes('/')) {
-              paymentLinkId = paymentLinkId.split('/c/')[1] || paymentLinkId.split('/').pop();
-            }
-            
-            // Se ainda não encontrou, tentar extrair da invoiceUrl
-            if (!paymentLinkId && invoiceUrl) {
-              try {
-                const urlObj = new URL(invoiceUrl);
-                // Tentar extrair de parâmetros ou path
-                paymentLinkId = urlObj.searchParams.get('paymentLink') || 
-                                urlObj.pathname.split('/').pop();
-              } catch (urlError) {
-                console.log('Erro ao extrair paymentLinkId da invoiceUrl:', urlError.message);
-              }
-            }
-            
-            console.log(`PaymentLinkId extraído: ${paymentLinkId}`);
-            
-            if (paymentLinkId) {
-              console.log(`🔍 Buscando conta com paymentLinkId: ${paymentLinkId}`);
-              
-              // Buscar na coleção 'contas' por ultimo_paymentLinkId
-              const contasComPaymentLink = await contasRef
-                .where('ultimo_paymentLinkId', '==', paymentLinkId)
-                .limit(10)
-                .get();
-              
-              console.log(`Resultado da busca por paymentLinkId: ${contasComPaymentLink.size} conta(s)`);
-              
-              if (!contasComPaymentLink.empty) {
-                // Pegar a conta mais recente (com data_solicitacao_plano mais recente)
-                const contasOrdenadas = contasComPaymentLink.docs
-                  .map(doc => ({ id: doc.id, ...doc.data() }))
-                  .sort((a, b) => {
-                    const dateA = a.data_solicitacao_plano || a.createdAt || '';
-                    const dateB = b.data_solicitacao_plano || b.createdAt || '';
-                    return dateB.localeCompare(dateA);
-                  });
-                
-                const contaEncontrada = contasOrdenadas[0];
-                const foundUid = contaEncontrada.id || contaEncontrada.uid;
-                
-                console.log(`✅ Conta encontrada por paymentLinkId: UID ${foundUid}`);
-                
-                // Buscar a conta pelo UID
-                try {
-                  const uidDoc = await contasRef.doc(foundUid).get();
-                  if (uidDoc.exists) {
-                    docRef = uidDoc.ref;
-                    contaData = uidDoc.data();
-                    
-                    // Usar email da conta se não tínhamos email
-                    if (!email && contaData.email) {
-                      email = contaData.email;
-                      console.log(`✅ Email obtido da conta: ${email}`);
-                    }
-                    
-                    console.log(`✅ Conta encontrada por paymentLinkId: ${foundUid}`);
-                  }
-                } catch (uidError) {
-                  console.error('Erro ao buscar conta por UID:', uidError.message);
-                }
-          } else {
-                console.log('⚠️ Nenhuma conta encontrada com este paymentLinkId');
-                
-                // Última tentativa: buscar todas as contas recentes e filtrar manualmente
-                if (email) {
-                  console.log('🔍 Última tentativa: buscando por email em todas as contas...');
-                  const todasContas = await contasRef
-                    .where('email', '==', email.toLowerCase().trim())
-                    .limit(10)
-                    .get();
-                  
-                  if (!todasContas.empty) {
-                    docRef = todasContas.docs[0].ref;
-                    contaData = todasContas.docs[0].data();
-                    console.log(`✅ Conta encontrada por email (busca ampla): ${docRef.id}`);
-                  }
-                }
-              }
-            } else {
-              console.log('⚠️ PaymentLinkId não encontrado no payment');
-            }
-          } catch (searchError) {
-            console.error('❌ Erro ao buscar conta por paymentLinkId:', searchError.message);
-            console.error('Stack trace:', searchError.stack);
-          }
+          console.log('⚠️ Email não encontrado no pagamento - não é possível buscar a conta');
         }
         
         if (!docRef) {
