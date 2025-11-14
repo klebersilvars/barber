@@ -103,6 +103,13 @@ const WHATSAPP_BASE_URL = 'https://belkit.pro'
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY || process.env.ASAAS_ACCESS_TOKEN;
 const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
+// Log da configuração da API (sem expor a chave completa)
+if (ASAAS_API_KEY) {
+  console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
+} else {
+  console.warn('⚠️ API Key do Asaas NÃO configurada! Adicione ASAAS_API_KEY no keys.env');
+}
+
 // Configuração dos links dos planos Asaas
 const ASAAS_PLAN_LINKS = {
   teste: 'https://www.asaas.com/c/3tq79ax6gm22ib6g',
@@ -190,30 +197,72 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
     // Obter o link do plano
     const planLink = ASAAS_PLAN_LINKS[planId];
     
+    // Extrair o ID do paymentLink (última parte da URL após /c/)
+    // Exemplo: https://www.asaas.com/c/3tq79ax6gm22ib6g -> 3tq79ax6gm22ib6g
+    const paymentLinkId = planLink.split('/c/')[1] || planLink.split('/').pop() || null;
+    
     // Adicionar o UID como parâmetro na URL
     // O Asaas pode receber parâmetros customizados via query string
     const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}`;
     
-    // Salvar mapeamento UID -> Plano no Firestore para uso no webhook (OPCIONAL)
-    // Se falhar, não bloquear o fluxo - o webhook pode buscar por email
-    // Executar de forma assíncrona para não bloquear a resposta
-    (async () => {
+    // Salvar mapeamento UID -> Email -> Plano no Firestore para uso no webhook
+    // CRÍTICO: Este mapeamento é essencial para o webhook encontrar o usuário
+    if (!email) {
+      console.warn('⚠️ Email não fornecido no request. Tentando buscar do Firestore...');
       try {
-        const mappingRef = db.collection('asaas_payment_mappings').doc();
-        await mappingRef.set({
-          uid: uid,
-          planId: planId,
-          email: email || null,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Expira em 24 horas
-        });
-        console.log(`✅ Mapeamento salvo: UID ${uid} -> Plano ${planId}`);
-      } catch (mappingError) {
-        // Erro não crítico - apenas logar e continuar
-        console.warn('⚠️ Não foi possível salvar mapeamento (não crítico):', mappingError.message);
-        console.warn('⚠️ O webhook tentará buscar o usuário por email quando o pagamento for confirmado.');
+        // Tentar buscar email do usuário no Firestore usando o UID
+        const userDoc = await db.collection('contas').doc(uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          email = userData.email || null;
+          if (email) {
+            console.log(`✅ Email encontrado no Firestore: ${email}`);
+          } else {
+            console.warn('⚠️ Usuário encontrado no Firestore mas sem email cadastrado');
+          }
+        } else {
+          console.warn(`⚠️ Usuário não encontrado no Firestore com UID: ${uid}`);
+        }
+      } catch (firestoreError) {
+        console.error('Erro ao buscar email no Firestore:', firestoreError.message);
       }
-    })();
+    }
+    
+    // Salvar email e paymentLinkId na coleção 'contas' (CRÍTICO)
+    if (email && uid) {
+      try {
+        const contaRef = db.collection('contas').doc(uid);
+        const contaDoc = await contaRef.get();
+        
+        const updateData = {
+          email: email.toLowerCase().trim(),
+          ultima_atualizacao: new Date().toISOString(),
+          ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
+          ultimo_planId_solicitado: planId, // Salvar o plano solicitado
+          data_solicitacao_plano: new Date().toISOString()
+        };
+        
+        if (contaDoc.exists) {
+          await contaRef.update(updateData);
+          console.log(`✅ Conta atualizada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+        } else {
+          // Se a conta não existe, criar com o email e paymentLinkId
+          await contaRef.set({
+            ...updateData,
+            createdAt: new Date().toISOString()
+          }, { merge: true });
+          console.log(`✅ Conta criada: Email ${email}, PaymentLinkId ${paymentLinkId}, Plano ${planId}`);
+        }
+      } catch (contaError) {
+        console.error('❌ ERRO CRÍTICO ao salvar na conta:', contaError.message);
+        console.error('Stack trace:', contaError.stack);
+      }
+    } else {
+      console.error('❌ ERRO: Email ou UID não disponível!');
+      console.error('UID:', uid);
+      console.error('Email:', email);
+      console.error('PlanId:', planId);
+    }
     
     return res.json({
       payment_url: paymentUrl,
@@ -255,6 +304,11 @@ app.post('/api/asaas-webhook', async (req, res) => {
       console.log('payment.invoice:', JSON.stringify(payment.invoice, null, 2));
       console.log('payment.billingUrl:', payment.billingUrl);
       console.log('payment.billingType:', JSON.stringify(payment.billingType, null, 2));
+      console.log('payment.paymentLink:', payment.paymentLink);
+      console.log('payment.checkoutSession:', payment.checkoutSession);
+      console.log('payment.subscription:', payment.subscription);
+      console.log('=== TODAS AS CHAVES DO PAYMENT ===');
+      console.log('Keys:', Object.keys(payment));
     }
     
     // O Asaas envia diferentes tipos de eventos
@@ -349,43 +403,64 @@ app.post('/api/asaas-webhook', async (req, res) => {
         }
         
         // Se não encontrou email mas tem customer ID, buscar na API do Asaas
-        if (!email && payment.customer && typeof payment.customer === 'string' && ASAAS_API_KEY) {
-          try {
-            console.log(`🔍 Buscando dados do cliente na API do Asaas: ${payment.customer}`);
-            // Buscar dados do cliente na API do Asaas
-            // O Asaas usa access_token como header
-            const customerResponse = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
-              headers: {
-                'access_token': ASAAS_API_KEY,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (customerResponse.data) {
-              console.log('📋 Dados do cliente recebidos da API:', JSON.stringify(customerResponse.data, null, 2));
+        if (!email && payment.customer && typeof payment.customer === 'string') {
+          if (!ASAAS_API_KEY) {
+            console.error('❌ API Key do Asaas não configurada! Não é possível buscar email do cliente.');
+          } else {
+            try {
+              console.log(`🔍 Buscando dados do cliente na API do Asaas...`);
+              console.log(`Customer ID: ${payment.customer}`);
+              console.log(`API URL: ${ASAAS_API_URL}/customers/${payment.customer}`);
+              console.log(`API Key (primeiros 20 chars): ${ASAAS_API_KEY.substring(0, 20)}...`);
               
-              if (customerResponse.data.email) {
-                email = customerResponse.data.email;
-                console.log(`✅ Email encontrado na API do Asaas: ${email}`);
+              // Buscar dados do cliente na API do Asaas
+              // O Asaas usa access_token como header
+              const customerResponse = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
+                headers: {
+                  'access_token': ASAAS_API_KEY,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 10000 // 10 segundos de timeout
+              });
+              
+              console.log('📋 Status da resposta da API:', customerResponse.status);
+              
+              if (customerResponse.data) {
+                console.log('📋 Dados do cliente recebidos da API:', JSON.stringify(customerResponse.data, null, 2));
+                
+                if (customerResponse.data.email) {
+                  email = customerResponse.data.email;
+                  console.log(`✅ Email encontrado na API do Asaas: ${email}`);
+                } else {
+                  console.log('⚠️ Cliente encontrado na API mas sem email');
+                  console.log('Dados disponíveis:', Object.keys(customerResponse.data));
+                  // Tentar outros campos que podem conter email
+                  if (customerResponse.data.emailAddress) {
+                    email = customerResponse.data.emailAddress;
+                    console.log(`✅ Email encontrado no campo emailAddress: ${email}`);
+                  }
+                }
               } else {
-                console.log('⚠️ Cliente encontrado na API mas sem email');
-                console.log('Dados disponíveis:', Object.keys(customerResponse.data));
+                console.log('⚠️ Resposta da API do Asaas sem dados');
               }
-            } else {
-              console.log('⚠️ Resposta da API do Asaas sem dados');
+            } catch (apiError) {
+              console.error('❌ Erro ao buscar cliente na API do Asaas:', apiError.message);
+              if (apiError.response) {
+                console.error('Status:', apiError.response.status);
+                console.error('Status Text:', apiError.response.statusText);
+                console.error('Data:', JSON.stringify(apiError.response.data, null, 2));
+                console.error('Headers:', JSON.stringify(apiError.response.headers, null, 2));
+              }
+              if (apiError.request) {
+                console.error('Request config:', {
+                  url: apiError.config?.url,
+                  method: apiError.config?.method,
+                  headers: apiError.config?.headers ? Object.keys(apiError.config.headers) : 'N/A'
+                });
+              }
+              // Continuar mesmo com erro - tentar outras formas de encontrar o email
+              console.log('⚠️ Continuando sem email da API, tentando mapeamento...');
             }
-          } catch (apiError) {
-            console.error('❌ Erro ao buscar cliente na API do Asaas:', apiError.message);
-            if (apiError.response) {
-              console.error('Status:', apiError.response.status);
-              console.error('Data:', apiError.response.data);
-              console.error('Headers:', apiError.response.headers);
-            }
-            if (apiError.request) {
-              console.error('Request feito:', apiError.request);
-            }
-            // Continuar mesmo com erro - tentar outras formas de encontrar o email
-            console.log('⚠️ Continuando sem email da API, tentando outras formas...');
           }
         }
         
@@ -522,43 +597,100 @@ app.post('/api/asaas-webhook', async (req, res) => {
           }
         }
         
-        // PRIORIDADE 3: Tentar buscar UID do mapeamento (se não encontrou por email nem por UID)
-        if (!docRef && email) {
+        // PRIORIDADE 3: Tentar buscar na coleção 'contas' usando paymentLinkId
+        if (!docRef) {
           try {
-            const mappingsRef = db.collection('asaas_payment_mappings');
-            const mappingsSnapshot = await mappingsRef
-              .where('email', '==', email)
-              .limit(10)
-              .get();
+            console.log('🔍 Buscando conta pelo paymentLinkId na coleção contas...');
+            // Tentar extrair paymentLinkId de várias formas
+            let paymentLinkId = payment.paymentLink || payment.checkoutSession || null;
             
-            if (!mappingsSnapshot.empty) {
-              // Filtrar por expiresAt manualmente
-              const now = new Date().toISOString();
-              const validMappings = mappingsSnapshot.docs.filter(doc => {
-                const data = doc.data();
-                return data.expiresAt && data.expiresAt > now;
-              });
+            // Se paymentLinkId é uma URL completa, extrair apenas o ID
+            if (paymentLinkId && paymentLinkId.includes('/')) {
+              paymentLinkId = paymentLinkId.split('/c/')[1] || paymentLinkId.split('/').pop();
+            }
+            
+            // Se ainda não encontrou, tentar extrair da invoiceUrl
+            if (!paymentLinkId && invoiceUrl) {
+              try {
+                const urlObj = new URL(invoiceUrl);
+                // Tentar extrair de parâmetros ou path
+                paymentLinkId = urlObj.searchParams.get('paymentLink') || 
+                                urlObj.pathname.split('/').pop();
+              } catch (urlError) {
+                console.log('Erro ao extrair paymentLinkId da invoiceUrl:', urlError.message);
+              }
+            }
+            
+            console.log(`PaymentLinkId extraído: ${paymentLinkId}`);
+            
+            if (paymentLinkId) {
+              console.log(`🔍 Buscando conta com paymentLinkId: ${paymentLinkId}`);
               
-              if (validMappings.length > 0) {
-                const mapping = validMappings[0].data();
-                const foundUid = mapping.uid;
-                console.log(`✅ UID encontrado no mapeamento: ${foundUid}`);
+              // Buscar na coleção 'contas' por ultimo_paymentLinkId
+              const contasComPaymentLink = await contasRef
+                .where('ultimo_paymentLinkId', '==', paymentLinkId)
+                .limit(10)
+                .get();
+              
+              console.log(`Resultado da busca por paymentLinkId: ${contasComPaymentLink.size} conta(s)`);
+              
+              if (!contasComPaymentLink.empty) {
+                // Pegar a conta mais recente (com data_solicitacao_plano mais recente)
+                const contasOrdenadas = contasComPaymentLink.docs
+                  .map(doc => ({ id: doc.id, ...doc.data() }))
+                  .sort((a, b) => {
+                    const dateA = a.data_solicitacao_plano || a.createdAt || '';
+                    const dateB = b.data_solicitacao_plano || b.createdAt || '';
+                    return dateB.localeCompare(dateA);
+                  });
                 
-                // Tentar buscar por UID
+                const contaEncontrada = contasOrdenadas[0];
+                const foundUid = contaEncontrada.id || contaEncontrada.uid;
+                
+                console.log(`✅ Conta encontrada por paymentLinkId: UID ${foundUid}`);
+                
+                // Buscar a conta pelo UID
                 try {
                   const uidDoc = await contasRef.doc(foundUid).get();
                   if (uidDoc.exists) {
                     docRef = uidDoc.ref;
                     contaData = uidDoc.data();
-                    console.log(`✅ Conta encontrada por UID do mapeamento: ${foundUid}`);
+                    
+                    // Usar email da conta se não tínhamos email
+                    if (!email && contaData.email) {
+                      email = contaData.email;
+                      console.log(`✅ Email obtido da conta: ${email}`);
+                    }
+                    
+                    console.log(`✅ Conta encontrada por paymentLinkId: ${foundUid}`);
                   }
                 } catch (uidError) {
-                  console.log('Erro ao buscar por UID do mapeamento:', uidError.message);
+                  console.error('Erro ao buscar conta por UID:', uidError.message);
+                }
+              } else {
+                console.log('⚠️ Nenhuma conta encontrada com este paymentLinkId');
+                
+                // Última tentativa: buscar todas as contas recentes e filtrar manualmente
+                if (email) {
+                  console.log('🔍 Última tentativa: buscando por email em todas as contas...');
+                  const todasContas = await contasRef
+                    .where('email', '==', email.toLowerCase().trim())
+                    .limit(10)
+                    .get();
+                  
+                  if (!todasContas.empty) {
+                    docRef = todasContas.docs[0].ref;
+                    contaData = todasContas.docs[0].data();
+                    console.log(`✅ Conta encontrada por email (busca ampla): ${docRef.id}`);
+                  }
                 }
               }
+            } else {
+              console.log('⚠️ PaymentLinkId não encontrado no payment');
             }
-          } catch (mappingError) {
-            console.log('Erro ao buscar mapeamento (não crítico):', mappingError.message);
+          } catch (searchError) {
+            console.error('❌ Erro ao buscar conta por paymentLinkId:', searchError.message);
+            console.error('Stack trace:', searchError.stack);
           }
         }
         
@@ -659,24 +791,16 @@ app.post('/api/asaas-webhook', async (req, res) => {
           }
         }
         
-        // Limpar mapeamento usado (opcional, para manter o banco limpo)
-        if (email) {
-          try {
-            const mappingsRef = db.collection('asaas_payment_mappings');
-            const mappingsSnapshot = await mappingsRef
-              .where('email', '==', email)
-              .where('uid', '==', docRef.id)
-              .get();
-            
-            const batch = db.batch();
-            mappingsSnapshot.forEach(doc => {
-              batch.delete(doc.ref);
-            });
-            await batch.commit();
-            console.log('✅ Mapeamentos limpos');
-          } catch (cleanupError) {
-            console.log('Erro ao limpar mapeamentos:', cleanupError.message);
-          }
+        // Limpar campo ultimo_paymentLinkId após processamento (opcional)
+        // Isso pode ser útil para evitar confusão em pagamentos futuros
+        try {
+          await docRef.update({
+            ultimo_paymentLinkId: admin.firestore.FieldValue.delete(),
+            plano_processado_em: new Date().toISOString()
+          });
+          console.log('✅ Campo ultimo_paymentLinkId limpo após processamento');
+        } catch (cleanupError) {
+          console.log('⚠️ Erro ao limpar ultimo_paymentLinkId (não crítico):', cleanupError.message);
         }
         
         return res.status(200).json({ 
