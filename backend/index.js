@@ -1,14 +1,6 @@
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-
-// Obter o diretório atual do arquivo
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Carregar variáveis de ambiente do arquivo key.env
-dotenv.config({ path: path.join(__dirname, 'key.env') });
 // import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
@@ -44,9 +36,6 @@ const db = initializeFirebase();
 
 const app = express();
 
-// Configurações do Firebase - definidas diretamente no código
-// (As configurações estão no arquivo firebase-config.js)
-
 // Configuração CORS com whitelist e resposta dinâmica por origin
 const allowedOrigins = [
   'http://localhost:5173',
@@ -60,16 +49,6 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-
-  // Adicionar Content Security Policy que permite fontes via data: (aplicar sempre)
-  res.header('Content-Security-Policy', 
-    "font-src 'self' data: https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
-    "default-src 'self' https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://atlas.asaas.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://atlas.asaas.com; " +
-    "img-src 'self' data: https: blob:; " +
-    "connect-src 'self' https://atlas.asaas.com https://api.asaas.com https://trezu.com.br https://www.trezu.com.br https://trezu-backend.onrender.com;"
-  );
 
   // Permitir requisições sem origin (ex.: Postman, healthchecks)
   if (!origin) {
@@ -96,22 +75,19 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // WhatsApp API Configuration
-const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY;
-const WHATSAPP_BASE_URL = process.env.WHATSAPP_BASE_URL || 'https://belkit.pro';
-
-if (!WHATSAPP_API_KEY) {
-  console.warn('⚠️ WHATSAPP_API_KEY não configurada no arquivo .env');
-}
+const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFlmT96UBs3'
+const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
 // Configuração da API do Asaas
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
-const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
+// Configure sua API Key do Asaas aqui
+const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIyYjEyMzcxLTcyZDgtNDhhNC04NGJjLTU2ZjY1NDQxMTNiZTo6JGFhY2hfZWZhMzMzNjMtY2E1NS00Njc5LWE5MWQtODhlNGViN2I1NjNj'; // Substitua pela sua API Key do Asaas
+const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
-if (ASAAS_API_KEY) {
+if (ASAAS_API_KEY && ASAAS_API_KEY !== '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIyYjEyMzcxLTcyZDgtNDhhNC04NGJjLTU2ZjY1NDQxMTNiZTo6JGFhY2hfZWZhMzMzNjMtY2E1NS00Njc5LWE5MWQtODhlNGViN2I1NjNj') {
   console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
 } else {
-  console.error('❌ ERRO: ASAAS_API_KEY não configurada no arquivo .env!');
+  console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
 }
 
 // Configuração dos links dos planos Asaas
