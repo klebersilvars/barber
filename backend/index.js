@@ -64,6 +64,19 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    
+    // Adicionar Content Security Policy para permitir fontes via data:
+    // Apenas para requisições de páginas HTML (não para APIs)
+    if (req.path === '/' || req.path.endsWith('.html') || req.accepts('text/html')) {
+      res.header('Content-Security-Policy', 
+        "font-src 'self' data: https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
+        "default-src 'self' https://atlas.asaas.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://atlas.asaas.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://atlas.asaas.com; " +
+        "img-src 'self' data: https: blob:; " +
+        "connect-src 'self' https://atlas.asaas.com https://api.asaas.com https://trezu.com.br https://www.trezu.com.br https://trezu-backend.onrender.com;"
+      );
+    }
   }
 
   if (req.method === 'OPTIONS') {
