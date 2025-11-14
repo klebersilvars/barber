@@ -7,6 +7,7 @@ import axios from 'axios';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import initializeFirebase from './firebase-config.js';
+import admin from 'firebase-admin';
 
 // Configurar Cloudinary
 cloudinary.config({
@@ -86,219 +87,267 @@ app.use((req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Mercado Pago Access Token (coloque sua chave de produção ou sandbox aqui)
-const MP_ACCESS_TOKEN = process.env.API_KEY_MERCADO_PAGO
-const MP_BASE_URL = 'https://api.mercadopago.com/checkout/preferences';
-
 // WhatsApp API Configuration
 const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFlmT96UBs3'
 const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
-// Criar preferência de pagamento
-app.post('/api/create-preference', async (req, res) => {
-  const { planId, email, planName, price, dataTermino } = req.body;
-  try {
-    const preference = {
-      items: [
-        {
-          title: planName,
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: Number(price),
-        },
-      ],
-      payer: {
-        email: email,
-      },
-      payment_methods: {
-        excluded_payment_types: [{ id: 'ticket' }],
-      },
-      back_urls: {
-        success: 'https://SEU_DOMINIO/sucesso',
-        failure: 'https://SEU_DOMINIO/erro',
-        pending: 'https://SEU_DOMINIO/pendente',
-      },
-      auto_return: 'approved',
-      notification_url: 'https://SEU_DOMINIO/api/mercadopago-webhook',
-      metadata: {
-        tipoPlano: planId, // individual ou empresa
-        dataTermino: dataTermino // data de término do plano
-      }
-    };
-    const response = await axios.post(MP_BASE_URL, preference, {
-      headers: {
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    return res.json({ init_point: response.data.init_point });
-  } catch (error) {
-    console.error('Erro ao criar preferência:', error.response?.data || error.message);
-    return res.status(500).json({ error: 'Erro ao criar preferência de pagamento.' });
-  }
+// Configuração dos links dos planos Asaas
+const ASAAS_PLAN_LINKS = {
+  bronze: 'https://www.asaas.com/c/i0ac1rrdxjlo8hsd',
+  prata: 'https://www.asaas.com/c/sv8skxvst83ze71k',
+  ouro: 'https://www.asaas.com/c/yv4j5eg7i3up6g2f',
+  diamante: 'https://www.asaas.com/c/xy7dsnu6ojr47git'
+};
+
+// Valores dos planos (para identificar o plano pelo valor pago)
+const PLAN_VALUES = {
+  59.90: 'bronze',
+  89.90: 'prata',
+  139.90: 'ouro',
+  189.90: 'diamante'
+};
+
+// Endpoint para obter a URL do webhook (para configurar no Asaas)
+app.get('/api/asaas/webhook-url', (req, res) => {
+  const baseUrl = process.env.BACKEND_URL || 'https://trezu.com.br';
+  const webhookUrl = `${baseUrl}/api/asaas-webhook`;
+  
+  res.json({
+    webhook_url: webhookUrl,
+    message: 'Configure esta URL no painel do Asaas em: Configurações > Webhooks',
+    instrucoes: [
+      '1. Acesse o painel do Asaas',
+      '2. Vá em Configurações > Webhooks',
+      '3. Adicione a URL acima',
+      '4. Selecione os eventos: PAYMENT_RECEIVED, PAYMENT_CONFIRMED',
+      '5. Salve as configurações'
+    ]
+  });
 });
 
-// Webhook Mercado Pago
-app.post('/api/mercadopago-webhook', async (req, res) => {
-  const data = req.body;
-  // O Mercado Pago envia notificações diferentes, precisamos buscar o pagamento
-  if (data.type === 'payment') {
-    try {
-      const paymentId = data.data.id;
-      // Buscar detalhes do pagamento
-      const paymentRes = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-        },
-      });
-      const payment = paymentRes.data;
-      if (payment.status === 'approved') {
-        // Buscar usuário pelo e-mail
-        const email = payment.payer.email;
-        const contasRef = db.collection('contas');
-        const snapshot = await contasRef.where('email', '==', email).get();
-        if (!snapshot.empty) {
-          const docRef = snapshot.docs[0].ref;
-          const contaData = snapshot.docs[0].data();
-          // Verificar tipo de plano pelo metadata ou pelo valor
-          let tipoPlano = 'bronze'; // padrão
-          let plano = '';
-          let price = 0;
-          
-          if (payment.additional_info && payment.additional_info.items && payment.additional_info.items[0]) {
-            plano = payment.additional_info.items[0].title?.toLowerCase() || '';
-            price = payment.additional_info.items[0].unit_price || 0;
-          } else if (payment.description) {
-            plano = payment.description.toLowerCase();
-          }
-          
-          // Priorizar metadata do tipoPlano (enviado do frontend)
-          if (payment.metadata && payment.metadata.tipoPlano) {
-            tipoPlano = payment.metadata.tipoPlano;
-            console.log('Tipo de plano definido pelo metadata:', tipoPlano);
-          } else {
-            // Fallback: tentar identificar pelo preço (valores dos novos planos)
-            if (price === 59.90) {
-              tipoPlano = 'bronze';
-            } else if (price === 89.90) {
-              tipoPlano = 'prata';
-            } else if (price === 139.90) {
-              tipoPlano = 'ouro';
-            } else if (price === 189.90) {
-              tipoPlano = 'diamante';
-            } else {
-              // Valores trimestrais ou anuais - usar metadata para identificar o plano correto
-              // pois alguns valores são iguais entre planos diferentes
-              console.log('Preço não identificado automaticamente, usando metadata ou padrão bronze');
-              // Se não conseguir identificar pelo preço, manter bronze como padrão
-              // O importante é que o metadata seja enviado corretamente do frontend
-            }
-            console.log('Tipo de plano identificado pelo preço:', tipoPlano, 'Preço:', price);
-          }
-          
-          // Pegar período de cobrança do metadata
-          const billingPeriod = payment.metadata?.billingPeriod || 'monthly';
-          
-          // Calcular data de término e dias premium baseado no período
-          const hoje = new Date();
-          let dataTermino = null;
-          let diasPremium = 30; // padrão
-          
-          if (billingPeriod === 'monthly') {
-            // Mensal: 1 mês exato
-            const dataTerminoCalc = new Date(hoje);
-            dataTerminoCalc.setMonth(hoje.getMonth() + 1);
-            dataTermino = dataTerminoCalc.toISOString();
-            diasPremium = 30;
-            console.log('Período mensal: 30 dias de premium');
-          } else if (billingPeriod === 'quarterly') {
-            // Trimestral: 3 meses exatos
-            const dataTerminoCalc = new Date(hoje);
-            dataTerminoCalc.setMonth(hoje.getMonth() + 3);
-            dataTermino = dataTerminoCalc.toISOString();
-            diasPremium = 90; // 3 meses = 90 dias
-            console.log('Período trimestral: 90 dias de premium');
-          } else if (billingPeriod === 'yearly') {
-            // Anual: 1 ano exato
-            const dataTerminoCalc = new Date(hoje);
-            dataTerminoCalc.setFullYear(hoje.getFullYear() + 1);
-            dataTermino = dataTerminoCalc.toISOString();
-            diasPremium = 365; // 1 ano = 365 dias
-            console.log('Período anual: 365 dias de premium');
-          } else {
-            // Fallback para mensal se não especificado
-            const dataTerminoCalc = new Date(hoje);
-            dataTerminoCalc.setMonth(hoje.getMonth() + 1);
-            dataTermino = dataTerminoCalc.toISOString();
-            diasPremium = 30;
-            console.log('Período não especificado, usando mensal: 30 dias de premium');
-          }
-          
-          // Usar data de término do metadata se disponível (prioridade)
-          if (payment.metadata && payment.metadata.dataTermino) {
-            dataTermino = payment.metadata.dataTermino;
-            console.log('Data de término recebida do metadata:', dataTermino);
-          }
-          
-          console.log('=== DADOS DO PAGAMENTO ===');
-          console.log('Email do pagador:', email);
-          console.log('Tipo de plano identificado:', tipoPlano);
-          console.log('Preço pago:', price);
-          console.log('Período de cobrança:', billingPeriod);
-          console.log('Dias premium:', diasPremium);
-          console.log('Data de término:', dataTermino);
-          console.log('Metadata recebido:', payment.metadata);
-          
-          // Calcular data de expiração para o Firestore (em milissegundos)
-          const dataExpiracao = new Date(dataTermino);
-          const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
-          
-          // Definir limite de colaboradores por plano
-          let maxColaborador = 1;
-          if (tipoPlano === 'bronze') {
-            maxColaborador = 2;
-          } else if (tipoPlano === 'prata') {
-            maxColaborador = 3;
-          } else if (tipoPlano === 'ouro') {
-            maxColaborador = 4;
-          } else if (tipoPlano === 'diamante') {
-            maxColaborador = 999999; // Sem limite prático
-          }
+// Endpoint para obter os links dos planos
+app.get('/api/asaas/planos', (req, res) => {
+  res.json({
+    planos: {
+      bronze: {
+        link: ASAAS_PLAN_LINKS.bronze,
+        valor: 59.90,
+        nome: 'Plano Bronze'
+      },
+      prata: {
+        link: ASAAS_PLAN_LINKS.prata,
+        valor: 89.90,
+        nome: 'Plano Prata'
+      },
+      ouro: {
+        link: ASAAS_PLAN_LINKS.ouro,
+        valor: 139.90,
+        nome: 'Plano Ouro'
+      },
+      diamante: {
+        link: ASAAS_PLAN_LINKS.diamante,
+        valor: 189.90,
+        nome: 'Plano Diamante'
+      }
+    }
+  });
+});
 
-          await docRef.update({
-            premium: true,
-            premiumExpiresAt: premiumExpiresAt,
-            premiumDaysLeft: diasPremium,
-            tipoPlano: tipoPlano,
-            dias_plano_pago: diasPremium,
-            dias_plano_pago_restante: diasPremium,
-            data_termino_plano_premium: dataTermino,
-            status_pagamento: 'pago',
-            billing_period: billingPeriod, // Salvar o período de cobrança
-            max_colaborador: maxColaborador
-          });
-          
-          console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email}`);
-          // Ativar colaboradores para planos que permitem (Prata, Ouro, Diamante)
-          if ((tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
-            const colaboradoresRef = db.collection('colaboradores');
-            const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
-            const batchColab = db.batch();
-            colabSnap.forEach(colabDoc => {
-              batchColab.update(colabDoc.ref, { ativo: true });
-            });
-            await batchColab.commit();
-            console.log(`Colaboradores ativados para plano ${tipoPlano}`);
+// Webhook Asaas - recebe notificações de pagamento
+app.post('/api/asaas-webhook', async (req, res) => {
+  try {
+    console.log('=== WEBHOOK ASAAS RECEBIDO ===');
+    console.log('Body completo:', JSON.stringify(req.body, null, 2));
+    
+    const event = req.body.event;
+    const payment = req.body.payment;
+    
+    // O Asaas envia diferentes tipos de eventos
+    // Vamos processar apenas quando o pagamento for confirmado/recebido
+    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED' || event === 'PAYMENT_APPROVED') {
+      console.log('✅ Evento de pagamento confirmado:', event);
+      
+      if (!payment) {
+        console.log('❌ Dados do pagamento não encontrados');
+        return res.status(400).json({ error: 'Dados do pagamento não encontrados' });
+      }
+      
+      // Status do pagamento no Asaas
+      const status = payment.status; // CONFIRMED, RECEIVED, etc
+      
+      // Verificar se o pagamento está confirmado
+      if (status === 'CONFIRMED' || status === 'RECEIVED' || status === 'RECEIVED_IN_CASH_OFFLINE') {
+        console.log('✅ Pagamento confirmado, processando...');
+        
+        // Buscar informações do pagamento
+        const email = payment.customer?.email || payment.billingType?.email || payment.externalReference?.email;
+        const value = payment.value || payment.totalValue || 0;
+        const description = payment.description || payment.subscription?.description || '';
+        const subscription = payment.subscription; // Se for assinatura
+        const externalReference = payment.externalReference; // Campo customizado do Asaas (pode conter UID)
+        const paymentId = payment.id; // ID do pagamento no Asaas
+        
+        console.log('=== DADOS DO PAGAMENTO ===');
+        console.log('Payment ID:', paymentId);
+        console.log('Email:', email);
+        console.log('Valor:', value);
+        console.log('Descrição:', description);
+        console.log('Status:', status);
+        console.log('Subscription:', subscription);
+        console.log('External Reference:', externalReference);
+        
+        // Identificar o tipo de plano pelo valor
+        let tipoPlano = null;
+        const valorArredondado = Math.round(value * 100) / 100; // Arredondar para 2 casas decimais
+        
+        if (PLAN_VALUES[valorArredondado]) {
+          tipoPlano = PLAN_VALUES[valorArredondado];
+          console.log('✅ Plano identificado pelo valor:', tipoPlano);
+        } else {
+          // Tentar identificar pela descrição
+          const descLower = description.toLowerCase();
+          if (descLower.includes('bronze')) {
+            tipoPlano = 'bronze';
+          } else if (descLower.includes('prata')) {
+            tipoPlano = 'prata';
+          } else if (descLower.includes('ouro')) {
+            tipoPlano = 'ouro';
+          } else if (descLower.includes('diamante')) {
+            tipoPlano = 'diamante';
+          }
+          console.log('Plano identificado pela descrição:', tipoPlano);
+        }
+        
+        if (!tipoPlano) {
+          console.log('❌ Não foi possível identificar o tipo de plano');
+          return res.status(400).json({ error: 'Tipo de plano não identificado' });
+        }
+        
+        // Buscar usuário pelo UID (se fornecido no externalReference) ou pelo email
+        let docRef = null;
+        let contaData = null;
+        const contasRef = db.collection('contas');
+        
+        // Tentar buscar por UID primeiro (se fornecido no externalReference)
+        if (externalReference && typeof externalReference === 'string') {
+          try {
+            const uidDoc = await contasRef.doc(externalReference).get();
+            if (uidDoc.exists) {
+              docRef = uidDoc.ref;
+              contaData = uidDoc.data();
+              console.log(`✅ Conta encontrada por UID: ${externalReference}`);
+            }
+          } catch (uidError) {
+            console.log('Erro ao buscar por UID:', uidError.message);
           }
         }
+        
+        // Se não encontrou por UID, tentar por email
+        if (!docRef && email) {
+          const snapshot = await contasRef.where('email', '==', email).get();
+          if (!snapshot.empty) {
+            docRef = snapshot.docs[0].ref;
+            contaData = snapshot.docs[0].data();
+            console.log(`✅ Conta encontrada por email: ${email}`);
+          }
+        }
+        
+        if (!docRef) {
+          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID: ${externalReference}`);
+          // Retornar sucesso mesmo assim para não gerar erro no Asaas
+          return res.status(200).json({ 
+            message: 'Conta não encontrada, mas webhook processado',
+            email: email,
+            externalReference: externalReference
+          });
+        }
+        
+        console.log(`✅ Conta encontrada: ${docRef.id}`);
+        
+        // Calcular data de término e dias premium (assumindo mensal por padrão)
+        const hoje = new Date();
+        const dataTerminoCalc = new Date(hoje);
+        dataTerminoCalc.setMonth(hoje.getMonth() + 1);
+        const dataTermino = dataTerminoCalc.toISOString();
+        const diasPremium = 30; // Mensal
+        
+        console.log('Data de término calculada:', dataTermino);
+        console.log('Dias premium:', diasPremium);
+        
+        // Calcular data de expiração para o Firestore
+        const dataExpiracao = new Date(dataTermino);
+        const premiumExpiresAt = admin.firestore.Timestamp.fromDate(dataExpiracao);
+        
+        // Definir limite de colaboradores por plano
+        let maxColaborador = 1;
+        if (tipoPlano === 'bronze') {
+          maxColaborador = 2;
+        } else if (tipoPlano === 'prata') {
+          maxColaborador = 3;
+        } else if (tipoPlano === 'ouro') {
+          maxColaborador = 4;
+        } else if (tipoPlano === 'diamante') {
+          maxColaborador = 999999; // Sem limite prático
+        }
+        
+        // Atualizar conta do usuário
+        await docRef.update({
+          premium: true,
+          premiumExpiresAt: premiumExpiresAt,
+          premiumDaysLeft: diasPremium,
+          tipoPlano: tipoPlano,
+          dias_plano_pago: diasPremium,
+          dias_plano_pago_restante: diasPremium,
+          data_termino_plano_premium: dataTermino,
+          status_pagamento: 'pago',
+          billing_period: 'monthly', // Assumindo mensal
+          max_colaborador: maxColaborador
+        });
+        
+        console.log(`✅ Plano ${tipoPlano} ativado com sucesso para ${email}`);
+        
+        // Ativar colaboradores para planos que permitem (Prata, Ouro, Diamante)
+        if ((tipoPlano === 'prata' || tipoPlano === 'ouro' || tipoPlano === 'diamante') && contaData.nomeEstabelecimento) {
+          const colaboradoresRef = db.collection('colaboradores');
+          const colabSnap = await colaboradoresRef.where('estabelecimento', '==', contaData.nomeEstabelecimento).get();
+          const batchColab = db.batch();
+          colabSnap.forEach(colabDoc => {
+            batchColab.update(colabDoc.ref, { ativo: true });
+          });
+          await batchColab.commit();
+          console.log(`✅ Colaboradores ativados para plano ${tipoPlano}`);
+        }
+        
+        return res.status(200).json({ 
+          success: true,
+          message: 'Pagamento processado com sucesso',
+          email: email,
+          uid: docRef.id,
+          tipoPlano: tipoPlano,
+          paymentId: paymentId
+        });
+      } else {
+        console.log(`⚠️ Pagamento não confirmado. Status: ${status}`);
+        return res.status(200).json({ 
+          message: 'Pagamento recebido mas não confirmado ainda',
+          status: status
+        });
       }
-      res.status(200).send('OK');
-    } catch (err) {
-      console.error('Erro no webhook:', err.message);
-      res.status(500).send('Erro');
+    } else {
+      console.log(`ℹ️ Evento não processado: ${event}`);
+      return res.status(200).json({ 
+        message: 'Evento recebido mas não processado',
+        event: event
+      });
     }
-  } else {
-    res.status(200).send('OK');
+  } catch (err) {
+    console.error('❌ Erro no webhook Asaas:', err.message);
+    console.error('Stack trace:', err.stack);
+    // Retornar 200 para não gerar erro no Asaas, mas logar o erro
+    return res.status(200).json({ 
+      error: 'Erro ao processar webhook',
+      message: err.message
+    });
   }
 });
 
