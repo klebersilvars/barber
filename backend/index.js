@@ -173,22 +173,26 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
     // O Asaas pode receber parâmetros customizados via query string
     const paymentUrl = `${planLink}?uid=${encodeURIComponent(uid)}`;
     
-    // Salvar mapeamento UID -> Plano no Firestore para uso no webhook
-    // Isso garante que mesmo se o Asaas não retornar o UID, possamos buscar pelo email
-    try {
-      const mappingRef = db.collection('asaas_payment_mappings').doc();
-      await mappingRef.set({
-        uid: uid,
-        planId: planId,
-        email: email || null,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Expira em 24 horas
-      });
-      console.log(`✅ Mapeamento salvo: UID ${uid} -> Plano ${planId}`);
-    } catch (mappingError) {
-      console.error('Erro ao salvar mapeamento:', mappingError);
-      // Continuar mesmo com erro no mapeamento
-    }
+    // Salvar mapeamento UID -> Plano no Firestore para uso no webhook (OPCIONAL)
+    // Se falhar, não bloquear o fluxo - o webhook pode buscar por email
+    // Executar de forma assíncrona para não bloquear a resposta
+    (async () => {
+      try {
+        const mappingRef = db.collection('asaas_payment_mappings').doc();
+        await mappingRef.set({
+          uid: uid,
+          planId: planId,
+          email: email || null,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Expira em 24 horas
+        });
+        console.log(`✅ Mapeamento salvo: UID ${uid} -> Plano ${planId}`);
+      } catch (mappingError) {
+        // Erro não crítico - apenas logar e continuar
+        console.warn('⚠️ Não foi possível salvar mapeamento (não crítico):', mappingError.message);
+        console.warn('⚠️ O webhook tentará buscar o usuário por email quando o pagamento for confirmado.');
+      }
+    })();
     
     return res.json({
       payment_url: paymentUrl,
@@ -235,6 +239,30 @@ app.post('/api/asaas-webhook', async (req, res) => {
         const subscription = payment.subscription; // Se for assinatura
         const externalReference = payment.externalReference; // Campo customizado do Asaas (pode conter UID)
         const paymentId = payment.id; // ID do pagamento no Asaas
+        const invoiceUrl = payment.invoiceUrl || payment.invoice?.url || ''; // URL da fatura (pode conter UID na query string)
+        
+        // Tentar extrair UID da URL do pagamento (se foi passado como parâmetro)
+        let uidFromUrl = null;
+        if (invoiceUrl) {
+          try {
+            const urlObj = new URL(invoiceUrl);
+            uidFromUrl = urlObj.searchParams.get('uid');
+            if (uidFromUrl) {
+              console.log(`✅ UID extraído da URL: ${uidFromUrl}`);
+            }
+          } catch (urlError) {
+            console.log('Erro ao extrair UID da URL:', urlError.message);
+          }
+        }
+        
+        // Se não encontrou na URL, tentar no externalReference
+        if (!uidFromUrl && externalReference && typeof externalReference === 'string') {
+          // Verificar se o externalReference parece ser um UID (geralmente tem 28 caracteres para Firebase)
+          if (externalReference.length >= 20 && externalReference.length <= 30) {
+            uidFromUrl = externalReference;
+            console.log(`✅ UID do externalReference: ${uidFromUrl}`);
+          }
+        }
         
         console.log('=== DADOS DO PAGAMENTO ===');
         console.log('Payment ID:', paymentId);
@@ -244,6 +272,8 @@ app.post('/api/asaas-webhook', async (req, res) => {
         console.log('Status:', status);
         console.log('Subscription:', subscription);
         console.log('External Reference:', externalReference);
+        console.log('Invoice URL:', invoiceUrl);
+        console.log('UID extraído:', uidFromUrl);
         
         // Identificar o tipo de plano pelo valor
         let tipoPlano = null;
@@ -272,66 +302,13 @@ app.post('/api/asaas-webhook', async (req, res) => {
           return res.status(400).json({ error: 'Tipo de plano não identificado' });
         }
         
-        // Buscar usuário pelo UID (do mapeamento ou externalReference) ou pelo email
+        // Buscar usuário: PRIORIDADE 1 = Email, PRIORIDADE 2 = UID da URL, PRIORIDADE 3 = Mapeamento
         let docRef = null;
         let contaData = null;
         const contasRef = db.collection('contas');
-        let foundUid = null;
         
-        // 1. Tentar buscar UID do mapeamento salvo (usando email)
+        // PRIORIDADE 1: Buscar por email (método mais confiável)
         if (email) {
-          try {
-            // Buscar mapeamentos recentes (últimas 24 horas) por email
-            // Usar apenas uma query simples para evitar problemas de índice
-            const mappingsRef = db.collection('asaas_payment_mappings');
-            const mappingsSnapshot = await mappingsRef
-              .where('email', '==', email)
-              .limit(10)
-              .get();
-            
-            if (!mappingsSnapshot.empty) {
-              // Filtrar por expiresAt manualmente para evitar índice composto
-              const now = new Date().toISOString();
-              const validMappings = mappingsSnapshot.docs.filter(doc => {
-                const data = doc.data();
-                return data.expiresAt && data.expiresAt > now;
-              });
-              
-              if (validMappings.length > 0) {
-                // Pegar o mais recente
-                const mapping = validMappings[0].data();
-                foundUid = mapping.uid;
-                console.log(`✅ UID encontrado no mapeamento: ${foundUid}`);
-              }
-            }
-          } catch (mappingError) {
-            console.log('Erro ao buscar mapeamento:', mappingError.message);
-            // Continuar mesmo com erro
-          }
-        }
-        
-        // 2. Tentar buscar por UID do externalReference (se fornecido)
-        if (!foundUid && externalReference && typeof externalReference === 'string') {
-          foundUid = externalReference;
-          console.log(`✅ UID do externalReference: ${foundUid}`);
-        }
-        
-        // 3. Buscar conta por UID (se encontrado)
-        if (foundUid) {
-          try {
-            const uidDoc = await contasRef.doc(foundUid).get();
-            if (uidDoc.exists) {
-              docRef = uidDoc.ref;
-              contaData = uidDoc.data();
-              console.log(`✅ Conta encontrada por UID: ${foundUid}`);
-            }
-          } catch (uidError) {
-            console.log('Erro ao buscar por UID:', uidError.message);
-          }
-        }
-        
-        // 4. Se não encontrou por UID, tentar por email
-        if (!docRef && email) {
           try {
             const snapshot = await contasRef.where('email', '==', email).get();
             if (!snapshot.empty) {
@@ -344,13 +321,70 @@ app.post('/api/asaas-webhook', async (req, res) => {
           }
         }
         
+        // PRIORIDADE 2: Buscar por UID extraído da URL/externalReference (DEPOIS do email)
+        if (!docRef && uidFromUrl) {
+          try {
+            const uidDoc = await contasRef.doc(uidFromUrl).get();
+            if (uidDoc.exists) {
+              docRef = uidDoc.ref;
+              contaData = uidDoc.data();
+              console.log(`✅ Conta encontrada por UID da URL: ${uidFromUrl}`);
+            } else {
+              console.log(`⚠️ UID da URL não encontrado no Firestore: ${uidFromUrl}`);
+            }
+          } catch (uidError) {
+            console.log('Erro ao buscar por UID da URL:', uidError.message);
+          }
+        }
+        
+        // PRIORIDADE 3: Tentar buscar UID do mapeamento (se não encontrou por email nem por UID)
+        if (!docRef && email) {
+          try {
+            const mappingsRef = db.collection('asaas_payment_mappings');
+            const mappingsSnapshot = await mappingsRef
+              .where('email', '==', email)
+              .limit(10)
+              .get();
+            
+            if (!mappingsSnapshot.empty) {
+              // Filtrar por expiresAt manualmente
+              const now = new Date().toISOString();
+              const validMappings = mappingsSnapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.expiresAt && data.expiresAt > now;
+              });
+              
+              if (validMappings.length > 0) {
+                const mapping = validMappings[0].data();
+                const foundUid = mapping.uid;
+                console.log(`✅ UID encontrado no mapeamento: ${foundUid}`);
+                
+                // Tentar buscar por UID
+                try {
+                  const uidDoc = await contasRef.doc(foundUid).get();
+                  if (uidDoc.exists) {
+                    docRef = uidDoc.ref;
+                    contaData = uidDoc.data();
+                    console.log(`✅ Conta encontrada por UID do mapeamento: ${foundUid}`);
+                  }
+                } catch (uidError) {
+                  console.log('Erro ao buscar por UID do mapeamento:', uidError.message);
+                }
+              }
+            }
+          } catch (mappingError) {
+            console.log('Erro ao buscar mapeamento (não crítico):', mappingError.message);
+          }
+        }
+        
         if (!docRef) {
-          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID: ${foundUid || externalReference}`);
+          console.log(`❌ Nenhuma conta encontrada. Email: ${email}, UID da URL: ${uidFromUrl}, ExternalReference: ${externalReference}`);
           // Retornar sucesso mesmo assim para não gerar erro no Asaas
           return res.status(200).json({ 
             message: 'Conta não encontrada, mas webhook processado',
             email: email,
-            uid: foundUid || externalReference
+            uidFromUrl: uidFromUrl,
+            externalReference: externalReference
           });
         }
         
