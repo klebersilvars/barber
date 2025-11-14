@@ -1,8 +1,14 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 
-// Carregar variáveis de ambiente do arquivo .env
-dotenv.config();
+// Obter o diretório atual do arquivo
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Carregar variáveis de ambiente do arquivo key.env
+dotenv.config({ path: path.join(__dirname, 'key.env') });
 // import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
