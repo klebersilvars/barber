@@ -251,32 +251,65 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
       billingPeriod = 'monthly';
     }
     
-    console.log('✅ Plano:', planId);
+    console.log('✅ Plano selecionado:', planId);
     console.log('✅ Período FINAL selecionado:', billingPeriod);
     console.log('✅ Tipo do período FINAL:', typeof billingPeriod);
     
+    // Mapear período para nome em português para logs
+    const periodoNomeMap = {
+      'monthly': 'MENSAL',
+      'quarterly': 'TRIMESTRAL',
+      'yearly': 'ANUAL'
+    };
+    console.log(`📅 Período selecionado: ${periodoNomeMap[billingPeriod] || billingPeriod.toUpperCase()}`);
+    
     // Obter o link do plano conforme período
     const planLinks = ASAAS_PLAN_LINKS[planId];
-    console.log('📋 Links disponíveis para o plano:', Object.keys(planLinks));
-    console.log('📋 Link para monthly:', planLinks.monthly);
-    console.log('📋 Link para quarterly:', planLinks.quarterly);
-    console.log('📋 Link para yearly:', planLinks.yearly);
+    console.log('📋 === LINKS DISPONÍVEIS PARA O PLANO ===');
+    console.log('📋 Períodos disponíveis:', Object.keys(planLinks));
+    console.log('📋 Link MENSAL (monthly):', planLinks.monthly);
+    console.log('📋 Link TRIMESTRAL (quarterly):', planLinks.quarterly);
+    console.log('📋 Link ANUAL (yearly):', planLinks.yearly);
     
     if (!planLinks || !planLinks[billingPeriod]) {
-      console.error(`❌ Período ${billingPeriod} não disponível para o plano ${planId}`);
+      console.error(`❌ Período ${billingPeriod} (${periodoNomeMap[billingPeriod] || billingPeriod}) não disponível para o plano ${planId}`);
       console.error('📋 Períodos disponíveis:', Object.keys(planLinks || {}));
       return res.status(400).json({ error: `Período ${billingPeriod} não disponível para o plano ${planId}` });
     }
     
     const planLink = planLinks[billingPeriod];
-    console.log('✅ Link selecionado ANTES de criar URL:', planLink);
-    console.log('✅ Período usado para selecionar o link:', billingPeriod);
+    console.log('✅ === LINK SELECIONADO ===');
+    console.log('✅ Período usado:', billingPeriod, `(${periodoNomeMap[billingPeriod] || billingPeriod})`);
+    console.log('✅ Link selecionado:', planLink);
+    console.log('✅ ID do link (última parte):', planLink.split('/c/')[1] || planLink.split('/').pop());
     
-    // Verificar se o link está correto
-    if (billingPeriod === 'quarterly' && planLink.includes('i0ac1rrdxjlo8hsd')) {
-      console.error('❌❌❌ ERRO CRÍTICO: Link mensal sendo retornado para período quarterly!');
-      console.error('❌ Link mensal (errado):', planLink);
-      console.error('❌ Link trimestral (correto) deveria ser:', planLinks.quarterly);
+    // Verificar se o link está correto para cada período
+    if (billingPeriod === 'quarterly') {
+      const linkIdEsperado = 'yu3zcn1fo49mc7th'; // Bronze trimestral
+      const linkIdAtual = planLink.split('/c/')[1] || planLink.split('/').pop();
+      if (!planLink.includes(linkIdEsperado) && planId === 'bronze') {
+        console.error('❌❌❌ ERRO CRÍTICO: Link incorreto para período TRIMESTRAL do Bronze!');
+        console.error('❌ Link atual (errado):', planLink);
+        console.error('❌ ID esperado:', linkIdEsperado);
+        console.error('❌ ID atual:', linkIdAtual);
+        console.error('❌ Link TRIMESTRAL correto deveria ser:', planLinks.quarterly);
+      } else {
+        console.log('✅ Link TRIMESTRAL verificado corretamente!');
+      }
+    } else if (billingPeriod === 'yearly') {
+      const linkIdEsperadoBronze = 'm1uctr1hy2q1o45q'; // Bronze anual
+      const linkIdAtual = planLink.split('/c/')[1] || planLink.split('/').pop();
+      if (!planLink.includes(linkIdEsperadoBronze) && planId === 'bronze') {
+        console.error('❌❌❌ ERRO CRÍTICO: Link incorreto para período ANUAL do Bronze!');
+        console.error('❌ Link atual (errado):', planLink);
+        console.error('❌ ID esperado:', linkIdEsperadoBronze);
+        console.error('❌ ID atual:', linkIdAtual);
+        console.error('❌ Link ANUAL correto deveria ser:', planLinks.yearly);
+      } else {
+        console.log('✅ Link ANUAL verificado corretamente!');
+      }
+    } else if (billingPeriod === 'monthly') {
+      console.log('✅ Link MENSAL verificado corretamente!');
     }
     
     console.log('📋 === FIM DA SELEÇÃO DO LINK ===');
@@ -408,25 +441,61 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
       paymentLinkId: paymentLinkId // Adicionar para debug
     };
     
-    console.log('📋 === RESPOSTA DO BACKEND ===');
-    console.log('📋 Link final retornado:', paymentUrl);
-    console.log('📋 Período usado na resposta:', responseData.billingPeriod);
-    console.log('📋 PlanId:', responseData.planId);
+    // Mapear período para nome em português para logs (usando mesmo map da anterior)
+    const periodoNomeResposta = {
+      'monthly': 'MENSAL',
+      'quarterly': 'TRIMESTRAL',
+      'yearly': 'ANUAL'
+    };
+    
+    console.log('📋 === RESPOSTA FINAL DO BACKEND ===');
+    console.log('📋 Plano:', responseData.planId);
+    console.log('📋 Período:', responseData.billingPeriod, `(${periodoNomeResposta[responseData.billingPeriod] || responseData.billingPeriod.toUpperCase()})`);
     console.log('📋 PaymentLinkId:', responseData.paymentLinkId);
+    console.log('📋 Link final retornado:', paymentUrl);
+    console.log('📋 UID:', responseData.uid);
+    console.log('📋 Email:', email);
     console.log('📋 Response data completo:', JSON.stringify(responseData, null, 2));
     
-    // Verificação final antes de retornar
-    if (responseData.billingPeriod === 'quarterly') {
+    // Verificação final antes de retornar para cada período
+    const periodoFinal = responseData.billingPeriod;
+    if (periodoFinal === 'quarterly') {
       const expectedLink = planLinks.quarterly;
       const actualLink = planLink;
       if (actualLink !== expectedLink) {
-        console.error('❌❌❌ ERRO CRÍTICO ANTES DE RETORNAR!');
-        console.error('❌ Período esperado: quarterly');
+        console.error('❌❌❌ ERRO CRÍTICO ANTES DE RETORNAR - PERÍODO TRIMESTRAL!');
+        console.error('❌ Período esperado: TRIMESTRAL (quarterly)');
         console.error('❌ Link esperado:', expectedLink);
         console.error('❌ Link retornado:', actualLink);
         console.error('❌ URLs são iguais?', actualLink === expectedLink);
       } else {
-        console.log('✅ Link correto verificado antes de retornar!');
+        console.log('✅ Link TRIMESTRAL correto verificado antes de retornar!');
+        console.log('✅ Link TRIMESTRAL:', actualLink);
+      }
+    } else if (periodoFinal === 'yearly') {
+      const expectedLink = planLinks.yearly;
+      const actualLink = planLink;
+      if (actualLink !== expectedLink) {
+        console.error('❌❌❌ ERRO CRÍTICO ANTES DE RETORNAR - PERÍODO ANUAL!');
+        console.error('❌ Período esperado: ANUAL (yearly)');
+        console.error('❌ Link esperado:', expectedLink);
+        console.error('❌ Link retornado:', actualLink);
+        console.error('❌ URLs são iguais?', actualLink === expectedLink);
+      } else {
+        console.log('✅ Link ANUAL correto verificado antes de retornar!');
+        console.log('✅ Link ANUAL:', actualLink);
+      }
+    } else if (periodoFinal === 'monthly') {
+      const expectedLink = planLinks.monthly;
+      const actualLink = planLink;
+      if (actualLink !== expectedLink) {
+        console.error('❌❌❌ ERRO CRÍTICO ANTES DE RETORNAR - PERÍODO MENSAL!');
+        console.error('❌ Período esperado: MENSAL (monthly)');
+        console.error('❌ Link esperado:', expectedLink);
+        console.error('❌ Link retornado:', actualLink);
+      } else {
+        console.log('✅ Link MENSAL correto verificado antes de retornar!');
+        console.log('✅ Link MENSAL:', actualLink);
       }
     }
     
