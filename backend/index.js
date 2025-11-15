@@ -90,13 +90,31 @@ if (ASAAS_API_KEY && ASAAS_API_KEY.startsWith('$aact_')) {
   console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
 }
 
-// Configuração dos links dos planos Asaas
+// Configuração dos links dos planos Asaas por período
 const ASAAS_PLAN_LINKS = {
-  teste: 'https://www.asaas.com/c/3tq79ax6gm22ib6g',
-  bronze: 'https://www.asaas.com/c/i0ac1rrdxjlo8hsd',
-  prata: 'https://www.asaas.com/c/sv8skxvst83ze71k',
-  ouro: 'https://www.asaas.com/c/yv4j5eg7i3up6g2f',
-  diamante: 'https://www.asaas.com/c/xy7dsnu6ojr47git'
+  teste: {
+    monthly: 'https://www.asaas.com/c/3tq79ax6gm22ib6g'
+  },
+  bronze: {
+    monthly: 'https://www.asaas.com/c/i0ac1rrdxjlo8hsd',
+    quarterly: 'https://www.asaas.com/c/yu3zcn1fo49mc7th',
+    yearly: 'https://www.asaas.com/c/m1uctr1hy2q1o45q'
+  },
+  prata: {
+    monthly: 'https://www.asaas.com/c/sv8skxvst83ze71k',
+    quarterly: 'https://www.asaas.com/c/xwb7c71ljvqwgsvh',
+    yearly: 'https://www.asaas.com/c/r11juekmj4tuyduo'
+  },
+  ouro: {
+    monthly: 'https://www.asaas.com/c/yv4j5eg7i3up6g2f',
+    quarterly: 'https://www.asaas.com/c/l5g71ip4yvjtlaaq',
+    yearly: 'https://www.asaas.com/c/or95dvbs3e05c1vt'
+  },
+  diamante: {
+    monthly: 'https://www.asaas.com/c/xy7dsnu6ojr47git',
+    quarterly: 'https://www.asaas.com/c/igvqkm84n0ghgsot',
+    yearly: 'https://www.asaas.com/c/7f4v1ee13ke84h5d'
+  }
 };
 
 // Valores dos planos (para identificar o plano pelo valor pago)
@@ -156,28 +174,28 @@ app.get('/api/asaas/planos', (req, res) => {
   res.json({
     planos: {
       teste: {
-        link: ASAAS_PLAN_LINKS.teste,
+        links: ASAAS_PLAN_LINKS.teste,
         valor: 5.00,
         nome: 'Plano Teste',
         atribuiComo: 'prata' // Atribui como prata quando pago
       },
       bronze: {
-        link: ASAAS_PLAN_LINKS.bronze,
+        links: ASAAS_PLAN_LINKS.bronze,
         valor: 59.90,
         nome: 'Plano Bronze'
       },
       prata: {
-        link: ASAAS_PLAN_LINKS.prata,
+        links: ASAAS_PLAN_LINKS.prata,
         valor: 89.90,
         nome: 'Plano Prata'
       },
       ouro: {
-        link: ASAAS_PLAN_LINKS.ouro,
+        links: ASAAS_PLAN_LINKS.ouro,
         valor: 139.90,
         nome: 'Plano Ouro'
       },
       diamante: {
-        link: ASAAS_PLAN_LINKS.diamante,
+        links: ASAAS_PLAN_LINKS.diamante,
         valor: 189.90,
         nome: 'Plano Diamante'
       }
@@ -188,7 +206,18 @@ app.get('/api/asaas/planos', (req, res) => {
 // Endpoint para gerar link de pagamento com UID (substitui o create-preference do Mercado Pago)
 app.post('/api/asaas/get-payment-link', async (req, res) => {
   try {
-    let { uid, planId, email } = req.body;
+    // Log completo do body recebido
+    console.log('📋 === SOLICITAÇÃO DE LINK DE PAGAMENTO ===');
+    console.log('📋 Body completo recebido:', JSON.stringify(req.body, null, 2));
+    
+    let { uid, planId, email, billingPeriod } = req.body;
+    
+    console.log('📋 Dados extraídos:', { uid, planId, email, billingPeriod });
+    console.log('📋 Tipo do billingPeriod:', typeof billingPeriod);
+    console.log('📋 billingPeriod recebido (stringify):', JSON.stringify(billingPeriod));
+    console.log('📋 billingPeriod é undefined?', billingPeriod === undefined);
+    console.log('📋 billingPeriod é null?', billingPeriod === null);
+    console.log('📋 billingPeriod é falsy?', !billingPeriod);
     
     if (!uid) {
       return res.status(400).json({ error: 'UID é obrigatório' });
@@ -198,8 +227,59 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
       return res.status(400).json({ error: 'Plano inválido. Use: bronze, prata, ouro ou diamante' });
     }
     
-    // Obter o link do plano
-    const planLink = ASAAS_PLAN_LINKS[planId];
+    // CRÍTICO: Validar se billingPeriod foi fornecido ANTES de fazer qualquer coisa
+    if (!billingPeriod || billingPeriod === undefined || billingPeriod === null || billingPeriod === '') {
+      console.warn('⚠️ billingPeriod não fornecido ou vazio, usando padrão: monthly');
+      console.warn('⚠️ Valor original:', billingPeriod);
+      billingPeriod = 'monthly';
+    } else {
+      // Normalizar o billingPeriod (garantir lowercase e remover espaços)
+      billingPeriod = String(billingPeriod).toLowerCase().trim();
+      console.log('✅ billingPeriod normalizado:', billingPeriod);
+    }
+    
+    // Validar período
+    if (billingPeriod !== 'monthly' && billingPeriod !== 'quarterly' && billingPeriod !== 'yearly') {
+      console.error('❌ Período inválido recebido:', billingPeriod);
+      console.error('❌ Tipo:', typeof billingPeriod);
+      return res.status(400).json({ error: 'Período inválido. Use: monthly, quarterly ou yearly' });
+    }
+    
+    // Para plano teste, sempre usar monthly
+    if (planId === 'teste') {
+      console.log('ℹ️ Plano teste detectado, forçando monthly');
+      billingPeriod = 'monthly';
+    }
+    
+    console.log('✅ Plano:', planId);
+    console.log('✅ Período FINAL selecionado:', billingPeriod);
+    console.log('✅ Tipo do período FINAL:', typeof billingPeriod);
+    
+    // Obter o link do plano conforme período
+    const planLinks = ASAAS_PLAN_LINKS[planId];
+    console.log('📋 Links disponíveis para o plano:', Object.keys(planLinks));
+    console.log('📋 Link para monthly:', planLinks.monthly);
+    console.log('📋 Link para quarterly:', planLinks.quarterly);
+    console.log('📋 Link para yearly:', planLinks.yearly);
+    
+    if (!planLinks || !planLinks[billingPeriod]) {
+      console.error(`❌ Período ${billingPeriod} não disponível para o plano ${planId}`);
+      console.error('📋 Períodos disponíveis:', Object.keys(planLinks || {}));
+      return res.status(400).json({ error: `Período ${billingPeriod} não disponível para o plano ${planId}` });
+    }
+    
+    const planLink = planLinks[billingPeriod];
+    console.log('✅ Link selecionado ANTES de criar URL:', planLink);
+    console.log('✅ Período usado para selecionar o link:', billingPeriod);
+    
+    // Verificar se o link está correto
+    if (billingPeriod === 'quarterly' && planLink.includes('i0ac1rrdxjlo8hsd')) {
+      console.error('❌❌❌ ERRO CRÍTICO: Link mensal sendo retornado para período quarterly!');
+      console.error('❌ Link mensal (errado):', planLink);
+      console.error('❌ Link trimestral (correto) deveria ser:', planLinks.quarterly);
+    }
+    
+    console.log('📋 === FIM DA SELEÇÃO DO LINK ===');
     
     // Extrair o ID do paymentLink (última parte da URL após /c/)
     // Exemplo: https://www.asaas.com/c/3tq79ax6gm22ib6g -> 3tq79ax6gm22ib6g
@@ -266,6 +346,7 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
           ultima_atualizacao: new Date().toISOString(),
           ultimo_paymentLinkId: paymentLinkId, // Salvar o ID do paymentLink para o webhook encontrar
           ultimo_planId_solicitado: planId, // Salvar o plano solicitado
+          ultimo_billingPeriod_solicitado: billingPeriod, // Salvar o período solicitado
           data_solicitacao_plano: new Date().toISOString()
         };
         
@@ -318,11 +399,40 @@ app.post('/api/asaas/get-payment-link', async (req, res) => {
       console.warn('PlanId:', planId);
     }
     
-    return res.json({
+    // Garantir que billingPeriod está definido na resposta
+    const responseData = {
       payment_url: paymentUrl,
       planId: planId,
-      uid: uid
-    });
+      billingPeriod: billingPeriod || 'monthly', // Garantir que sempre tenha um valor
+      uid: uid,
+      paymentLinkId: paymentLinkId // Adicionar para debug
+    };
+    
+    console.log('📋 === RESPOSTA DO BACKEND ===');
+    console.log('📋 Link final retornado:', paymentUrl);
+    console.log('📋 Período usado na resposta:', responseData.billingPeriod);
+    console.log('📋 PlanId:', responseData.planId);
+    console.log('📋 PaymentLinkId:', responseData.paymentLinkId);
+    console.log('📋 Response data completo:', JSON.stringify(responseData, null, 2));
+    
+    // Verificação final antes de retornar
+    if (responseData.billingPeriod === 'quarterly') {
+      const expectedLink = planLinks.quarterly;
+      const actualLink = planLink;
+      if (actualLink !== expectedLink) {
+        console.error('❌❌❌ ERRO CRÍTICO ANTES DE RETORNAR!');
+        console.error('❌ Período esperado: quarterly');
+        console.error('❌ Link esperado:', expectedLink);
+        console.error('❌ Link retornado:', actualLink);
+        console.error('❌ URLs são iguais?', actualLink === expectedLink);
+      } else {
+        console.log('✅ Link correto verificado antes de retornar!');
+      }
+    }
+    
+    console.log('📋 === FIM DA RESPOSTA ===');
+    
+    return res.json(responseData);
     
   } catch (error) {
     console.error('Erro ao gerar link de pagamento:', error);
@@ -404,13 +514,57 @@ app.post('/api/asaas-webhook', async (req, res) => {
               customerEmail = customerRes.data?.email;
               console.log('📧 Email do cliente obtido da API do Asaas:', customerEmail);
             } catch (error) {
-              console.warn('⚠️ Erro ao buscar email do cliente:', error.message);
+              console.warn('⚠️ Erro ao buscar email do cliente na API:', error.message);
+              
+              // Se falhar, tentar buscar usando o paymentLink
+              if (paymentDetails.paymentLink) {
+                try {
+                  console.log('🔍 Tentando buscar email usando paymentLink:', paymentDetails.paymentLink);
+                  const contasRef = db.collection('contas');
+                  const snapshot = await contasRef.where('ultimo_paymentLinkId', '==', paymentDetails.paymentLink).get();
+                  
+                  if (!snapshot.empty) {
+                    const contaData = snapshot.docs[0].data();
+                    customerEmail = contaData.email;
+                    console.log('📧 Email encontrado usando paymentLink:', customerEmail);
+                  } else {
+                    console.warn('⚠️ Nenhuma conta encontrada com o paymentLink:', paymentDetails.paymentLink);
+                  }
+                } catch (paymentLinkError) {
+                  console.error('❌ Erro ao buscar email usando paymentLink:', paymentLinkError.message);
+                }
+              }
             }
           }
         }
         
+        // Se ainda não encontrou email, tentar buscar usando paymentLink como último recurso
+        if (!customerEmail && paymentDetails.paymentLink) {
+          try {
+            console.log('🔍 Última tentativa: buscando email usando paymentLink:', paymentDetails.paymentLink);
+            const contasRef = db.collection('contas');
+            const snapshot = await contasRef.where('ultimo_paymentLinkId', '==', paymentDetails.paymentLink).get();
+            
+            if (!snapshot.empty) {
+              const contaData = snapshot.docs[0].data();
+              customerEmail = contaData.email;
+              console.log('✅ Email encontrado usando paymentLink (última tentativa):', customerEmail);
+            } else {
+              console.warn('⚠️ Nenhuma conta encontrada com o paymentLink:', paymentDetails.paymentLink);
+            }
+          } catch (paymentLinkError) {
+            console.error('❌ Erro ao buscar email usando paymentLink (última tentativa):', paymentLinkError.message);
+          }
+        }
+        
         if (!customerEmail) {
-          console.log('⚠️ Email não encontrado no pagamento');
+          console.log('❌ Email não encontrado após todas as tentativas');
+          console.log('📋 Dados disponíveis do webhook:', {
+            paymentId: paymentDetails.id,
+            customer: paymentDetails.customer,
+            paymentLink: paymentDetails.paymentLink,
+            description: paymentDetails.description
+          });
           return res.status(200).send('OK - Email not found');
         }
         
@@ -514,39 +668,60 @@ app.post('/api/asaas-webhook', async (req, res) => {
           });
         }
         
-        // Identificar o tipo de plano pelo valor
+        // Identificar o tipo de plano e período usando o paymentLink (MÉTODO PRINCIPAL)
         let tipoPlano = null;
         let billingPeriod = 'monthly'; // Padrão mensal
-        const value = paymentDetails.value || paymentDetails.totalValue || paymentDetails.amount || 0;
-        const valorArredondado = Math.round(value * 100) / 100;
         
-        if (PLAN_VALUES[valorArredondado]) {
-          const planInfo = PLAN_VALUES[valorArredondado];
-          tipoPlano = planInfo.tipo;
-          billingPeriod = planInfo.periodo;
-          console.log('✅ Plano identificado pelo valor:', tipoPlano, '- Período:', billingPeriod);
-        } else {
-          // Tentar identificar pela descrição
-          const description = paymentDetails.description || '';
-          const descLower = description.toLowerCase();
-          if (descLower.includes('bronze')) {
-              tipoPlano = 'bronze';
-          } else if (descLower.includes('prata')) {
-              tipoPlano = 'prata';
-          } else if (descLower.includes('ouro')) {
-              tipoPlano = 'ouro';
-          } else if (descLower.includes('diamante')) {
-              tipoPlano = 'diamante';
+        // PRIMEIRO: Tentar buscar do Firestore usando o paymentLink (MÉTODO MAIS CONFIÁVEL)
+        if (paymentDetails.paymentLink && docRef) {
+          try {
+            const contaDoc = await docRef.get();
+            if (contaDoc.exists) {
+              const contaData = contaDoc.data();
+              if (contaData.ultimo_paymentLinkId === paymentDetails.paymentLink) {
+                tipoPlano = contaData.ultimo_planId_solicitado || null;
+                billingPeriod = contaData.ultimo_billingPeriod_solicitado || 'monthly';
+                console.log('✅ Plano e período identificados pelo paymentLink do Firestore:', tipoPlano, '- Período:', billingPeriod);
+              }
+            }
+          } catch (paymentLinkError) {
+            console.warn('⚠️ Erro ao buscar período do Firestore:', paymentLinkError.message);
           }
+        }
+        
+        // SEGUNDO: Se não encontrou pelo paymentLink, tentar identificar pelo valor
+        if (!tipoPlano) {
+          const value = paymentDetails.value || paymentDetails.totalValue || paymentDetails.amount || 0;
+          const valorArredondado = Math.round(value * 100) / 100;
           
-          // Tentar identificar período pela descrição
-          if (descLower.includes('trimestral') || descLower.includes('quarterly')) {
-            billingPeriod = 'quarterly';
-          } else if (descLower.includes('anual') || descLower.includes('yearly')) {
-            billingPeriod = 'yearly';
+          if (PLAN_VALUES[valorArredondado]) {
+            const planInfo = PLAN_VALUES[valorArredondado];
+            tipoPlano = planInfo.tipo;
+            billingPeriod = planInfo.periodo;
+            console.log('✅ Plano identificado pelo valor:', tipoPlano, '- Período:', billingPeriod);
+          } else {
+            // Tentar identificar pela descrição
+            const description = paymentDetails.description || '';
+            const descLower = description.toLowerCase();
+            if (descLower.includes('bronze')) {
+                tipoPlano = 'bronze';
+            } else if (descLower.includes('prata')) {
+                tipoPlano = 'prata';
+            } else if (descLower.includes('ouro')) {
+                tipoPlano = 'ouro';
+            } else if (descLower.includes('diamante')) {
+                tipoPlano = 'diamante';
+            }
+            
+            // Tentar identificar período pela descrição
+            if (descLower.includes('trimestral') || descLower.includes('quarterly')) {
+              billingPeriod = 'quarterly';
+            } else if (descLower.includes('anual') || descLower.includes('yearly')) {
+              billingPeriod = 'yearly';
+            }
+            
+            console.log('Plano identificado pela descrição:', tipoPlano, '- Período:', billingPeriod);
           }
-          
-          console.log('Plano identificado pela descrição:', tipoPlano, '- Período:', billingPeriod);
         }
         
         if (!tipoPlano) {
@@ -554,10 +729,18 @@ app.post('/api/asaas-webhook', async (req, res) => {
           return res.status(200).send('OK - Plan type not identified');
         }
         
-        // Calcular datas baseado no período
-        const hoje = new Date();
-        const dataPagamento = new Date(paymentDetails.paymentDate || paymentDetails.dateCreated || hoje);
-        const dataFinal = new Date(hoje);
+        // CRÍTICO: Calcular datas baseado na DATA DE PAGAMENTO, não na data atual
+        // Priorizar: confirmedDate > clientPaymentDate > paymentDate > dateCreated
+        const dataPagamento = new Date(
+          paymentDetails.confirmedDate || 
+          paymentDetails.clientPaymentDate || 
+          paymentDetails.paymentDate || 
+          paymentDetails.dateCreated || 
+          new Date()
+        );
+        
+        // A data de término deve começar a contar DO DIA DO PAGAMENTO
+        const dataFinal = new Date(dataPagamento);
         
         let diasPremium = 30; // Padrão mensal
         
@@ -567,14 +750,15 @@ app.post('/api/asaas-webhook', async (req, res) => {
         } else if (billingPeriod === 'quarterly') {
           dataFinal.setMonth(dataFinal.getMonth() + 3);
           diasPremium = 90;
-                } else {
+        } else {
           // monthly
           dataFinal.setMonth(dataFinal.getMonth() + 1);
           diasPremium = 30;
         }
         
+        console.log('📅 Data de pagamento (base para cálculo):', dataPagamento.toISOString());
         console.log('📅 Período identificado:', billingPeriod);
-        console.log('📅 Data de término calculada:', dataFinal.toISOString());
+        console.log('📅 Data de término calculada (a partir do pagamento):', dataFinal.toISOString());
         console.log('📅 Dias premium:', diasPremium);
           
         // Calcular data de expiração para o Firestore
@@ -602,12 +786,13 @@ app.post('/api/asaas-webhook', async (req, res) => {
             dias_plano_pago: diasPremium,
             dias_plano_pago_restante: diasPremium,
             data_termino_plano_premium: dataFinal.toISOString(),
+            data_inicio_plano_premium: dataPagamento.toISOString(), // Data de início = data de pagamento
             status_pagamento: 'pago',
-            billing_period: billingPeriod,
+            billing_period: billingPeriod, // Salvar período correto (monthly, quarterly, yearly)
           max_colaborador: maxColaborador,
             ultima_atualizacao_plano: new Date().toISOString(),
             payment_id: paymentId, // Salvar ID do pagamento para referência
-            payment_date: dataPagamento.toISOString()
+            payment_date: dataPagamento.toISOString() // Data do pagamento
         };
         
         console.log('=== ATUALIZANDO CONTA DO USUÁRIO ===');

@@ -280,18 +280,38 @@ export default function Plano() {
       const dataTermino = calcularDataTerminoPorPeriodo(billingPeriod);
       setDataTerminoPlano(dataTermino);
 
+      // LOG para debug - garantir que está enviando o período correto
+      console.log('📋 === INICIANDO CHECKOUT ===');
+      console.log('📋 Plano selecionado:', plan.id);
+      console.log('📋 Período selecionado (billingPeriod):', billingPeriod);
+      console.log('📋 Tipo do billingPeriod:', typeof billingPeriod);
+      console.log('📋 Valor do billingPeriod:', JSON.stringify(billingPeriod));
+
       setPaymentMessage("Redirecionando para o pagamento. Aguarde...");
+      
+      const requestBody = {
+        uid: userUid,
+        planId: plan.id, // bronze, prata, ouro ou diamante
+        email: userEmail,
+        billingPeriod: billingPeriod // monthly, quarterly ou yearly
+      };
+      
+      console.log('📋 Request body sendo enviado:', requestBody);
+      
       const response = await fetch(`${BACKEND_URL}/api/asaas/get-payment-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid: userUid,
-          planId: plan.id, // bronze, prata, ouro ou diamante
-          email: userEmail
-        }),
+        body: JSON.stringify(requestBody),
       });
       const data = await response.json();
+      
+      console.log('📋 === RESPOSTA DO BACKEND ===');
+      console.log('📋 Payment URL recebida:', data.payment_url);
+      console.log('📋 Período retornado pelo backend:', data.billingPeriod);
+      console.log('📋 Plano retornado:', data.planId);
+      
       if (data.payment_url) {
+        console.log('✅ Redirecionando para:', data.payment_url);
         setPaymentMessage("");
         window.location.href = data.payment_url;
       } else {
