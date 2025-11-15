@@ -13,7 +13,12 @@ dist-ssr
 *.local
 
 keys.env
+key.env
 .env
+# Ignorar todos os arquivos .env exceto exemplos
+*.env
+!keys.env.example
+!*.env.example
 
 # Editor directories and files
 .vscode/*

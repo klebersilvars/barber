@@ -6,8 +6,15 @@ import bodyParser from 'body-parser';
 import axios from 'axios';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
+import dotenv from 'dotenv';
 import initializeFirebase from './firebase-config.js';
 import admin from 'firebase-admin';
+
+// Carregar variáveis de ambiente do arquivo key.env
+// Usar caminho relativo ao diretório do arquivo index.js
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, 'key.env') });
 
 // Configurar Cloudinary
 cloudinary.config({
@@ -79,15 +86,16 @@ const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || 'Lyu6H6ADzWn3KqqQofyhFl
 const WHATSAPP_BASE_URL = 'https://belkit.pro'
 
 // Configuração da API do Asaas
-// Configure sua API Key do Asaas aqui
-const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIyYjEyMzcxLTcyZDgtNDhhNC04NGJjLTU2ZjY1NDQxMTNiZTo6JGFhY2hfZWZhMzMzNjMtY2E1NS00Njc5LWE5MWQtODhlNGViN2I1NjNj'; // Substitua pela sua API Key do Asaas
+// Buscar a API Key das variáveis de ambiente (não hardcoded por segurança)
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
 const ASAAS_API_URL = 'https://api.asaas.com/v3';
 
 // Log da configuração da API (sem expor a chave completa)
 if (ASAAS_API_KEY && ASAAS_API_KEY.startsWith('$aact_')) {
   console.log('✅ API Key do Asaas configurada:', ASAAS_API_KEY.substring(0, 20) + '...');
 } else {
-  console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a constante ASAAS_API_KEY no código');
+  console.warn('⚠️ API Key do Asaas NÃO configurada! Configure a variável ASAAS_API_KEY no arquivo key.env');
+  console.warn('⚠️ Certifique-se de que o arquivo key.env existe e contém ASAAS_API_KEY');
 }
 
 // Configuração dos links dos planos Asaas por período
