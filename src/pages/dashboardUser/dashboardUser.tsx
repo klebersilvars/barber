@@ -22,7 +22,8 @@ import {
   UserRound,
   Play,
   DoorOpen,
-  MessageCircle
+  MessageCircle,
+  Phone
 } from "lucide-react"
 import { HamburgerIcon } from "@chakra-ui/icons"
 import trezuLogotipo from "../../assets/trezu_logotipo.svg"
@@ -520,6 +521,7 @@ export default function DashboardUser() {
   const menuItems = [
     { icon: Home, label: "Início", active: true, path: `/dashboard/${uid}`, premiumRequired: true, group: "main" },
     { icon: Calendar, label: "Agenda", path: `/dashboard/${uid}/agenda`, premiumRequired: true, group: "main" },
+    { icon: Phone, label: "Aplicativo", path: `/dashboard/${uid}/aplicativo`, premiumRequired: false, group: "main" },
     { icon: MessageCircle, label: "Whatsapp", path: `/dashboard/${uid}/whatsappAdmin`, premiumRequired: true, group: "main", badge: "EM ATUALIZAÇÃO", badgeColor: "yellow" },
     { icon: ShoppingCart, label: "Vendas", path: `/dashboard/${uid}/vendas`, premiumRequired: true, group: "sales" },
     { icon: TrendingDown, label: "Despesas", path: `/dashboard/${uid}/despesas`, premiumRequired: true, group: "sales" },
@@ -541,10 +543,12 @@ export default function DashboardUser() {
     `/dashboard/${uid}/agenda`,
     `/dashboard/${uid}/whatsappAdmin`,
     `/dashboard/${uid}/cliente`,
+     `/dashboard/${uid}/aplicativo`,   
     `/dashboard/${uid}`
   ];
   const allowedPathsGratisExpirado = [
-    `/dashboard/${uid}/plano`
+    `/dashboard/${uid}/plano`,
+    `/dashboard/${uid}/aplicativo`, 
   ];
   const allowedPathsBronze = [
     `/dashboard/${uid}/servicos`,
@@ -559,6 +563,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/configuracoes`,
     `/dashboard/${uid}/plano`,
     `/dashboard/${uid}/cliente`,
+    `/dashboard/${uid}/aplicativo`, 
     `/dashboard/${uid}`
   ];
   const allowedPathsPrata = [
@@ -570,6 +575,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/vendas`,
     `/dashboard/${uid}/despesas`,
     `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}/aplicativo`, 
     `/dashboard/${uid}`
   ];
   const allowedPathsOuro = [
@@ -582,6 +588,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/vendas`,
     `/dashboard/${uid}/despesas`,
     `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}/aplicativo`, 
     `/dashboard/${uid}`
   ];
   const allowedPathsDiamante = [
@@ -594,6 +601,7 @@ export default function DashboardUser() {
     `/dashboard/${uid}/vendas`,
     `/dashboard/${uid}/despesas`,
     `/dashboard/${uid}/colaboradores`,
+    `/dashboard/${uid}/aplicativo`, 
     `/dashboard/${uid}`
   ];
   // Empresa: todas as rotas liberadas
@@ -629,7 +637,7 @@ export default function DashboardUser() {
   let filteredMenuItems = menuItems.map(item => ({ ...item, disabled: false }));
   
   // SEMPRE permitir acesso às páginas de plano e configurações
-  const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`];
+  const alwaysAllowedPaths = [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `/dashboard/${uid}/aplicativo`,];
   
   if (tipoPlano === 'vitalicio') {
     // Plano vitalício: libera todas as rotas
@@ -651,11 +659,12 @@ export default function DashboardUser() {
         disabled: !allowedPathsBronze.includes(item.path)
       }));
     }
-  } else if (tipoPlano === '' ) {
-    // Sem plano: permitir apenas início e página de plano
+  } else if (tipoPlano === '' || tipoPlano === 'nenhum') {
+    // Sem plano: permitir início, página de plano e aplicativo
     const allowedPathsSemPlanoEstrito = [
       `/dashboard/${uid}`,
       `/dashboard/${uid}/plano`,
+      `/dashboard/${uid}/aplicativo`,
       '#logout'
     ];
     filteredMenuItems = menuItems.map(item => ({
@@ -679,7 +688,7 @@ export default function DashboardUser() {
       // Grátis ativo sem premium: libera as rotas básicas incluindo cliente
       filteredMenuItems = menuItems.map(item => ({
         ...item,
-        disabled: !['/dashboard/${uid}/plano', '/dashboard/${uid}/cliente', '/dashboard/${uid}/servicos', '/dashboard/${uid}/configuracoes', '/dashboard/${uid}/agenda', `/dashboard/${uid}`, '#logout'].includes(item.path)
+        disabled: !['/dashboard/${uid}/plano', '/dashboard/${uid}/cliente', `/dashboard/${uid}/aplicativo`,'/dashboard/${uid}/servicos', '/dashboard/${uid}/configuracoes', '/dashboard/${uid}/agenda', `/dashboard/${uid}`, '#logout'].includes(item.path)
       }));
     }
   } else if (tipoPlano === 'individual') {
@@ -787,10 +796,10 @@ export default function DashboardUser() {
     if (!uid || !tipoPlano) return;
 
     // Permissões sempre liberadas variam conforme o plano
-    const isSemPlanoEstrito = tipoPlano === '';
+    const isSemPlanoEstrito = tipoPlano === '' || tipoPlano === 'nenhum';
     const alwaysAllowedPaths = isSemPlanoEstrito
-      ? [`/dashboard/${uid}/plano`, `#logout`]
-      : [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `#logout`];
+      ? [`/dashboard/${uid}/plano`, `/dashboard/${uid}/aplicativo`, `#logout`]
+      : [`/dashboard/${uid}/plano`, `/dashboard/${uid}/configuracoes`, `/dashboard/${uid}/aplicativo`, `#logout`];
     
     // Se estiver em uma página sempre permitida, não fazer nada
     if (alwaysAllowedPaths.some(path => location.pathname.startsWith(path))) {
@@ -799,10 +808,11 @@ export default function DashboardUser() {
 
     let allowedPaths: string[] = [];
     
-    if (tipoPlano === '') {
-      // Sem plano: apenas início e plano (e logout)
+    if (tipoPlano === '' || tipoPlano === 'nenhum') {
+      // Sem plano: início, plano, aplicativo e logout
       allowedPaths = [
         `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/aplicativo`,
         `/dashboard/${uid}`,
         `#logout`
       ];
@@ -834,18 +844,19 @@ export default function DashboardUser() {
         `#logout`
       ];
     } else if (tipoPlano === 'individual') {
-      // Para plano individual, permitir cliente, serviços, agenda e configurações
+      // Para plano individual, permitir cliente, serviços, agenda, configurações e aplicativo
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
         `/dashboard/${uid}/agenda`,
         `/dashboard/${uid}/configuracoes`,
         `/dashboard/${uid}/plano`,
+        `/dashboard/${uid}/aplicativo`,
         `/dashboard/${uid}`,
         `#logout`
       ];
     } else if (tipoPlano === 'prata') {
-      // Para plano prata, permitir cliente, serviços, agenda, configurações, vendas, despesas e colaboradores
+      // Para plano prata, permitir cliente, serviços, agenda, configurações, vendas, despesas, colaboradores e aplicativo
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
@@ -855,11 +866,12 @@ export default function DashboardUser() {
         `/dashboard/${uid}/vendas`,
         `/dashboard/${uid}/despesas`,
         `/dashboard/${uid}/colaboradores`,
+        `/dashboard/${uid}/aplicativo`,
         `/dashboard/${uid}`,
         `#logout`
       ];
     } else if (tipoPlano === 'ouro') {
-      // Para plano ouro, permitir todas as funcionalidades (incluindo personalização da página de agendamentos e WhatsApp)
+      // Para plano ouro, permitir todas as funcionalidades (incluindo personalização da página de agendamentos, WhatsApp e aplicativo)
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
@@ -870,11 +882,12 @@ export default function DashboardUser() {
         `/dashboard/${uid}/vendas`,
         `/dashboard/${uid}/despesas`,
         `/dashboard/${uid}/colaboradores`,
+        `/dashboard/${uid}/aplicativo`,
         `/dashboard/${uid}`,
         `#logout`
       ];
     } else if (tipoPlano === 'diamante') {
-      // Para plano diamante, permitir todas as funcionalidades (incluindo colaboradores ilimitados e WhatsApp)
+      // Para plano diamante, permitir todas as funcionalidades (incluindo colaboradores ilimitados, WhatsApp e aplicativo)
       allowedPaths = [
         `/dashboard/${uid}/servicos`,
         `/dashboard/${uid}/cliente`,
@@ -885,6 +898,7 @@ export default function DashboardUser() {
         `/dashboard/${uid}/vendas`,
         `/dashboard/${uid}/despesas`,
         `/dashboard/${uid}/colaboradores`,
+        `/dashboard/${uid}/aplicativo`,
         `/dashboard/${uid}`,
         `#logout`
       ];
@@ -894,11 +908,12 @@ export default function DashboardUser() {
         ...menuItems.map(item => item.path)
       ];
     } else {
-      // Caso não tenha plano, permite apenas: início, plano e configurações
+      // Caso não tenha plano, permite apenas: início, plano, configurações e aplicativo
       allowedPaths = [
         `/dashboard/${uid}`,
         `/dashboard/${uid}/plano`,
         `/dashboard/${uid}/configuracoes`,
+        `/dashboard/${uid}/aplicativo`,
         '#logout'
       ];
     }

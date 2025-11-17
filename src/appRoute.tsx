@@ -28,6 +28,7 @@ import LoginFundador from "./pages/fundador/LoginPage/LoginFundador"
 import DashboardFundador from "./pages/fundador/dashboardFundador/dashboardFundador"
 import VerAgendamento from "./pages/cliente/verAgendamento/VerAgendamento"
 import WhatsappAtendente from "./pages/whatsappAtendente/WhatsappAtendente"
+import Aplicativo from "./pages/aplicativo/Aplicativo"
 
 export default function AppRoutes() {
   return (
@@ -59,6 +60,7 @@ export default function AppRoutes() {
           <Route path="agenda" element={<AgendaAdmin />} />
           <Route path="configuracoes" element={<ConfiguracoesAdmin />} />
           <Route path="whatsappAdmin" element={<RequireAuth><WhatsappAtendente /></RequireAuth>} />
+          <Route path="aplicativo" element={<RequireAuth><Aplicativo /></RequireAuth>} />
         </Route>
         <Route path="/profissional/:uid" element={<RequireAuth><DashboardProfissional /></RequireAuth>} >
           <Route path="agendaProfissional" element={<AgendaProfissional />} />
