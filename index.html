@@ -1,25 +1,51 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./src/assets/LOGOTIPO TREZU.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- CSP permissivo para permitir todas as fontes -->
-    <meta http-equiv="Content-Security-Policy" content="font-src * data: blob: 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; frame-src *; object-src 'none'; base-uri 'self';" />
-    <title>Trezu</title>
-    <!-- Script para garantir que fontes sejam carregadas mesmo com CSP -->
-    <script>
-      // Remover qualquer CSP restritiva que possa estar sendo aplicada
-      if (document.querySelector('meta[http-equiv="Content-Security-Policy"]')) {
-        const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-        if (cspMeta && !cspMeta.content.includes('font-src *')) {
-          cspMeta.content = "font-src * data: blob: 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; frame-src *; object-src 'none'; base-uri 'self';";
-        }
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="./src/assets/LOGOTIPO TREZU.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- CSP permissivo para permitir todas as fontes -->
+  <meta http-equiv="Content-Security-Policy"
+    content="font-src * data: blob: 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; frame-src *; object-src 'none'; base-uri 'self';" />
+  <title>Trezu</title>
+  <!-- Script para garantir que fontes sejam carregadas mesmo com CSP -->
+  <script>
+    // Remover qualquer CSP restritiva que possa estar sendo aplicada
+    if (document.querySelector('meta[http-equiv="Content-Security-Policy"]')) {
+      const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+      if (cspMeta && !cspMeta.content.includes('font-src *')) {
+        cspMeta.content = "font-src * data: blob: 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; frame-src *; object-src 'none'; base-uri 'self';";
       }
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    }
+  </script>
+
+  <meta name="description"
+    content="A Trezu é uma plataforma completa de agendamentos online. Ideal para profissionais e empresas que desejam organizar horários, gerenciar clientes e automatizar atendimentos de forma simples e rápida.">
+
+  <meta name="keywords"
+    content="agendamentos online, sistema de agendamento, agenda digital, trezu, marcação de horário, automatização de agenda, gestão de clientes, plataforma de agendamentos">
+
+  <meta name="author" content="Trezu Tecnologia">
+
+  <!-- Open Graph para redes sociais -->
+  <meta property="og:title" content="Trezu – Sistema de Agendamentos Online">
+  <meta property="og:description"
+    content="Organize seus horários, gerencie clientes e automatize seus atendimentos com a Trezu. Simples, moderno e eficiente.">
+  <meta property="og:url" content="https://trezu.com.br">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://trezu.com.br/assets/og-image.png">
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Trezu – Sistema de Agendamentos Online">
+  <meta name="twitter:description" content="Gerencie seus agendamentos em tempo real com a plataforma Trezu.">
+  <meta name="twitter:image" content="https://trezu.com.br/assets/og-image.png">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
