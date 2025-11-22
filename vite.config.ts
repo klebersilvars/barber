@@ -1,16 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import prerender from "vite-plugin-prerender";
 
 export default defineConfig({
   plugins: [
     react(),
-
-    // ⚡ Pré-renderização das páginas
-    prerender({
-      staticDir: "dist", // pasta final gerada
-      routes: ["/", "/login", "/cadastro"],     // adicione aqui outras rotas: "/sobre", "/contato", etc.
-    })
   ],
 
   server: {
