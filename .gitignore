@@ -30,3 +30,4 @@ key.env
 *.njsproj
 *.sln
 *.sw?
+.vercel
